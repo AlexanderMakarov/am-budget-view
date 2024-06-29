@@ -76,7 +76,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 					Details:   "ԱԱՀ այդ թվում` 16.67%",
 					Amount:    MoneyWith2DecimalPlaces{int: 10010},
 				},
-				Transaction{
+				{
 					IsExpense: false,
 					Date:      time.Date(2024, time.April, 19, 0, 0, 0, 0, time.UTC),
 					Details:   "Բանկի ձևանմուշից տարբերվող տեղեկա",

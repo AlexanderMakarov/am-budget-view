@@ -103,10 +103,10 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		// Parse credit and debit
 		var credit, debit MoneyWith2DecimalPlaces
 		if err := credit.UnmarshalText([]byte(record[4])); err != nil {
-			return nil, fmt.Errorf("failed to parse credit: %w", err)
+			return nil, fmt.Errorf("failed to parse credit %v: %w", record, err)
 		}
 		if err := debit.UnmarshalText([]byte(record[5])); err != nil {
-			return nil, fmt.Errorf("failed to parse debit: %w", err)
+			return nil, fmt.Errorf("failed to parse debit from %v: %w", record, err)
 		}
 
 		transaction := AmeriaBusinessTransaction{
