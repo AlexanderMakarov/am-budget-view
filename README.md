@@ -121,7 +121,8 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
 - [x] Add CI for pull requests (different branches).
 - [x] Parse CSV-s from online.ameriabank.am.
 - [x] Propagate not fatal errors from parsing files into report.
-- [ ] Parse InecoBank XLS files which are sent in emails and
+- [x] Parse XLS-s from myameria.am.
+- [x] Parse InecoBank XLS files which are sent in emails and
       InecoBank doesn't allow to download data older than 2 years.
 - [ ] Rename repo to don't be tied to Inecobank.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).

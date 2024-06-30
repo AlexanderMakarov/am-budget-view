@@ -1,6 +1,6 @@
 # Development/OS artifacts and local settings
 .vscode**
-__debug_bin
+__debug_bin*
 aggregate-inecobank-statement*
 coverage.out
 **.~lock.*
@@ -13,3 +13,4 @@ demo**
 *.xml
 History *.xls
 AccountTransactions*.csv
+statement*.xlsx

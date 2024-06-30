@@ -21,7 +21,7 @@ func (m *MoneyWith2DecimalPlaces) UnmarshalText(text []byte) error {
 }
 
 const MyAmeriaDateFormat = "02/01/2006"
-const giveUpFindHeaderAfterEmpty1Cells = 15
+const giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells = 15
 
 var (
 	xlsxHeaders = []string{
@@ -85,7 +85,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		}
 		// Find header row.
 		if !isHeaderRowFound {
-			if i > giveUpFindHeaderAfterEmpty1Cells {
+			if i > giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells {
 				return nil, fmt.Errorf(
 					"%s: after scanning %d rows can't find headers %v",
 					filePath, i, xlsxHeaders,

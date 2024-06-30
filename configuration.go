@@ -12,17 +12,18 @@ import (
 )
 
 type Config struct {
-	InecobankStatementFilesGlob string              `yaml:"inecobankStatementFilesGlob" validate:"required,filepath,min=1"`
-	AmeriaCsvFilesGlob          string              `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaHistoryFilesGlob    string              `yaml:"myAmeriaHistoryFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaMyAccounts          []string            `yaml:"myAmeriaMyAccounts,omitempty"`
-	MyAmeriaIncomeSubstrings    []string            `yaml:"myAmeriaIncomeSubstrings,omitempty"`
-	DetailedOutput              bool                `yaml:"detailedOutput"`
-	MonthStartDayNumber         uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
-	TimeZoneLocation            string              `yaml:"timeZoneLocation,omitempty" validate:"timezone"`
-	GroupAllUnknownTransactions bool                `yaml:"groupAllUnknownTransactions"`
-	IgnoreSubstrings            []string            `yaml:"ignoreSubstrings,omitempty"`
-	GroupNamesToSubstrings      map[string][]string `yaml:"groupNamesToSubstrings"`
+	InecobankStatementXmlFilesGlob  string              `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
+	InecobankStatementXlsxFilesGlob string              `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
+	AmeriaCsvFilesGlob              string              `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaHistoryXlsFilesGlob     string              `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaMyAccounts              []string            `yaml:"myAmeriaMyAccounts,omitempty"`
+	MyAmeriaIncomeSubstrings        []string            `yaml:"myAmeriaIncomeSubstrings,omitempty"`
+	DetailedOutput                  bool                `yaml:"detailedOutput"`
+	MonthStartDayNumber             uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
+	TimeZoneLocation                string              `yaml:"timeZoneLocation,omitempty" validate:"timezone"`
+	GroupAllUnknownTransactions     bool                `yaml:"groupAllUnknownTransactions"`
+	IgnoreSubstrings                []string            `yaml:"ignoreSubstrings,omitempty"`
+	GroupNamesToSubstrings          map[string][]string `yaml:"groupNamesToSubstrings"`
 }
 
 func readConfig(filename string) (*Config, error) {

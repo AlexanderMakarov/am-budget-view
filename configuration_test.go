@@ -12,9 +12,10 @@ import (
 func TestReadConfig_ValidYAML(t *testing.T) {
 	// Arrange
 	tempFile := createTempFileWithContent(
-		`inecobankStatementFilesGlob: "*.xml"
+		`inecobankStatementXmlFilesGlob: "*.xml"
+inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
-myAmeriaHistoryFilesGlob: "*.xls"
+myAmeriaHistoryXlsFilesGlob: "*.xls"
 myAmeriaMyAccounts: 
   - Account1
   - Account2
@@ -48,22 +49,22 @@ ignoreSubstrings:
 	if cfg == nil {
 		t.Error("Expected config, but got nil")
 	}
-	if cfg.InecobankStatementFilesGlob != "*.xml" {
+	if cfg.InecobankStatementXmlFilesGlob != "*.xml" {
 		t.Errorf(
-			"Expected InecobankStatementFilesGlob to be '*.xml', got '%s'",
-			cfg.InecobankStatementFilesGlob,
+			"Expected InecobankStatementXmlFilesGlob to be '*.xml', got '%s'",
+			cfg.InecobankStatementXmlFilesGlob,
 		)
 	}
 	if cfg.AmeriaCsvFilesGlob != "*.csv" {
 		t.Errorf(
 			"Expected AmeriaCsvFilesGlob to be '*.csv', got '%s'",
-			cfg.InecobankStatementFilesGlob,
+			cfg.InecobankStatementXmlFilesGlob,
 		)
 	}
-	if cfg.MyAmeriaHistoryFilesGlob != "*.xls" {
+	if cfg.MyAmeriaHistoryXlsFilesGlob != "*.xls" {
 		t.Errorf(
-			"Expected MyAmeriaHistoryFilesGlob to be '*.xls', got '%s'",
-			cfg.MyAmeriaHistoryFilesGlob,
+			"Expected MyAmeriaHistoryXlsFilesGlob to be '*.xls', got '%s'",
+			cfg.MyAmeriaHistoryXlsFilesGlob,
 		)
 	}
 	if len(cfg.MyAmeriaMyAccounts) != 2 || cfg.MyAmeriaMyAccounts[0] != "Account1" || cfg.MyAmeriaMyAccounts[1] != "Account2" {
@@ -107,9 +108,10 @@ ignoreSubstrings:
 func TestReadConfig_InvalidYAML(t *testing.T) {
 	// Arrange. Note that "myAmeriaIncomeSubstrings" doesn't have ":" at the end.
 	tempFile := createTempFileWithContent(
-		`inecobankStatementFilesGlob: "*.xml"
+		`inecobankStatementXmlFilesGlob: "*.xml"
+inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
-myAmeriaHistoryFilesGlob: "*.csv"
+myAmeriaHistoryXlsFilesGlob: "*.csv"
 myAmeriaMyAccounts: 
   - Account1
   - Account2
@@ -140,15 +142,16 @@ ignoreSubstrings:
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "yaml: line 7: could not find expected ':'")
+	checkErrorContainsSubstring(t, err, "yaml: line 8: could not find expected ':'")
 }
 
 func TestReadConfig_MisstypedField(t *testing.T) {
 	// Arrange. Note that "groupsNamesToSubstrings" is a wrong name.
 	tempFile := createTempFileWithContent(
-		`inecobankStatementFilesGlob: "*.xml"
+		`inecobankStatementXmlFilesGlob: "*.xml"
+inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
-myAmeriaHistoryFilesGlob: "*.csv"
+myAmeriaHistoryXlsFilesGlob: "*.csv"
 myAmeriaMyAccounts: 
   - Account1
   - Account2
@@ -179,7 +182,7 @@ ignoreSubstrings:
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "line 14: field groupsNamesToSubstrings not found in type")
+	checkErrorContainsSubstring(t, err, "line 15: field groupsNamesToSubstrings not found in type")
 }
 
 func TestReadConfig_FileNotFound(t *testing.T) {
@@ -214,9 +217,10 @@ func TestReadConfig_EmptyFile(t *testing.T) {
 func TestReadConfig_NotAllFields(t *testing.T) {
 	// Arrange
 	tempFile := createTempFileWithContent(
-		`inecobankStatementFilesGlob: "*.xml"
+		`inecobankStatementXmlFilesGlob: "*.xml"
+inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
-myAmeriaHistoryFilesGlob: "*.xls"
+myAmeriaHistoryXlsFilesGlob: "*.xls"
 detailedOutput: false
 groupAllUnknownTransactions: true
 groupNamesToSubstrings:
@@ -239,22 +243,22 @@ groupNamesToSubstrings:
 	if cfg == nil {
 		t.Error("Expected config, but got nil")
 	}
-	if cfg.InecobankStatementFilesGlob != "*.xml" {
+	if cfg.InecobankStatementXmlFilesGlob != "*.xml" {
 		t.Errorf(
-			"Expected InecobankStatementFilesGlob to be '*.xml', got '%s'",
-			cfg.InecobankStatementFilesGlob,
+			"Expected InecobankStatementXmlFilesGlob to be '*.xml', got '%s'",
+			cfg.InecobankStatementXmlFilesGlob,
 		)
 	}
 	if cfg.AmeriaCsvFilesGlob != "*.csv" {
 		t.Errorf(
 			"Expected AmeriaCsvFilesGlob to be '*.csv', got '%s'",
-			cfg.InecobankStatementFilesGlob,
+			cfg.InecobankStatementXmlFilesGlob,
 		)
 	}
-	if cfg.MyAmeriaHistoryFilesGlob != "*.xls" {
+	if cfg.MyAmeriaHistoryXlsFilesGlob != "*.xls" {
 		t.Errorf(
-			"Expected MyAmeriaHistoryFilesGlob to be '*.xls', got '%s'",
-			cfg.MyAmeriaHistoryFilesGlob,
+			"Expected MyAmeriaHistoryXlsFilesGlob to be '*.xls', got '%s'",
+			cfg.MyAmeriaHistoryXlsFilesGlob,
 		)
 	}
 	if len(cfg.MyAmeriaMyAccounts) != 0 {

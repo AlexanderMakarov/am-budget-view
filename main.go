@@ -72,45 +72,60 @@ func main() {
 	log.Printf("Using configuration: %+v", config)
 
 	// Parse files to raw transactions.
+	// Ineco XML
+	transactions := make([]Transaction, 0)
 	parsingWarnings := []string{}
-	transactions, warning, err := parseTransactionFiles(
-		config.InecobankStatementFilesGlob,
+	inecoXmlTransactions, err := parseTransactionsOfOneType(
+		config.InecobankStatementXmlFilesGlob,
 		InecoXmlParser{},
+		&parsingWarnings,
 	)
 	if err != nil {
-		fatalError(fmt.Sprintf("Can't parse Inecobank statements: %#v", err), isOpenFileWithResult)
+		fatalError(fmt.Sprintf("Can't parse Inecobank XML statements: %#v", err), isOpenFileWithResult)
 	}
-	if warning != "" {
-		parsingWarnings = append(parsingWarnings, "Inecobank statements parsing warning: "+warning)
+	transactions = append(transactions, inecoXmlTransactions...)
+	// Ineco XLSX
+	inecoXlsxTransactions, err := parseTransactionsOfOneType(
+		config.InecobankStatementXlsxFilesGlob,
+		InecoExcelFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		fatalError(fmt.Sprintf("Can't parse Inecobank XLSX statements: %#v", err), isOpenFileWithResult)
 	}
-	myAmeriaTransactions, warning, err := parseTransactionFiles(
-		config.MyAmeriaHistoryFilesGlob,
+	transactions = append(transactions, inecoXlsxTransactions...)
+	// MyAmeria Excel
+	myAmeriaXlsTransactions, err := parseTransactionsOfOneType(
+		config.MyAmeriaHistoryXlsFilesGlob,
 		MyAmeriaExcelFileParser{
 			MyAccounts:              config.MyAmeriaMyAccounts,
 			DetailsIncomeSubstrings: config.MyAmeriaIncomeSubstrings,
 		},
+		&parsingWarnings,
 	)
 	if err != nil {
 		fatalError(fmt.Sprintf("Can't parse MyAmeria History: %#v", err), isOpenFileWithResult)
 	}
-	if warning != "" {
-		parsingWarnings = append(parsingWarnings, "MyAmeria History parsing warning: "+warning)
-	}
-	transactions = append(transactions, myAmeriaTransactions...)
-	ameriaCsvTransactions, warning, err := parseTransactionFiles(
+	transactions = append(transactions, myAmeriaXlsTransactions...)
+	// MyAmeria CSV
+	ameriaCsvTransactions, err := parseTransactionsOfOneType(
 		config.AmeriaCsvFilesGlob,
 		AmeriaCsvFileParser{},
+		&parsingWarnings,
 	)
 	if err != nil {
 		fatalError(fmt.Sprintf("Can't parse Ameria in-CSV transactions: %#v", err), isOpenFileWithResult)
 	}
-	if warning != "" {
-		parsingWarnings = append(parsingWarnings, "Ameria in-CSV transactions parsing warning: "+warning)
-	}
 	transactions = append(transactions, ameriaCsvTransactions...)
+	// Check we found something.
 	if len(transactions) < 1 {
-		fatalError(fmt.Sprintf("Can't find transactions, check that '%s' or '%s' matches something",
-			config.InecobankStatementFilesGlob, config.MyAmeriaHistoryFilesGlob), isOpenFileWithResult)
+		fatalError(
+			fmt.Sprintf(
+				"Can't find transactions, check that '*Glob' configuration parameters matches something and see parsing warnings:\n%s\n",
+				strings.Join(parsingWarnings, "\n"),
+			),
+			isOpenFileWithResult,
+		)
 	}
 	log.Printf("Total found %d transactions.", len(transactions))
 
@@ -171,6 +186,23 @@ func writeAndOpenFile(resultFilePath, content string) {
 	if err := openFileInOS(resultFilePath); err != nil {
 		log.Fatalf("Can't open result file %s: %#v", resultFilePath, err)
 	}
+}
+
+// parseTransactionFiles parses transactions from files of one type by one glob pattern.
+// Updates parsingWarnings slice warnings were found.
+func parseTransactionsOfOneType(
+	glob string,
+	parser FileParser,
+	parsingWarnings *[]string,
+) ([]Transaction, error) {
+	transactions, warning, err := parseTransactionFiles(glob, parser)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse transactions: %#v", err)
+	}
+	if warning != "" {
+		*parsingWarnings = append(*parsingWarnings, fmt.Sprintf("Parsing warning: %s", warning))
+	}
+	return transactions, nil
 }
 
 // parseTransactionFiles parses transactions from files by glob pattern.
