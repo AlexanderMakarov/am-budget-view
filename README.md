@@ -1,9 +1,7 @@
-# Aggregate Inecobank Statements
+# AM BudgetView
 It is a local tool to investigate your expenses and incomes by bank transactions.
 
-## FYI
-
-Will rename repo soon because it is no more "Inecobank" only application and therefore requires "rebranding".
+Was renamed from [aggregate-inecobank-statement](https://github.com/AlexanderMakarov/aggregate-inecobank-statement) after new features were added.
 
 ----
 
@@ -13,11 +11,11 @@ Fortunately banks do it for us.
 If you are using a bank plastic card or NFC application on the smartphone you probably have this listing already.
 
 For example Armenian's [Inecobank](https://online.inecobank.am)
-provides list of transactions made from card
-or other accounts as "statements" in downloadable files.
+and [Ameria Bank](https://ameriabank.am)
+provide list of monthly transactions in downloadable files.
 
-This is a simple tool which allows to aggregate all transactions (hundreds of them) from multiple accounts
-into customisable and personalizable groups.
+This is a simple tool which allows to aggregate all transactions (hundreds of them) from
+multiple accounts and banks into customisable and personalizable groups.
 Result is a small structured piece of text provides valuable insights into your budget.
 See example (numbers are made up, sum may not match):
 ```
@@ -43,11 +41,16 @@ See example (numbers are made up, sum may not match):
 Some banks provide similar dashboards on their websites, but they can't assign good categories suitable for everyone.
 This application allows you to configure it for your personal set of groups and ways to assign transactions to the specific group.
 
-Application is not specific for Inecobank only, it may work (or be easily updated) with any other similar transactions listing.
+List of supported banks and file extensions:
+- Inecobank XML files (downloaded per-account from https://online.inecobank.am/vcAccount/List, click on account, icon it right bottom corner)
+- Inecobank Excel/xlsx files (Inecobank sends them in emails with password protection)
+- MyAmeria Excel/xls files (downloaded from https://myameria.am/events)
+- AmeriaBank for Businesses CSV files (downloaded per-account from https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Transactions, icon at right top corner)
+
 To add new bank support please provide file with transactions (in private, because it may contain sensitive information)
 and instructions on how to get this file in your bank application.
 
-# How to use
+# JUST FOR INECOBANK XML - How to use
 
 [![Watch the video](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
 
@@ -124,7 +127,7 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
 - [x] Parse XLS-s from myameria.am.
 - [x] Parse InecoBank XLS files which are sent in emails and
       InecoBank doesn't allow to download data older than 2 years.
-- [ ] Rename repo to don't be tied to Inecobank.
+- [x] Rename repo to don't be tied to Inecobank.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) More tests coverage.

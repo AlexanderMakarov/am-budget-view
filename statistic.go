@@ -238,8 +238,8 @@ func (s groupExtractorByDetailsSubstrings) GetIntervalStatistic() *IntervalStati
 type StatisticBuilderFactory func(start, end time.Time) IntervalStatisticsBuilder
 
 // NewStatisticBuilderByDetailsSubstrings returns
-// [github.com/AlexanderMakarov/aggregate-inecobank-statement.main.GroupExtractorBuilder] which builds
-// [github.com/AlexanderMakarov/aggregate-inecobank-statement.main.groupExtractorByDetailsSubstrings] in a safe way.
+// [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
+// [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByDetailsSubstrings] in a safe way.
 func NewStatisticBuilderByDetailsSubstrings(
 	groupNamesToSubstrings map[string][]string,
 	isGroupAllUnknownTransactions bool,
@@ -279,7 +279,7 @@ func NewStatisticBuilderByDetailsSubstrings(
 }
 
 // BuildMonthlyStatistic builds list of
-// [github.com/AlexanderMakarov/aggregate-inecobank-statement.main.IntervalStatistic]
+// [github.com/AlexanderMakarov/am-budget-view.main.IntervalStatistic]
 // per each month from provided transactions.
 func BuildMonthlyStatistic(
 	transactions []Transaction,

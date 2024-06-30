@@ -1,4 +1,4 @@
-module github.com/AlexanderMakarov/aggregate-inecobank-statement
+module github.com/AlexanderMakarov/am-budget-view
 
 go 1.20
 

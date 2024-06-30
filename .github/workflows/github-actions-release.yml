@@ -93,17 +93,17 @@ jobs:
       - name: Build Binaries
         run: |
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-            -o aggregate-inecobank-statements-${{ matrix.os }}-${{ matrix.arch }} \
+            -o am-budget-view-${{ matrix.os }}-${{ matrix.arch }} \
             -ldflags "-X main.Version=${{ steps.vars.outputs.version }}"
-          chmod a+x aggregate-inecobank-statements-*
+          chmod a+x am-budget-view-*
 
       - name: Save Version and Binaries
         id: save_info
         run: |
           echo "${{ steps.vars.outputs.version }}" > version.txt
           # Idea here that the last `ls` would overwrite content with all files list.
-          ls aggregate-inecobank-statements-*  # For debugging.
-          echo "binaries=$(ls aggregate-inecobank-statements-*)" >> $GITHUB_ENV
+          ls am-budget-view-*  # For debugging.
+          echo "binaries=$(ls am-budget-view-*)" >> $GITHUB_ENV
           # For debugging.
           echo "GITHUB_ENV=$GITHUB_ENV"
           cat ${GITHUB_ENV} || true
@@ -145,4 +145,4 @@ jobs:
           name: ${{ env.version }}
           bodyFile: "body.log"
           token: ${{ secrets.GHACTIONS_PUBLIC_REPO_RW }} # Note that it is custom PAT which expires.
-          artifacts: aggregate-inecobank-statements-*
+          artifacts: am-budget-view-*

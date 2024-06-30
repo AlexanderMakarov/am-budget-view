@@ -2,6 +2,7 @@
 .vscode**
 __debug_bin*
 aggregate-inecobank-statement*
+am-budget-view*
 coverage.out
 **.~lock.*
 Inecobank Aggregated Statement.txt
