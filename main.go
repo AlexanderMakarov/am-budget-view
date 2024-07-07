@@ -28,6 +28,9 @@ func main() {
 	log.Printf("Version: %s", Version)
 	configPath := "config.yaml"
 
+	runUI()
+	return
+
 	// Parse arguments and set configPath.
 	var args Args
 	arg.MustParse(&args)

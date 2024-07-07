@@ -112,6 +112,7 @@ me with pretty mediocre translation but my Armenian knowledge is not enough to m
 
 - Install Go v1.21+
 - `go mod init`
+- (for "live reload") `go install github.com/air-verse/air@latest` and `make live`.
 - Made your changes, run test via [Makefile](/Makefile) targets and test manually with `go run .`
 - Make PR.
 
