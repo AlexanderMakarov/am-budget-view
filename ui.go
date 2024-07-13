@@ -39,13 +39,31 @@ func content() fyne.CanvasObject {
 }
 
 func expensesVsIncome() fyne.CanvasObject {
-	rect := canvas.NewRectangle(color.RGBA{100, 100, 0, 255})
-	rect.SetMinSize(fyne.NewSize(100, 200))
+	// rect := canvas.NewRectangle(color.RGBA{100, 100, 0, 255})
+	// rect.SetMinSize(fyne.NewSize(100, 200))
+
+	// expensesVsIncomeSvg, err := fyne.LoadResourceFromPath("output.svg")
+	// if err!= nil {
+    //     fmt.Println("Error loading SVG:", err)
+    //     return nil
+    // }
+
+	svgBytes := expensesVsIncomeChart()
+	expensesVsIncomeSvg := &fyne.StaticResource{
+		StaticName:  "expensesVsIncome.svg",
+        StaticContent: svgBytes,
+	}
+	image := canvas.NewImageFromResource(expensesVsIncomeSvg)
+	// image.FillMode = canvas.ImageFillStretch
+	image.SetMinSize(fyne.NewSize(0, 200))
+
+	// image := expensesVsIncomeChart()
 	container := container.NewVBox(
 		container.NewCenter(
 			widget.NewLabel("Expenses vs Income"),
 		),
-		rect,
+		image,
+		// rect,
 	)
 	return container
 }

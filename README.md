@@ -136,5 +136,20 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
       Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
 - [ ] Build UI with Fyne and https://github.com/wcharczuk/go-chart
       (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).
+      UPDATE: github.com/wcharczuk/go-chart/v2 native "to code" renderer `chart.SVG`
+      builds SVG code which fails to be rendered in Fyne
+      into image (by underlying github.com/srwiley/oksvg).
+      With removing LF characters and converting "rgba(255,255,255,1.0)" into "rgb(255,255,255)"
+      able to make Fyne rendering, but `canvas.NewImageFromResource` is veeery slow.
+      UPDATE 2: if use https://github.com/tdewolff as "to code" renderer for go-charts
+      then result looks not correct (lacks fonts) and rebuilds very slow if resize the page.
+      UPDATE 3: `fune serve` to run HTTP server doesn't work because of dependency
+      "GopherJS 1.17.2+go1.17.9 requires a Go 1.17.x distribution".
+  [ ] Search other UI way. https://blog.logrocket.com/best-gui-frameworks-go/
+      Investigated [GIO](https://gioui.org/) but it doesn't support SVG natively.
+      There is an https://github.com/inkeliz/giosvg which may convert SVG to GIO function,
+      i.e. generate go code.
+      Maybe try https://github.com/go-echarts/go-echarts?
+      Or better generate HTTP.
 - [ ] Add multi-currency support: config for rates. Also see how Beancount handles it.
 - [ ] Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
