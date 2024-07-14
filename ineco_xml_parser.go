@@ -44,7 +44,7 @@ type Statement struct {
 	Operations     Operations `xml:"Operations" validate:"required"`
 }
 
-func (m *MoneyWith2DecimalPlaces) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (m *MoneyWith2DecimalPlaces) UnmarshalFromXml(d *xml.Decoder, start xml.StartElement) error {
 	var v string
 	d.DecodeElement(&v, &start)
 	v = strings.Replace(v, ",", "", -1)

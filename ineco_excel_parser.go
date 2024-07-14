@@ -26,7 +26,7 @@ var (
 	inecoXlsxHeadersBeforeTransactions = "ԱմսաթիվԳումարԱրժույթՄուտքԵլք"
 )
 
-func (m *MoneyWith2DecimalPlaces) UnmarshalFromCell(cell *xlsx.Cell) error {
+func (m *MoneyWith2DecimalPlaces) UnmarshalFromExcelCell(cell *xlsx.Cell) error {
 	if len(cell.Value) < 1 {
 		return nil
 	}
@@ -228,7 +228,7 @@ func mergeCellsToString(cells []*xlsx.Cell) string {
 
 func parseAmount(rowIndex int, cells []*xlsx.Cell, cellIndex int, name string) (MoneyWith2DecimalPlaces, error) {
 	var result MoneyWith2DecimalPlaces
-	if err := result.UnmarshalFromCell(cells[cellIndex]); err != nil {
+	if err := result.UnmarshalFromExcelCell(cells[cellIndex]); err != nil {
 		return result, fmt.Errorf("failed to parse amount from %d cell of %d row: %w", rowIndex+1, cellIndex+1, err)
 	}
 	return result, nil

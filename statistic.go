@@ -10,21 +10,6 @@ import (
 	"log"
 )
 
-// func (t *InecoTransaction) toTransaction() (trans Transaction, isExpense bool) {
-// 	amount := t.Expense
-// 	isExpense = true
-// 	if amount.int == 0 {
-// 		amount = t.Income
-// 		isExpense = false
-// 	}
-// 	trans = Transaction{
-// 		Date:    t.Date,
-// 		Details: t.Details,
-// 		Amount:  amount,
-// 	}
-// 	return
-// }
-
 func (t *Transaction) String() string {
 	return fmt.Sprintf("Transaction %s %s %s", t.Date.Format(OutputDateFormat), t.Amount, t.Details)
 }

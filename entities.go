@@ -1,14 +1,31 @@
 package main
 
-import "time"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 // MoneyWith2DecimalPlaces is a wrapper to parse money from "1,500.00" or "1,500" to 150000.
 type MoneyWith2DecimalPlaces struct {
 	int
 }
 
+// UnmarshalText removes commas and parses string as float.
+func (m *MoneyWith2DecimalPlaces) UnmarshalText(text []byte) error {
+	sanitizedText := strings.Replace(string(text), ",", "", -1)
+	floatVal, err := strconv.ParseFloat(sanitizedText, 64)
+	if err != nil {
+		return err
+	}
+	m.int = int(floatVal * 100)
+	return nil
+}
+
+// OutputDateFormat format for data in outputs.
 const OutputDateFormat = "2006-01-02"
 
+// Transaction is a struct representing a single transaction.
 type Transaction struct {
 	IsExpense bool
 	Date      time.Time
@@ -16,12 +33,14 @@ type Transaction struct {
 	Amount    MoneyWith2DecimalPlaces
 }
 
+// Group is a struct representing a group of transactions.
 type Group struct {
 	Name         string
 	Total        MoneyWith2DecimalPlaces
 	Transactions []Transaction
 }
 
+// IntervalStatistics is a struct representing a list of transactions for time interval, usually month.
 type IntervalStatistic struct {
 	Start   time.Time
 	End     time.Time

@@ -3,22 +3,11 @@ package main
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/tealeg/xlsx"
 )
-
-func (m *MoneyWith2DecimalPlaces) UnmarshalText(text []byte) error {
-	sanitizedText := strings.Replace(string(text), ",", "", -1)
-	floatVal, err := strconv.ParseFloat(sanitizedText, 64)
-	if err != nil {
-		return err
-	}
-	m.int = int(floatVal * 100)
-	return nil
-}
 
 const MyAmeriaDateFormat = "02/01/2006"
 const giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells = 15
