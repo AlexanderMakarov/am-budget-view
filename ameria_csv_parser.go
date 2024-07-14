@@ -124,20 +124,23 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 
 	// Convert CSV rows to unified transactions and separate expenses from incomes.
 	transactions := make([]Transaction, len(csvTransactions))
-	for i, transaction := range csvTransactions {
+	for i, t := range csvTransactions {
 		isExpense := false
-		amount := transaction.Credit
+		amount := t.Credit
 
 		if amount.int == 0 {
 			isExpense = true
-			amount = transaction.Debit
+			amount = t.Debit
 		}
 
 		transactions[i] = Transaction{
-			IsExpense: isExpense,
-			Date:      transaction.Date,
-			Details:   transaction.Details,
-			Amount:    amount,
+			IsExpense:   isExpense,
+			Date:        t.Date,
+			Details:     t.Details,
+			Amount:      amount,
+			Currency:    "",
+			FromAccount: t.Account,
+			ToAccount:   "",
 		}
 	}
 

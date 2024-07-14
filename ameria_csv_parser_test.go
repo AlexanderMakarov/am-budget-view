@@ -25,16 +25,22 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 
 	expectedTransactions := []Transaction{
 		{
-			IsExpense: true,
-			Date:      time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
-			Details:   "Ք: SOME TEXT",
-			Amount:    MoneyWith2DecimalPlaces{int: 55000},
+			IsExpense:   true,
+			Date:        time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
+			Details:     "Ք: SOME TEXT",
+			Amount:      MoneyWith2DecimalPlaces{int: 55000},
+			Currency:    "",
+			FromAccount: "1234567890123456",
+			ToAccount:   "",
 		},
 		{
-			IsExpense: false,
-			Date:      time.Date(2024, time.May, 17, 0, 0, 0, 0, time.UTC),
-			Details:   "Ք: Քարտից քարտ փոխանցում\\",
-			Amount:    MoneyWith2DecimalPlaces{int: 20000000},
+			IsExpense:   false,
+			Date:        time.Date(2024, time.May, 17, 0, 0, 0, 0, time.UTC),
+			Details:     "Ք: Քարտից քարտ փոխանցում\\",
+			Amount:      MoneyWith2DecimalPlaces{int: 20000000},
+			Currency:    "",
+			FromAccount: "9999999999999999",
+			ToAccount:   "",
 		},
 	}
 

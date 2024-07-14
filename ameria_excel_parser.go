@@ -128,15 +128,15 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 
 	// Convert MyAmeria rows to unified transactions and separate expenses from incomes.
 	transactions := make([]Transaction, len(myAmeriaTransactions))
-	for i, transaction := range myAmeriaTransactions {
+	for i, t := range myAmeriaTransactions {
 		isExpense := true
 		if len(p.MyAccounts) > 0 {
-			if slices.Contains(p.MyAccounts, transaction.BeneficiaryAccount) {
+			if slices.Contains(p.MyAccounts, t.BeneficiaryAccount) {
 				isExpense = false
 			}
 		} else if len(p.DetailsIncomeSubstrings) > 0 {
 			for _, substring := range p.DetailsIncomeSubstrings {
-				if strings.Contains(transaction.Details, substring) {
+				if strings.Contains(t.Details, substring) {
 					isExpense = false
 					break
 				}
@@ -144,9 +144,12 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		}
 		transactions[i] = Transaction{
 			IsExpense: isExpense,
-			Date:      transaction.Date,
-			Details:   transaction.Details,
-			Amount:    transaction.Amount,
+			Date:      t.Date,
+			Details:   t.Details,
+			Amount:    t.Amount,
+			Currency: t.Currency,
+			FromAccount: t.OutgoingAccount,
+			ToAccount:   t.BeneficiaryAccount,
 		}
 	}
 
