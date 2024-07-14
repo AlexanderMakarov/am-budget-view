@@ -48,14 +48,15 @@ func expensesVsIncome() fyne.CanvasObject {
     //     return nil
     // }
 
-	svgBytes := expensesVsIncomeChart()
-	expensesVsIncomeSvg := &fyne.StaticResource{
-		StaticName:  "expensesVsIncome.svg",
-        StaticContent: svgBytes,
-	}
-	image := canvas.NewImageFromResource(expensesVsIncomeSvg)
-	// image.FillMode = canvas.ImageFillStretch
-	image.SetMinSize(fyne.NewSize(0, 200))
+	// svgBytes := expensesVsIncomeChart()
+	// expensesVsIncomeSvg := &fyne.StaticResource{
+	// 	StaticName:  "expensesVsIncome.svg",
+    //     StaticContent: svgBytes,
+	// }
+	// image := canvas.NewImageFromResource(expensesVsIncomeSvg)
+	// // image.FillMode = canvas.ImageFillStretch
+	// image.SetMinSize(fyne.NewSize(0, 200))
+	image := fcChart(1000, 300)
 
 	// image := expensesVsIncomeChart()
 	container := container.NewVBox(

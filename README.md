@@ -145,6 +145,9 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
       then result looks not correct (lacks fonts) and rebuilds very slow if resize the page.
       UPDATE 3: `fune serve` to run HTTP server doesn't work because of dependency
       "GopherJS 1.17.2+go1.17.9 requires a Go 1.17.x distribution".
+      UPDATE 4: https://github.com/ajstarks/fc/tree/master/chart is too old and too
+      primitive - need to implement a lot of "charting" logic manually.
+      Plus update `fc.Canvas` to Fyne v2's `CanvasObject`.
   [ ] Search other UI way. https://blog.logrocket.com/best-gui-frameworks-go/
       Investigated [GIO](https://gioui.org/) but it doesn't support SVG natively.
       There is an https://github.com/inkeliz/giosvg which may convert SVG to GIO function,
