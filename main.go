@@ -11,8 +11,9 @@ import (
 )
 
 type Args struct {
-	ConfigPath   string `arg:"positional" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
-	DontOpenFile bool   `arg:"-n" help:"Flag to don't open result file in OS at the end, only print in STDOUT."`
+	ConfigPath       string `arg:"positional" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
+	DontOpenFile     bool   `arg:"-n" help:"Flag to don't open result file in OS at the end, only print in STDOUT."`
+	BuildBeanconFile bool   `arg:"-b" help:"Flag to build Beancount file."`
 }
 
 type FileParser interface {
@@ -23,6 +24,7 @@ type FileParser interface {
 var Version = "development"
 
 const resultFilePath = "Bank Aggregated Statement.txt"
+const resultBeancountFilePath = "Bank Aggregated Statement.beancount"
 
 func main() {
 	log.Printf("Version: %s", Version)
@@ -169,6 +171,11 @@ func main() {
 	log.Print(result)
 	if !args.DontOpenFile { // Twice no here, but we need in good default value for the flag and too lazy.
 		writeAndOpenFile(resultFilePath, result)
+	}
+
+	// Produce Beancount file if requested.
+	if args.BuildBeanconFile {
+		buildBeanconFile(transactions, resultBeancountFilePath)
 	}
 }
 
