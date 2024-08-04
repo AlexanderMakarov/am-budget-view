@@ -15,6 +15,7 @@ type Config struct {
 	InecobankStatementXmlFilesGlob  string              `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
 	InecobankStatementXlsxFilesGlob string              `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
 	AmeriaCsvFilesGlob              string              `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
+	AmeriaCsvFilesCurrency          string              `yaml:"ameriaCsvFilesCurrency" validate:"min=1"`
 	MyAmeriaHistoryXlsFilesGlob     string              `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaMyAccounts              []string            `yaml:"myAmeriaMyAccounts,omitempty"`
 	MyAmeriaIncomeSubstrings        []string            `yaml:"myAmeriaIncomeSubstrings,omitempty"`

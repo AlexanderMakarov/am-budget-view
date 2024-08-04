@@ -10,7 +10,7 @@ import (
 )
 
 const giveUpFindHeaderInInecoExcelAfterRows = 30
-const InecoExcelFromAccount = "Ineco Excel"
+const InecoExcelFromAccount = "InecoExcel"
 
 var (
 	inecoXlsxRegularAccountHeaders = "Գործարքներ/այլ գործառնություններ" +
@@ -214,6 +214,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			Date:        t.Date,
 			Details:     t.Details,
 			Amount:      MoneyWith2DecimalPlaces{amount},
+			Source:      &filePath,
 			Currency:    t.Currency,
 			FromAccount: InecoExcelFromAccount,
 			ToAccount:   "",

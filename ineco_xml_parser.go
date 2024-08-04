@@ -109,17 +109,25 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 	for _, t := range stmt.Operations.Transactions {
 		isExpense := t.Income.int <= 0
 		amount := t.Income.int
+		var from string
+		var to string
 		if isExpense {
+			from = stmt.AccountNumber
+			to = t.ReceiverPayerAccount
 			amount = t.Expense.int
+		} else {
+			from = t.ReceiverPayerAccount
+			to = stmt.AccountNumber
 		}
 		transactions = append(transactions, Transaction{
-			IsExpense: isExpense,
-			Date:      t.Date.Time,
-			Details:   t.Details,
-			Amount:    MoneyWith2DecimalPlaces{amount},
-			Currency:  t.Currency,
-			FromAccount: t.ReceiverPayerAccount,
-			ToAccount:   "",
+			IsExpense:   isExpense,
+			Date:        t.Date.Time,
+			Details:     t.Details,
+			Amount:      MoneyWith2DecimalPlaces{amount},
+			Source:      &filePath,
+			Currency:    t.Currency,
+			FromAccount: from,
+			ToAccount:   to,
 		})
 	}
 	return transactions, nil

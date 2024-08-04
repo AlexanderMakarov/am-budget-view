@@ -112,7 +112,7 @@ func main() {
 	// MyAmeria CSV
 	ameriaCsvTransactions, err := parseTransactionsOfOneType(
 		config.AmeriaCsvFilesGlob,
-		AmeriaCsvFileParser{},
+		AmeriaCsvFileParser{config.AmeriaCsvFilesCurrency},
 		&parsingWarnings,
 	)
 	if err != nil {
@@ -175,7 +175,10 @@ func main() {
 
 	// Produce Beancount file if requested.
 	if args.BuildBeanconFile {
-		buildBeanconFile(transactions, resultBeancountFilePath)
+		if err = buildBeanconFile(transactions, config, resultBeancountFilePath); err != nil {
+			log.Fatalf("Can't build Beancount report: %#v", err)
+		}
+		log.Printf("Beancount '%s' was successfully built.", resultBeancountFilePath)
 	}
 }
 

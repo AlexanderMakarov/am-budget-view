@@ -136,14 +136,14 @@ type IntervalStatisticsBuilder interface {
 
 const UnknownGroupName = "unknown"
 
-// groupExtractorByDetailsSubstrings is [main.IntervalStatisticsBuilder] which uses
+// GroupExtractorByDetailsSubstrings is [main.IntervalStatisticsBuilder] which uses
 // `Transaction.Details` field to choose right group. Logic is following:
 //  1. Find is group for expenses of incomes.
 //  2. Search group in `substringsToGroupName` field. If there are such then update it.
 //  3. Otherwise check isGroupAllUnknown value:
 //  4. If `false` then create new group with name equal to `Transaction.Details` field
 //  5. If `true` then add into single group with name from `UnknownGroupName` constant.
-type groupExtractorByDetailsSubstrings struct {
+type GroupExtractorByDetailsSubstrings struct {
 	intervalStats          *IntervalStatistic
 	groupNamesToSubstrings map[string][]string
 	substringsToGroupName  map[string]string
@@ -151,7 +151,7 @@ type groupExtractorByDetailsSubstrings struct {
 	ignoreSubstrings       []string
 }
 
-func (s groupExtractorByDetailsSubstrings) HandleTransaction(trans Transaction) error {
+func (s GroupExtractorByDetailsSubstrings) HandleTransaction(trans Transaction) error {
 
 	// Choose map of groups to operate on.
 	var mapOfGroups map[string]*Group
@@ -216,7 +216,7 @@ func (s groupExtractorByDetailsSubstrings) HandleTransaction(trans Transaction) 
 	return nil
 }
 
-func (s groupExtractorByDetailsSubstrings) GetIntervalStatistic() *IntervalStatistic {
+func (s GroupExtractorByDetailsSubstrings) GetIntervalStatistic() *IntervalStatistic {
 	return s.intervalStats
 }
 
@@ -248,7 +248,7 @@ func NewStatisticBuilderByDetailsSubstrings(
 	return func(start, end time.Time) IntervalStatisticsBuilder {
 
 		// Return new groupExtractorByDetailsSubstrings.
-		return groupExtractorByDetailsSubstrings{
+		return GroupExtractorByDetailsSubstrings{
 			intervalStats: &IntervalStatistic{
 				Start:   start,
 				End:     end,
@@ -270,7 +270,7 @@ func BuildMonthlyStatistic(
 	transactions []Transaction,
 	statisticBuilderFactory StatisticBuilderFactory,
 	monthStart uint,
-	timeLocation *time.Location,
+	timeZone *time.Location,
 ) ([]*IntervalStatistic, error) {
 
 	// Sort transactions.
@@ -281,7 +281,7 @@ func BuildMonthlyStatistic(
 
 	// Get first month boundaries from the first transaction. Build first month statistics.
 	start := time.Date(transactions[0].Date.Year(), transactions[0].Date.Month(),
-		int(monthStart), 0, 0, 0, 0, timeLocation)
+		int(monthStart), 0, 0, 0, 0, timeZone)
 	end := start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
 	statBuilder = statisticBuilderFactory(start, end)
 
@@ -295,7 +295,7 @@ func BuildMonthlyStatistic(
 			stats = append(stats, statBuilder.GetIntervalStatistic())
 
 			// Calculate start and end of the next month.
-			start = time.Date(trans.Date.Year(), trans.Date.Month(), int(monthStart), 0, 0, 0, 0, timeLocation)
+			start = time.Date(trans.Date.Year(), trans.Date.Month(), int(monthStart), 0, 0, 0, 0, timeZone)
 			end = start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
 			statBuilder = statisticBuilderFactory(start, end)
 		}

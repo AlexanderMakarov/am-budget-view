@@ -31,14 +31,13 @@ type Transaction struct {
 	Date      time.Time
 	Details   string
 	Amount    MoneyWith2DecimalPlaces
+	Source    *string
 	// Extra fields for Beancount
-	Currency    string
-	// FromAccount is an account which pays the transaction.
-	// It means that if it is income then field contains 3d party account number.
+	Currency string
+	// FromAccount is an account which pays the transaction, amount is decreasing here.
 	FromAccount string
-	// ToAccount is an account which receives the transaction.
-	// It means that if it is expense then field contains 3d party account number.
-	ToAccount   string
+	// ToAccount is an account which receives the transaction, amount is increasing here.
+	ToAccount string
 }
 
 // Group is a struct representing a group of transactions.

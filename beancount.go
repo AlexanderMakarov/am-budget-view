@@ -2,7 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"regexp"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -29,26 +34,180 @@ import (
 //   Expenses:Fees:WireTransfers           15.00 GBP
 //   Assets:Brittania:PrivateBanking    23376.81 GBP
 
-func buildBeanconFile(transactions []Transaction, outputFileName string) error {
+const beancountOutputTimeFormat = "2006-01-02"
 
-	// First iterate all transactions to find all accounts and currencies.
-	accounts := make(map[string]time.Time)
+type AccountFromTo struct {
+	From, To time.Time
+}
+
+func (m MoneyWith2DecimalPlaces) StringNoIndent() string {
+	dollars := m.int / 100
+	cents := m.int % 100
+	dollarString := strconv.Itoa(dollars)
+	for i := len(dollarString) - 3; i > 0; i -= 3 {
+		dollarString = dollarString[:i] + "," + dollarString[i:]
+	}
+	return fmt.Sprintf("%s.%02d", dollarString, cents)
+}
+
+func buildBeanconFile(transactions []Transaction, config *Config, outputFileName string) error {
+
+	// First check config
+	// Invert GroupNamesToSubstrings and check for duplicates.
+	substringsToGroupName := map[string]string{}
+	for name, substrings := range config.GroupNamesToSubstrings {
+		for _, substring := range substrings {
+			if group, exist := substringsToGroupName[substring]; exist {
+				return fmt.Errorf("substring '%s' is duplicated in groups: '%s', '%s'",
+					substring, name, group)
+			}
+			substringsToGroupName[substring] = name
+		}
+	}
+	log.Printf("Going to categorize transactions by %d named groups from %d substrings",
+		len(config.GroupNamesToSubstrings), len(substringsToGroupName))
+
+	// Sort transactions by date to simplify processing.
+	sort.Sort(TransactionList(transactions))
+
+	// First iterate all transactions to:
+	// 1) validate currencies,
+	// 2) find all accounts and on which timespan it was used
+	// 3) find all expense categories.
+	accounts := make(map[string]AccountFromTo)
 	currencies := make(map[string]struct{})
+	// for _, s := range statistics {
+	// 	for _, g := range s.Expense {
+	// 		for _, t := range g.Transactions {
+	// 			if validCurrencyRegex.MatchString(t.Currency) {
+	// 				currencies[t.Currency] = struct{}{}
+	// 			} else {
+	// 				return fmt.Errorf("invalid currency '%s' in transaction: %v", t.Currency, t)
+	// 			}
+	// 		}
+	// 	}
+	// 	updateAccounts(accounts, s.Transaction.ToAccount, s.Date, s.Transaction.IsExpense)
+	// 	updateAccounts(accounts, s.Transaction.FromAccount, s.Date, s.Transaction.IsExpense)
+	// }
 	for _, t := range transactions {
 		if validCurrencyRegex.MatchString(t.Currency) {
 			currencies[t.Currency] = struct{}{}
 		} else {
-			return fmt.Errorf("Invalid currency '%s' in transaction: %v", t.Currency, t)
+			return fmt.Errorf(
+				"invalid currency '%s' in file '%s' from transaction: %+v",
+				t.Currency, *t.Source, t,
+			)
 		}
-		if len(t.ToAccount) > 0 {
-			accounts[t.ToAccount] = t.Date
-		}
-		if len(t.FromAccount) > 0 {
-			accounts[t.FromAccount] = t.Date
-		}
+		updateAccounts(accounts, t.ToAccount, t.Date, t.IsExpense)
+		updateAccounts(accounts, t.FromAccount, t.Date, t.IsExpense)
+		// if dayTransactions, ok := transPerDay[t.Date]; ok {
+		// 	dayTransactions = append(dayTransactions, t)
+		// } else {
+		// 	transPerDay[t.Date] = []Transaction{t}
+		// }
 	}
 
-	// Next
+	// Create accounts.beancount file.
+	file, err := os.Create(outputFileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Setup plugins.
+	// Don't create account for the each expense category.
+	fmt.Fprintln(file, "plugin \"beancount.plugins.auto_accounts\"")
+	fmt.Fprintln(file, "")
+
+	// Dump "operating currencies".
+	for currency := range currencies {
+		fmt.Fprintf(file, "option \"operating_currency\" \"%s\"\n", currency)
+	}
+	fmt.Fprintln(file, "")
+
+	// Dump "open accounts".
+	fmt.Fprintln(file, ";; Open accounts")
+	for account, fromTo := range accounts {
+		fmt.Fprintf(
+			file,
+			"%s open %s Income:User:Account\n",
+			fromTo.From.Format(beancountOutputTimeFormat),
+			account,
+		)
+	}
+	fmt.Fprintln(file, "")
+
+	// Now iterate all transactions, find expenses category and dump.
+	// Prepare "group name - substrings" map
+	for _, t := range transactions {
+
+		// First check that need to ignore transaction.
+		for _, substring := range config.IgnoreSubstrings {
+			if strings.Contains(t.Details, substring) {
+				continue
+			}
+		}
+
+		// Find category.
+		var category *string = nil
+		for substring, groupName := range substringsToGroupName {
+			if strings.Contains(t.Details, substring) {
+				category = &groupName
+				break
+			}
+		}
+
+		// Otherwise add transaction to either "unknown" or personal group.
+		if category == nil {
+			// Choose name of group to add transaction into.
+			if config.GroupAllUnknownTransactions {
+				unknownCategory := "unknown"
+				category = &unknownCategory
+			} else {
+				category = &t.Details
+			}
+		}
+
+		// Add transaction to the file.
+		var sb strings.Builder
+		// Make category name to be a valid account name.
+		*category = normalizeAccountName(*category)
+		// 2014-05-05 * "Some details"
+		sb.WriteString(fmt.Sprintf("%s * \"%s\"\n", t.Date.Format(beancountOutputTimeFormat), t.Details))
+		if t.IsExpense {
+			// Income:MyAccount  -100 USD
+			sb.WriteString(fmt.Sprintf("  Income:%s    -%s %s\n", t.FromAccount, t.Amount.StringNoIndent(), t.Currency))
+			// Expense:Category  100 USD
+			sb.WriteString(fmt.Sprintf("  Expenses:%s    %s %s\n", *category, t.Amount.StringNoIndent(), t.Currency))
+		} else {
+			// Income:MyAccount:Category  100 USD
+			sb.WriteString(fmt.Sprintf("  Income:%s:%s    %s %s\n", t.ToAccount, *category, t.Amount.StringNoIndent(), t.Currency))
+			if t.FromAccount != "" {
+				// Assets:ForeignAccout  - 100 USD
+				sb.WriteString(fmt.Sprintf("  Assets:%s    -%s %s\n", t.FromAccount, t.Amount.StringNoIndent(), t.Currency))
+			}
+		}
+		file.WriteString(sb.String())
+	}
+
+	return nil
+}
+
+func updateAccounts(accounts map[string]AccountFromTo, account string, date time.Time, isExpense bool) {
+	if len(account) > 0 {
+		if fromTo, ok := accounts[account]; !ok {
+			accounts[account] = AccountFromTo{
+				From: date,
+				To:   date,
+			}
+		} else {
+			if isExpense {
+				fromTo.To = date
+			} else {
+				fromTo.From = date
+			}
+		}
+	}
 }
 
 var validCurrencyRegex = regexp.MustCompile(`^[A-Z][A-Z0-9'._-]{0,22}[A-Z0-9]$`)
@@ -60,4 +219,11 @@ func (t Transaction) validCurrency() bool {
 	// its other characters must only be capital letters, numbers, or punctuation
 	// limited to these characters: “'._-” (apostrophe, period, underscore, dash.).
 	return validCurrencyRegex.MatchString(t.Currency)
+}
+
+var validAccountNameRegex = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+
+func normalizeAccountName(account string) string {
+	normalized := validAccountNameRegex.ReplaceAllString(account, "-")
+	return strings.Trim(normalized, "-")
 }

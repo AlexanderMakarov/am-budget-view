@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -36,7 +37,18 @@ type AmeriaBusinessTransaction struct {
 	Details             string
 }
 
-type AmeriaCsvFileParser struct{}
+type AmeriaCsvFileParser struct {
+	Currency string
+}
+
+func NormilazeAccountName(input string) string {
+	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
+	if err != nil {
+		panic(err)
+	}
+	processedString := reg.ReplaceAllString(input, "")
+	return processedString
+}
 
 func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	filePath string,
@@ -46,6 +58,9 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
+
+	// Due to file doesn't have Account information use file name.
+	accountNamePlaceholder := fmt.Sprintf("AccountFrom%s", NormilazeAccountName(file.Name()))
 
 	// Read the file into a byte slice
 	fileData, err := io.ReadAll(file)
@@ -127,20 +142,28 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	for i, t := range csvTransactions {
 		isExpense := false
 		amount := t.Credit
+		var from string
+		var to string
 
 		if amount.int == 0 {
 			isExpense = true
 			amount = t.Debit
+			from = accountNamePlaceholder
+			to = t.Account
+		} else {
+			from = t.Account
+			to = accountNamePlaceholder
 		}
 
 		transactions[i] = Transaction{
 			IsExpense:   isExpense,
 			Date:        t.Date,
 			Details:     t.Details,
+			Source:      &filePath,
 			Amount:      amount,
-			Currency:    "",
-			FromAccount: t.Account,
-			ToAccount:   "",
+			Currency:    p.Currency,
+			FromAccount: from,
+			ToAccount:   to,
 		}
 	}
 

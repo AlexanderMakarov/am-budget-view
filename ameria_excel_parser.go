@@ -143,11 +143,12 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 			}
 		}
 		transactions[i] = Transaction{
-			IsExpense: isExpense,
-			Date:      t.Date,
-			Details:   t.Details,
-			Amount:    t.Amount,
-			Currency: t.Currency,
+			IsExpense:   isExpense,
+			Date:        t.Date,
+			Details:     t.Details,
+			Amount:      t.Amount,
+			Source:      &filePath,
+			Currency:    t.Currency,
 			FromAccount: t.OutgoingAccount,
 			ToAccount:   t.BeneficiaryAccount,
 		}
