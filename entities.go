@@ -31,7 +31,7 @@ type Transaction struct {
 	Date      time.Time
 	Details   string
 	Amount    MoneyWith2DecimalPlaces
-	Source    *string
+	Source    string
 	// Extra fields for Beancount
 	Currency string
 	// FromAccount is an account which pays the transaction, amount is decreasing here.

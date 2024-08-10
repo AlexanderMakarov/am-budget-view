@@ -159,7 +159,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			IsExpense:   isExpense,
 			Date:        t.Date,
 			Details:     t.Details,
-			Source:      &filePath,
+			Source:      filePath,
 			Amount:      amount,
 			Currency:    p.Currency,
 			FromAccount: from,

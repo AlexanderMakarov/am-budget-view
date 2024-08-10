@@ -124,7 +124,7 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 			Date:        t.Date.Time,
 			Details:     t.Details,
 			Amount:      MoneyWith2DecimalPlaces{amount},
-			Source:      &filePath,
+			Source:      filePath,
 			Currency:    t.Currency,
 			FromAccount: from,
 			ToAccount:   to,

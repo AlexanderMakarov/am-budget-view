@@ -1,6 +1,9 @@
 run:
 	go run .
 
+run-help:
+	go run . --help
+
 test:
 	go test -coverprofile coverage.out
 

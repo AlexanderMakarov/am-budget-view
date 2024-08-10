@@ -55,6 +55,7 @@ func TestMoneyWith2DecimalPlaces_UnmarshalText(t *testing.T) {
 }
 
 func TestParseRawTransactionsFromFile(t *testing.T) {
+	validFilePath := filepath.Join("testdata", "ameria", "valid_file.xls")
 	tests := []struct {
 		name           string
 		filePath       string
@@ -65,7 +66,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 	}{
 		{
 			name:          "valid_file-check_by_account",
-			filePath:      filepath.Join("testdata", "ameria", "valid_file.xls"),
+			filePath:      validFilePath,
 			myAccounts:    []string{"1234567890123456"},
 			detailsIncome: []string{},
 			wantErr:       false,
@@ -75,6 +76,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 					Date:        time.Date(2024, time.April, 20, 0, 0, 0, 0, time.UTC),
 					Details:     "ԱԱՀ այդ թվում` 16.67%",
 					Amount:      MoneyWith2DecimalPlaces{int: 10010},
+					Source:      validFilePath,
 					Currency:    "AMD",
 					FromAccount: "1234567890123456",
 					ToAccount:   "9999999999999999",
@@ -84,6 +86,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 					Date:        time.Date(2024, time.April, 19, 0, 0, 0, 0, time.UTC),
 					Details:     "Բանկի ձևանմուշից տարբերվող տեղեկա",
 					Amount:      MoneyWith2DecimalPlaces{int: 99999999999},
+					Source:      validFilePath,
 					Currency:    "AMD",
 					FromAccount: "9999999999999999",
 					ToAccount:   "1234567890123456",
@@ -116,7 +119,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 		},
 		{
 			name:          "valid_file-check_by_details",
-			filePath:      filepath.Join("testdata", "ameria", "valid_file.xls"),
+			filePath:      validFilePath,
 			myAccounts:    []string{},
 			detailsIncome: []string{"income"},
 			wantErr:       false,
@@ -126,6 +129,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 					Date:        time.Date(2024, time.April, 20, 0, 0, 0, 0, time.UTC),
 					Details:     "ԱԱՀ այդ թվում` 16.67%",
 					Amount:      MoneyWith2DecimalPlaces{int: 10010},
+					Source:      validFilePath,
 					Currency:    "AMD",
 					FromAccount: "1234567890123456",
 					ToAccount:   "9999999999999999",
@@ -135,6 +139,7 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 					Date:        time.Date(2024, time.April, 19, 0, 0, 0, 0, time.UTC),
 					Details:     "Բանկի ձևանմուշից տարբերվող տեղեկա",
 					Amount:      MoneyWith2DecimalPlaces{int: 99999999999},
+					Source:      validFilePath,
 					Currency:    "AMD",
 					FromAccount: "9999999999999999",
 					ToAccount:   "1234567890123456",
@@ -151,10 +156,10 @@ func TestParseRawTransactionsFromFile(t *testing.T) {
 			}
 			actual, err := parser.ParseRawTransactionsFromFile(tt.filePath)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseRawTransactionsFromFile() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseRawTransactionsFromFile() error = %+v, wantErr %+v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(actual, tt.expectedResult) {
-				t.Errorf("ParseRawTransactionsFromFile() = %v, want %v", actual, tt.expectedResult)
+				t.Errorf("ParseRawTransactionsFromFile() = %+v, want %+v", actual, tt.expectedResult)
 			}
 		})
 	}

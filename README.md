@@ -90,6 +90,19 @@ Note that it is a command line application and may work completely in the termin
 Run in it terminal with `-h` for details.
 It would explain how to work with multiple configuration files and see information directly in terminal.
 
+# Use with Beancount and Fava UI
+
+On each run application would generate [Beancount](https://github.com/beancount/beancount) file
+which then may be used with [Fava UI](https://github.com/beancount/fava).
+Actually Beancount report contains more data than usual TXT report, it allows to track currencies.
+
+First of all need to install Fava UI (built in Python) with something like `pip3 install fava`.
+
+After getting log like `Built Beancount file 'Bank Aggregated Statement.beancount' with 1818 transactions.`
+command (in console) like `fava Bank\ Aggregated\ Statement.beancount` will print
+`Starting Fava on http://127.0.0.1:5000` - open this link in browser and it will show
+graphs and other accounting visualization, financial statistic about your transactions.
+
 # Limitations
 
 - Application does not support currencies handling.
@@ -131,7 +144,7 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) More tests coverage.
-- [ ] (?) Build translator to https://github.com/beancount/beancount
+- [x] (?) Build translator to https://github.com/beancount/beancount
       Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
 - [ ] Build UI with Fyne and https://github.com/wcharczuk/go-chart
       (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).

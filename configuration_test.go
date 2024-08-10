@@ -15,6 +15,7 @@ func TestReadConfig_ValidYAML(t *testing.T) {
 		`inecobankStatementXmlFilesGlob: "*.xml"
 inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
+ameriaCsvFilesCurrency: "AMD"
 myAmeriaHistoryXlsFilesGlob: "*.xls"
 myAmeriaMyAccounts: 
   - Account1
@@ -220,6 +221,7 @@ func TestReadConfig_NotAllFields(t *testing.T) {
 		`inecobankStatementXmlFilesGlob: "*.xml"
 inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
+ameriaCsvFilesCurrency: "AMD"
 myAmeriaHistoryXlsFilesGlob: "*.xls"
 detailedOutput: false
 groupAllUnknownTransactions: true

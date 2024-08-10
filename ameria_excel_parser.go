@@ -147,7 +147,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 			Date:        t.Date,
 			Details:     t.Details,
 			Amount:      t.Amount,
-			Source:      &filePath,
+			Source:      filePath,
 			Currency:    t.Currency,
 			FromAccount: t.OutgoingAccount,
 			ToAccount:   t.BeneficiaryAccount,

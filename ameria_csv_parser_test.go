@@ -16,8 +16,9 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *tes
 }
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing.T) {
+	filePath := "testdata/ameria/with_bom_header.csv"
 	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
-		"testdata/ameria/with_bom_header.csv",
+		filePath,
 	)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -29,24 +30,26 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 			Date:        time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
 			Details:     "Ք: SOME TEXT",
 			Amount:      MoneyWith2DecimalPlaces{int: 55000},
+			Source:      filePath,
 			Currency:    "",
-			FromAccount: "1234567890123456",
-			ToAccount:   "",
+			FromAccount: "AccountFromtestdataameriawithbomheadercsv",
+			ToAccount:   "1234567890123456",
 		},
 		{
 			IsExpense:   false,
 			Date:        time.Date(2024, time.May, 17, 0, 0, 0, 0, time.UTC),
 			Details:     "Ք: Քարտից քարտ փոխանցում\\",
 			Amount:      MoneyWith2DecimalPlaces{int: 20000000},
+			Source:      filePath,
 			Currency:    "",
 			FromAccount: "9999999999999999",
-			ToAccount:   "",
+			ToAccount:   "AccountFromtestdataameriawithbomheadercsv",
 		},
 	}
 
 	for i, transaction := range transactions {
 		if transaction != expectedTransactions[i] {
-			t.Errorf("expected transaction %v, but got %v", expectedTransactions[i], transaction)
+			t.Errorf("expected transaction %+v, but got %+v", expectedTransactions[i], transaction)
 		}
 	}
 }

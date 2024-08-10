@@ -10,9 +10,9 @@ import (
 )
 
 const giveUpFindHeaderInInecoExcelAfterRows = 30
-const InecoExcelFromAccount = "InecoExcel"
 
 var (
+	inecoXlsxAccountNumberLabel    = "Հաշվի համար՝"
 	inecoXlsxRegularAccountHeaders = "Գործարքներ/այլ գործառնություններ" +
 		"Գործարքի գումար հաշվի արժույթով" +
 		"Կիրառվող փոխարժեք" +
@@ -69,7 +69,8 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 		filePath, firstSheet.Name, len(f.Sheets))
 
 	// Parse Ineco XLSX ransactions.
-	var InecoXlsxTransactions []InecoXlsxTransaction
+	var inecoXlsxTransactions []InecoXlsxTransaction
+	var accountNumber = ""
 	var isHeaderRowFound bool
 	var isRegularAccount bool
 	var prevRowString string
@@ -80,6 +81,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			if len(cells) == 0 {
 				continue
 			}
+
 			// Note that Ineco XLSX is quite complex with a lot of columns.
 			// There are 2 types of XLSX I saw - from regular account and from card account.
 			// Regular account XLSX has less columns than card - in card XLSX
@@ -94,8 +96,18 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 				)
 			}
 
-			// Check if this row is header row.
+			// Due to Ineco XLSX has a lot of columns just concatenate all values into one big string.
 			rowString := mergeCellsToString(cells)
+
+			// Try to find account number first.
+			if len(accountNumber) < 1 {
+				var indexOfAccountNumberLabel = strings.Index(rowString, inecoXlsxAccountNumberLabel)
+				if indexOfAccountNumberLabel != -1 {
+					accountNumber = rowString[indexOfAccountNumberLabel+len(inecoXlsxAccountNumberLabel):]
+				}
+			}
+
+			// Check if this row is header row.
 			isHeaderRowFound = strings.HasPrefix(rowString, inecoXlsxHeadersBeforeTransactions)
 			if isHeaderRowFound {
 
@@ -117,6 +129,11 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 
 			// Skip this row anyway.
 			continue
+		} else if len(accountNumber) < 1 {
+			return nil, fmt.Errorf(
+				"%s: failed to parse account number label '%s' after transactions header is found in %d row",
+				filePath, inecoXlsxAccountNumberLabel, i,
+			)
 		}
 
 		// Stop if row is empty. Check it before 1st cell to don't skip completely empty row.
@@ -198,26 +215,30 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 				Details:         cells[19].String(),
 			}
 		}
-		InecoXlsxTransactions = append(InecoXlsxTransactions, transaction)
+		inecoXlsxTransactions = append(inecoXlsxTransactions, transaction)
 	}
 
 	// Conver Inecobank rows to unified transactions.
-	transactions := make([]Transaction, 0, len(InecoXlsxTransactions))
-	for _, t := range InecoXlsxTransactions {
+	transactions := make([]Transaction, 0, len(inecoXlsxTransactions))
+	for _, t := range inecoXlsxTransactions {
 		isExpense := t.Income.int <= 0
-		amount := t.Income.int
-		if isExpense {
-			amount = -t.Expense.int
+		from := accountNumber
+		to := "" // Ineco XLSX doesn't have this information.
+		amount := -t.Income.int
+		if !isExpense {
+			amount = t.Expense.int
+			from = "" // Ineco XLSX doesn't have this information.
+			to = accountNumber
 		}
 		transactions = append(transactions, Transaction{
 			IsExpense:   isExpense,
 			Date:        t.Date,
 			Details:     t.Details,
 			Amount:      MoneyWith2DecimalPlaces{amount},
-			Source:      &filePath,
+			Source:      filePath,
 			Currency:    t.Currency,
-			FromAccount: InecoExcelFromAccount,
-			ToAccount:   "",
+			FromAccount: from,
+			ToAccount:   to,
 		})
 	}
 	return transactions, nil

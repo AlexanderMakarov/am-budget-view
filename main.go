@@ -11,12 +11,16 @@ import (
 )
 
 type Args struct {
-	ConfigPath       string `arg:"positional" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
-	DontOpenFile     bool   `arg:"-n" help:"Flag to don't open result file in OS at the end, only print in STDOUT."`
-	BuildBeanconFile bool   `arg:"-b" help:"Flag to build Beancount file."`
+	ConfigPath           string `arg:"positional" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
+	DontOpenFile         bool   `arg:"-n" help:"Flag to don't open result file in OS at the end, only print in STDOUT."`
+	DontBuildBeanconFile bool   `arg:"--no-beancount" help:"Flag to don't build Beancount file."`
+	DontBuildTextReport    bool   `arg:"--no-txt-report" help:"Flag to don't build TXT file report."`
 }
 
 type FileParser interface {
+	// ParseRawTransactionsFromFile parses raw/unified transactions
+	// from the specified by path file.
+	// Returns list of parsed transactions or error if can't parse.
 	ParseRawTransactionsFromFile(filePath string) ([]Transaction, error)
 }
 
@@ -131,54 +135,59 @@ func main() {
 	}
 	log.Printf("Total found %d transactions.", len(transactions))
 
-	// Build statistic.
-	statistics, err := BuildMonthlyStatistic(
-		transactions,
-		groupExtractorFactory,
-		config.MonthStartDayNumber,
-		timeZone,
-	)
-	if err != nil {
-		fatalError(fmt.Sprintf("Can't build statistic: %#v", err), isOpenFileWithResult)
-	}
-
-	// Process received statistics.
-	result := strings.Join(parsingWarnings, "\n")
-	for _, s := range statistics {
-		if config.DetailedOutput {
-			result = result + "\n" + s.String()
-			continue
-		}
-
-		// Note that this logic is intentionally separated from `func (s *IntervalStatistic) String()`.
-		income := MapOfGroupsToString(s.Income)
-		expense := MapOfGroupsToString(s.Expense)
-		result = result + "\n" + fmt.Sprintf(
-			"\n%s..%s:\n  Income (%d, sum=%s):%s\n  Expenses (%d, sum=%s):%s",
-			s.Start.Format(OutputDateFormat),
-			s.End.Format(OutputDateFormat),
-			len(income),
-			MapOfGroupsSum(s.Income),
-			strings.Join(income, ""),
-			len(s.Expense),
-			MapOfGroupsSum(s.Expense),
-			strings.Join(expense, ""),
-		)
-	}
-	result = fmt.Sprintf("%s\nTotal %d months.", result, len(statistics))
-
-	// Always print result into logs and conditionally into the file which open through the OS.
-	log.Print(result)
-	if !args.DontOpenFile { // Twice no here, but we need in good default value for the flag and too lazy.
-		writeAndOpenFile(resultFilePath, result)
-	}
-
-	// Produce Beancount file if requested.
-	if args.BuildBeanconFile {
-		if err = buildBeanconFile(transactions, config, resultBeancountFilePath); err != nil {
+	// Produce Beancount file if not disabled.
+	if !args.DontBuildBeanconFile {
+		transLen, err := buildBeanconFile(transactions, config, resultBeancountFilePath)
+		if err != nil {
 			log.Fatalf("Can't build Beancount report: %#v", err)
 		}
-		log.Printf("Beancount '%s' was successfully built.", resultBeancountFilePath)
+		log.Printf("Built Beancount file '%s' with %d transactions.", resultBeancountFilePath, transLen)
+	}
+
+	// Produce and show TXT report file if not disabled.
+	if !args.DontBuildTextReport {
+
+		// Build statistic.
+		statistics, err := BuildMonthlyStatistic(
+			transactions,
+			groupExtractorFactory,
+			config.MonthStartDayNumber,
+			timeZone,
+		)
+		if err != nil {
+			fatalError(fmt.Sprintf("Can't build statistic: %#v", err), isOpenFileWithResult)
+		}
+
+		// Process received statistics.
+		result := strings.Join(parsingWarnings, "\n")
+		for _, s := range statistics {
+			if config.DetailedOutput {
+				result = result + "\n" + s.String()
+				continue
+			}
+
+			// Note that this logic is intentionally separated from `func (s *IntervalStatistic) String()`.
+			income := MapOfGroupsToString(s.Income)
+			expense := MapOfGroupsToString(s.Expense)
+			result = result + "\n" + fmt.Sprintf(
+				"\n%s..%s:\n  Income (%d, sum=%s):%s\n  Expenses (%d, sum=%s):%s",
+				s.Start.Format(OutputDateFormat),
+				s.End.Format(OutputDateFormat),
+				len(income),
+				MapOfGroupsSum(s.Income),
+				strings.Join(income, ""),
+				len(s.Expense),
+				MapOfGroupsSum(s.Expense),
+				strings.Join(expense, ""),
+			)
+		}
+		result = fmt.Sprintf("%s\nTotal %d months.", result, len(statistics))
+
+		// Always print result into logs and conditionally into the file which open through the OS.
+		log.Print(result)
+		if !args.DontOpenFile { // Twice no here, but we need in good default value for the flag and too lazy.
+			writeAndOpenFile(resultFilePath, result)
+		}
 	}
 }
 
@@ -230,7 +239,13 @@ func parseTransactionFiles(glog string, parser FileParser) ([]Transaction, strin
 		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
 		if err != nil {
 			notFatalError = fmt.Sprintf("Can't parse transactions from '%s' file: %#v", file, err)
-			log.Println(notFatalError)
+			if len(rawTransactions) < 1 {
+				// If both error and no transactions then treat error as fatal.
+				return result, "", err
+			} else {
+				// Otherwise just log.
+				log.Println(notFatalError)
+			}
 		}
 		if len(rawTransactions) < 1 {
 			notFatalError = fmt.Sprintf("Can't find transactions in '%s' file.", file)

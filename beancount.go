@@ -50,7 +50,9 @@ func (m MoneyWith2DecimalPlaces) StringNoIndent() string {
 	return fmt.Sprintf("%s.%02d", dollarString, cents)
 }
 
-func buildBeanconFile(transactions []Transaction, config *Config, outputFileName string) error {
+// buildBeanconFile creates a beancount file with transactions.
+// Returns number of transactions and error if any.
+func buildBeanconFile(transactions []Transaction, config *Config, outputFileName string) (int, error) {
 
 	// First check config
 	// Invert GroupNamesToSubstrings and check for duplicates.
@@ -58,13 +60,13 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 	for name, substrings := range config.GroupNamesToSubstrings {
 		for _, substring := range substrings {
 			if group, exist := substringsToGroupName[substring]; exist {
-				return fmt.Errorf("substring '%s' is duplicated in groups: '%s', '%s'",
+				return 0, fmt.Errorf("substring '%s' is duplicated in groups: '%s', '%s'",
 					substring, name, group)
 			}
 			substringsToGroupName[substring] = name
 		}
 	}
-	log.Printf("Going to categorize transactions by %d named groups from %d substrings",
+	log.Printf("Beancount report: going to categorize transactions by %d named groups from %d substrings",
 		len(config.GroupNamesToSubstrings), len(substringsToGroupName))
 
 	// Sort transactions by date to simplify processing.
@@ -73,44 +75,25 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 	// First iterate all transactions to:
 	// 1) validate currencies,
 	// 2) find all accounts and on which timespan it was used
-	// 3) find all expense categories.
 	accounts := make(map[string]AccountFromTo)
 	currencies := make(map[string]struct{})
-	// for _, s := range statistics {
-	// 	for _, g := range s.Expense {
-	// 		for _, t := range g.Transactions {
-	// 			if validCurrencyRegex.MatchString(t.Currency) {
-	// 				currencies[t.Currency] = struct{}{}
-	// 			} else {
-	// 				return fmt.Errorf("invalid currency '%s' in transaction: %v", t.Currency, t)
-	// 			}
-	// 		}
-	// 	}
-	// 	updateAccounts(accounts, s.Transaction.ToAccount, s.Date, s.Transaction.IsExpense)
-	// 	updateAccounts(accounts, s.Transaction.FromAccount, s.Date, s.Transaction.IsExpense)
-	// }
 	for _, t := range transactions {
 		if validCurrencyRegex.MatchString(t.Currency) {
 			currencies[t.Currency] = struct{}{}
 		} else {
-			return fmt.Errorf(
+			return 0, fmt.Errorf(
 				"invalid currency '%s' in file '%s' from transaction: %+v",
-				t.Currency, *t.Source, t,
+				t.Currency, t.Source, t,
 			)
 		}
 		updateAccounts(accounts, t.ToAccount, t.Date, t.IsExpense)
 		updateAccounts(accounts, t.FromAccount, t.Date, t.IsExpense)
-		// if dayTransactions, ok := transPerDay[t.Date]; ok {
-		// 	dayTransactions = append(dayTransactions, t)
-		// } else {
-		// 	transPerDay[t.Date] = []Transaction{t}
-		// }
 	}
 
 	// Create accounts.beancount file.
 	file, err := os.Create(outputFileName)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer file.Close()
 
@@ -130,7 +113,7 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 	for account, fromTo := range accounts {
 		fmt.Fprintf(
 			file,
-			"%s open %s Income:User:Account\n",
+			"%s open Income:User:%s\n",
 			fromTo.From.Format(beancountOutputTimeFormat),
 			account,
 		)
@@ -172,6 +155,8 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 		var sb strings.Builder
 		// Make category name to be a valid account name.
 		*category = normalizeAccountName(*category)
+		// Add comment with source file.
+		sb.WriteString(fmt.Sprintf("; isExpense=%t, source=%s\n", t.IsExpense, t.Source))
 		// 2014-05-05 * "Some details"
 		sb.WriteString(fmt.Sprintf("%s * \"%s\"\n", t.Date.Format(beancountOutputTimeFormat), t.Details))
 		if t.IsExpense {
@@ -190,7 +175,7 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 		file.WriteString(sb.String())
 	}
 
-	return nil
+	return len(transactions), nil
 }
 
 func updateAccounts(accounts map[string]AccountFromTo, account string, date time.Time, isExpense bool) {
