@@ -27,13 +27,25 @@ const OutputDateFormat = "2006-01-02"
 
 // Transaction is a struct representing a single transaction.
 type Transaction struct {
+	// IsExpense is true if transaction is an expense, false if it is an income.
 	IsExpense bool
-	Date      time.Time
-	Details   string
-	Amount    MoneyWith2DecimalPlaces
-	Source    string
-	// Extra fields for Beancount
-	Currency string
+	// Date of the transaction.
+	Date time.Time
+	// Details is a description of the transaction.
+	Details string
+	// Amount in account currency.
+	Amount MoneyWith2DecimalPlaces
+	// Source name, usually file path.
+	Source string
+
+	// Extra fields for Beancount. May be empty - depends on source.
+
+	// AccountCurrency is a currency of the account.
+	AccountCurrency string
+	// OriginCurrency is a currency of the transaction before conversion.
+	OriginCurrency string
+	// OriginCurrencyAmount is an amount in origin currency.
+	OriginCurrencyAmount MoneyWith2DecimalPlaces
 	// FromAccount is an account which pays the transaction, amount is decreasing here.
 	FromAccount string
 	// ToAccount is an account which receives the transaction, amount is increasing here.

@@ -78,12 +78,35 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 	accounts := make(map[string]AccountFromTo)
 	currencies := make(map[string]struct{})
 	for _, t := range transactions {
-		if validCurrencyRegex.MatchString(t.Currency) {
-			currencies[t.Currency] = struct{}{}
-		} else {
+		// Check account currency.
+		atLeastOneCurrency := false
+		if len(t.AccountCurrency) > 0 {
+			if validCurrencyRegex.MatchString(t.AccountCurrency) {
+				currencies[t.AccountCurrency] = struct{}{}
+				atLeastOneCurrency = true
+			} else {
+				return 0, fmt.Errorf(
+					"invalid currency '%s' in file '%s' from transaction: %+v",
+					t.AccountCurrency, t.Source, t,
+				)
+			}
+		}
+		// Check origin currency.
+		if t.OriginCurrency != "" {
+			if validCurrencyRegex.MatchString(t.OriginCurrency) {
+				currencies[t.OriginCurrency] = struct{}{}
+				atLeastOneCurrency = true
+			} else {
+				return 0, fmt.Errorf(
+					"invalid origin currency '%s' in file '%s' from transaction: %+v",
+					t.OriginCurrency, t.Source, t,
+				)
+			}
+		}
+		if !atLeastOneCurrency {
 			return 0, fmt.Errorf(
-				"invalid currency '%s' in file '%s' from transaction: %+v",
-				t.Currency, t.Source, t,
+				"no currency found in transaction '%+v' from file '%s'",
+				t, t.Source,
 			)
 		}
 		updateAccounts(accounts, t.ToAccount, t.Date, t.IsExpense)
@@ -155,21 +178,144 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 		var sb strings.Builder
 		// Make category name to be a valid account name.
 		*category = normalizeAccountName(*category)
-		// Add comment with source file.
-		sb.WriteString(fmt.Sprintf("; isExpense=%t, source=%s\n", t.IsExpense, t.Source))
+		// Add extra line and comment with transaction 'direction' and source file.
+		name := "expense"
+		if !t.IsExpense {
+			name = "income"
+		}
+		sb.WriteString(fmt.Sprintf("\n; %s from '%s'\n", name, t.Source))
 		// 2014-05-05 * "Some details"
 		sb.WriteString(fmt.Sprintf("%s * \"%s\"\n", t.Date.Format(beancountOutputTimeFormat), t.Details))
+		// FYI: transactions may be provided in different currencies:
+		// - origin currency only -> use it
+		// - account currency only -> use it
+		// - both account and origin currencies -> put origin currency and '@@' account currency.
+		isAccountAmount := len(t.AccountCurrency) > 0 && t.Amount.int != 0
+		isOriginCurAmount := len(t.OriginCurrency) > 0 && t.OriginCurrencyAmount.int != 0
+		// If both currencies provided and are equal then use only "account" currency.
+		if isAccountAmount && isOriginCurAmount && t.AccountCurrency == t.OriginCurrency {
+			isOriginCurAmount = false
+		}
 		if t.IsExpense {
-			// Income:MyAccount  -100 USD
-			sb.WriteString(fmt.Sprintf("  Income:%s    -%s %s\n", t.FromAccount, t.Amount.StringNoIndent(), t.Currency))
-			// Expense:Category  100 USD
-			sb.WriteString(fmt.Sprintf("  Expenses:%s    %s %s\n", *category, t.Amount.StringNoIndent(), t.Currency))
-		} else {
-			// Income:MyAccount:Category  100 USD
-			sb.WriteString(fmt.Sprintf("  Income:%s:%s    %s %s\n", t.ToAccount, *category, t.Amount.StringNoIndent(), t.Currency))
-			if t.FromAccount != "" {
-				// Assets:ForeignAccout  - 100 USD
-				sb.WriteString(fmt.Sprintf("  Assets:%s    -%s %s\n", t.FromAccount, t.Amount.StringNoIndent(), t.Currency))
+			if isAccountAmount && isOriginCurAmount {
+				// Income:MyAccount  -100 USD @@ 40000 AMD
+				// Expenses:Category   100 USD @@ 40000 AMD
+				sb.WriteString(
+					fmt.Sprintf("  Income:%s    -%s %s @@ %s %s\n",
+						t.FromAccount,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+				sb.WriteString(
+					fmt.Sprintf("  Expenses:%s    %s %s @@ %s %s\n",
+						*category,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+			} else if isAccountAmount {
+				sb.WriteString(
+					fmt.Sprintf("  Income:%s    -%s %s\n",
+						t.FromAccount,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+					),
+				)
+				sb.WriteString(
+					fmt.Sprintf("  Expenses:%s    %s %s\n",
+						*category,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+					),
+				)
+
+			} else if isOriginCurAmount {
+				sb.WriteString(
+					fmt.Sprintf("  Income:%s    -%s %s\n",
+						t.FromAccount,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+				sb.WriteString(
+					fmt.Sprintf("  Expenses:%s    %s %s\n",
+						*category,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+			} else {
+				return 0, fmt.Errorf(
+					"transaction '%+v' has no amount in account or origin currency",
+					t,
+				)
+			}
+		} else { // Income
+			if isAccountAmount && isOriginCurAmount {
+				// Income:MyAccount:Category  100 USD @@ 40000 AMD
+				// Assets:ForeignAccount     -100 USD @@ 40000 AMD
+				sb.WriteString(
+					fmt.Sprintf("  Income:%s:%s    %s %s @@ %s %s\n",
+						t.ToAccount,
+						*category,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+				sb.WriteString(
+					fmt.Sprintf("  Assets:%s    -%s %s @@ %s %s\n",
+						t.FromAccount,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+			} else if isAccountAmount {
+				sb.WriteString(
+					fmt.Sprintf("  Income:%s:%s    %s %s\n",
+						t.ToAccount,
+						*category,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+					),
+				)
+				sb.WriteString(
+					fmt.Sprintf("  Assets:%s    -%s %s\n",
+						t.FromAccount,
+						t.Amount.StringNoIndent(),
+						t.AccountCurrency,
+					),
+				)
+
+			} else if isOriginCurAmount {
+				sb.WriteString(
+					fmt.Sprintf("  Income:%s:%s    %s %s\n",
+						t.ToAccount,
+						*category,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+				sb.WriteString(
+					fmt.Sprintf("  Assets:%s    -%s %s\n",
+						t.FromAccount,
+						t.OriginCurrencyAmount.StringNoIndent(),
+						t.OriginCurrency,
+					),
+				)
+			} else {
+				return 0, fmt.Errorf(
+					"transaction '%+v' has no amount in account or origin currency",
+					t,
+				)
 			}
 		}
 		file.WriteString(sb.String())
@@ -203,7 +349,7 @@ func (t Transaction) validCurrency() bool {
 	// must end with with a capital letter or number,
 	// its other characters must only be capital letters, numbers, or punctuation
 	// limited to these characters: “'._-” (apostrophe, period, underscore, dash.).
-	return validCurrencyRegex.MatchString(t.Currency)
+	return validCurrencyRegex.MatchString(t.AccountCurrency)
 }
 
 var validAccountNameRegex = regexp.MustCompile(`[^\p{L}\p{N}]+`)

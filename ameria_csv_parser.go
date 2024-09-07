@@ -140,30 +140,32 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	// Convert CSV rows to unified transactions and separate expenses from incomes.
 	transactions := make([]Transaction, len(csvTransactions))
 	for i, t := range csvTransactions {
-		isExpense := false
-		amount := t.Credit
-		var from string
-		var to string
-
+		// By-default is expense.
+		isExpense := true
+		amount := t.Debit
+		var from string = accountNamePlaceholder
+		var to string = t.Account
+		// If debit is empty then it is income.
 		if amount.int == 0 {
-			isExpense = true
-			amount = t.Debit
-			from = accountNamePlaceholder
-			to = t.Account
-		} else {
+			isExpense = false
+			amount = t.Credit
+			// "Account" field always contain foreign account.
 			from = t.Account
 			to = accountNamePlaceholder
 		}
-
+		// Eventually check that transaction is not empty.
+		if amount.int == 0 {
+			return nil, fmt.Errorf("unexpected transaction values parsed on %d line: %+v", i+1, t)
+		}
 		transactions[i] = Transaction{
-			IsExpense:   isExpense,
-			Date:        t.Date,
-			Details:     t.Details,
-			Source:      filePath,
-			Amount:      amount,
-			Currency:    p.Currency,
-			FromAccount: from,
-			ToAccount:   to,
+			IsExpense:       isExpense,
+			Date:            t.Date,
+			Details:         t.Details,
+			Source:          filePath,
+			Amount:          amount,
+			AccountCurrency: p.Currency, // The same, from settings.
+			FromAccount:     from,
+			ToAccount:       to,
 		}
 	}
 

@@ -120,14 +120,15 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 			to = stmt.AccountNumber
 		}
 		transactions = append(transactions, Transaction{
-			IsExpense:   isExpense,
-			Date:        t.Date.Time,
-			Details:     t.Details,
-			Amount:      MoneyWith2DecimalPlaces{amount},
-			Source:      filePath,
-			Currency:    t.Currency,
-			FromAccount: from,
-			ToAccount:   to,
+			IsExpense: isExpense,
+			Date:      t.Date.Time,
+			Details:   t.Details,
+			// Ineco XML shows amounts only in account currency.
+			Amount:          MoneyWith2DecimalPlaces{amount},
+			Source:          filePath,
+			AccountCurrency: t.Currency,
+			FromAccount:     from,
+			ToAccount:       to,
 		})
 	}
 	return transactions, nil

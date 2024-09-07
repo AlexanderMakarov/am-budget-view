@@ -13,6 +13,7 @@ const giveUpFindHeaderInInecoExcelAfterRows = 30
 
 var (
 	inecoXlsxAccountNumberLabel    = "Հաշվի համար՝"
+	inecoXlsxAccountCurrencyLabel  = "Հաշվի արժույթ՝"
 	inecoXlsxRegularAccountHeaders = "Գործարքներ/այլ գործառնություններ" +
 		"Գործարքի գումար հաշվի արժույթով" +
 		"Կիրառվող փոխարժեք" +
@@ -42,7 +43,7 @@ func (m *MoneyWith2DecimalPlaces) UnmarshalFromExcelCell(cell *xlsx.Cell) error 
 
 type InecoXlsxTransaction struct {
 	Date               time.Time
-	Amount             MoneyWith2DecimalPlaces
+	AmountOrigCur      MoneyWith2DecimalPlaces
 	Currency           string
 	NotNormalizedEntry MoneyWith2DecimalPlaces
 	Income             MoneyWith2DecimalPlaces
@@ -71,6 +72,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 	// Parse Ineco XLSX ransactions.
 	var inecoXlsxTransactions []InecoXlsxTransaction
 	var accountDescriptor = ""
+	var accountCurrency = ""
 	var isHeaderRowFound bool
 	var isRegularAccount bool
 	var prevRowString string
@@ -101,7 +103,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			// Due to Ineco XLSX has a lot of columns just concatenate all values into one big string.
 			rowString := mergeCellsToString(cells)
 
-			// Try to find account number first.
+			// Try to find account number and currency first.
 			if len(accountDescriptor) < 1 {
 				var indexOfAccountNumberLabel = strings.Index(rowString, inecoXlsxAccountNumberLabel)
 				if indexOfAccountNumberLabel != -1 {
@@ -109,16 +111,28 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 					accountDescriptor = rowString[indexOfAccountNumberLabel+len(inecoXlsxAccountNumberLabel):]
 				}
 			}
+			if len(accountCurrency) < 1 {
+				var indexOfAccountCurrencyLabel = strings.Index(rowString, inecoXlsxAccountCurrencyLabel)
+				if indexOfAccountCurrencyLabel != -1 {
+					accountCurrency = rowString[indexOfAccountCurrencyLabel+len(inecoXlsxAccountCurrencyLabel):]
+				}
+			}
 
 			// Check if this row is header row.
 			isHeaderRowFound = strings.HasPrefix(rowString, inecoXlsxHeadersBeforeTransactions)
 			if isHeaderRowFound {
 
-				// Check if account number is found.
+				// Check if account number and currenct are found.
 				if len(accountDescriptor) < 1 {
 					return nil, fmt.Errorf(
-						"%s: failed to parse account number label '%s' after transactions header is found in %d row",
+						"%s: failed to parse account number under label '%s' after transactions header is found in %d row",
 						filePath, inecoXlsxAccountNumberLabel, i,
+					)
+				}
+				if len(accountCurrency) < 1 {
+					return nil, fmt.Errorf(
+						"%s: failed to parse account currency under label '%s' after transactions header is found in %d row",
+						filePath, inecoXlsxAccountCurrencyLabel, i,
 					)
 				}
 
@@ -163,7 +177,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 		// Parse other fields of transaction depending on type of XLSX.
 		var transaction InecoXlsxTransaction
 		if isRegularAccount {
-			amountOrgCur, err := parseAmount(i, cells, 1, "amount in original currency")
+			amountOrigCur, err := parseAmount(i, cells, 1, "amount in original currency")
 			if err != nil {
 				return nil, err
 			}
@@ -182,7 +196,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 
 			transaction = InecoXlsxTransaction{
 				Date:            date,
-				Amount:          amountOrgCur,
+				AmountOrigCur:   amountOrigCur,
 				Currency:        cells[3].String(),
 				Income:          amountIn,
 				Expense:         amountOut,
@@ -195,7 +209,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse 'date when applied' from 6th cell of %d row: %w", i, err)
 			}
-			amountOrgCur, err := parseAmount(i, cells, 1, "amount in original currency")
+			amountOrigCur, err := parseAmount(i, cells, 1, "amount in original currency")
 			if err != nil {
 				return nil, err
 			}
@@ -214,7 +228,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 
 			transaction = InecoXlsxTransaction{
 				Date:            date,
-				Amount:          amountOrgCur,
+				AmountOrigCur:   amountOrigCur,
 				Currency:        cells[3].String(),
 				Income:          amountIn,
 				Expense:         amountOut,
@@ -232,23 +246,25 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 		isExpense := t.Income.int <= 0
 		// Assume is expense.
 		from := accountDescriptor
-		to := "" // Ineco XLSX doesn't have receiver information.
-		amount := -t.Expense.int
+		to := "UnknownAccount" // Ineco XLSX doesn't have receiver information.
+		accountAmount := -t.Expense.int
 		// If is income then change values.
 		if !isExpense {
-			amount = t.Income.int
-			from = "" // Ineco XLSX doesn't have payer information.
+			accountAmount = t.Income.int
+			from = "UnknownAccount" // Ineco XLSX doesn't have payer information.
 			to = accountDescriptor
 		}
 		transactions = append(transactions, Transaction{
-			IsExpense:   isExpense,
-			Date:        t.Date,
-			Details:     t.Details,
-			Amount:      MoneyWith2DecimalPlaces{amount},
-			Source:      filePath,
-			Currency:    t.Currency,
-			FromAccount: from,
-			ToAccount:   to,
+			IsExpense:            isExpense,
+			Date:                 t.Date,
+			Details:              t.Details,
+			Amount:               MoneyWith2DecimalPlaces{accountAmount},
+			OriginCurrency:       t.Currency,
+			OriginCurrencyAmount: MoneyWith2DecimalPlaces{t.AmountOrigCur.int},
+			Source:               filePath,
+			AccountCurrency:      accountCurrency,
+			FromAccount:          from,
+			ToAccount:            to,
 		})
 	}
 	return transactions, nil
@@ -265,7 +281,10 @@ func mergeCellsToString(cells []*xlsx.Cell) string {
 func parseAmount(rowIndex int, cells []*xlsx.Cell, cellIndex int, name string) (MoneyWith2DecimalPlaces, error) {
 	var result MoneyWith2DecimalPlaces
 	if err := result.UnmarshalFromExcelCell(cells[cellIndex]); err != nil {
-		return result, fmt.Errorf("failed to parse amount from %d cell of %d row: %w", rowIndex+1, cellIndex+1, err)
+		return result, fmt.Errorf(
+			"failed to parse amount as '%s' from %d cell of %d row: %w",
+			name, rowIndex+1, cellIndex+1, err,
+		)
 	}
 	return result, nil
 }

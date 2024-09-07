@@ -14,7 +14,7 @@ type Args struct {
 	ConfigPath           string `arg:"positional" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
 	DontOpenFile         bool   `arg:"-n" help:"Flag to don't open result file in OS at the end, only print in STDOUT."`
 	DontBuildBeanconFile bool   `arg:"--no-beancount" help:"Flag to don't build Beancount file."`
-	DontBuildTextReport    bool   `arg:"--no-txt-report" help:"Flag to don't build TXT file report."`
+	DontBuildTextReport  bool   `arg:"--no-txt-report" help:"Flag to don't build TXT file report."`
 }
 
 type FileParser interface {
@@ -235,7 +235,7 @@ func parseTransactionFiles(glog string, parser FileParser) ([]Transaction, strin
 	result := make([]Transaction, 0)
 	notFatalError := ""
 	for _, file := range files {
-		log.Printf("Parsing '%s' with %v parser.", file, parser)
+		log.Printf("Parsing '%s' with %+v parser.", file, parser)
 		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
 		if err != nil {
 			notFatalError = fmt.Sprintf("Can't parse transactions from '%s' file: %#v", file, err)
