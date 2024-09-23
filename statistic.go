@@ -169,6 +169,7 @@ func (s GroupExtractorByDetailsSubstrings) HandleTransaction(trans Transaction) 
 	}
 
 	// Try to find user-defined group in configuration and add transaction to it.
+	// It is O(nm) operation, we may do better with Trie of runes but it wonn't worth complexity+effort.
 	found := false
 	for substring, groupName := range s.substringsToGroupName {
 		if strings.Contains(trans.Details, substring) {

@@ -10,6 +10,7 @@ import (
 func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 	validFileRegularPath := filepath.Join("testdata", "ineco", "valid_regular.xlsx")
 	validFileCardPath := filepath.Join("testdata", "ineco", "valid_card.xlsx")
+
 	tests := []struct {
 		name           string
 		fileName       string
@@ -26,6 +27,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.June, 3, 0, 0, 0, 0, time.UTC),
 					Details:              "Միջբանկային փոխանցում",
+					SourceType:           "InecoExcelAMD",
 					Source:               validFileRegularPath,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 400000},
@@ -38,6 +40,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.June, 7, 0, 0, 0, 0, time.UTC),
 					Details:              "Փոխանցում իմ հաշիվների միջև, Account replenishment, InecoOnline, 07/06/2023 11:38:58",
+					SourceType:           "InecoExcelAMD",
 					Source:               validFileRegularPath,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 7800010},
@@ -57,6 +60,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.June, 5, 0, 0, 0, 0, time.UTC),
 					Details:              "Անկանխիկ գործարք - WILDBERRIES - YEREVAN",
+					SourceType:           "InecoExcelAMD",
 					Source:               validFileCardPath,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 35000},
@@ -69,6 +73,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.June, 1, 0, 0, 0, 0, time.UTC),
 					Details:              "Անկանխիկ գործարք – CLOUD",
+					SourceType:           "InecoExcelAMD",
 					Source:               validFileCardPath,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 784},
@@ -81,6 +86,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.June, 7, 0, 0, 0, 0, time.UTC),
 					Details:              "Գումարի ետ վերադարձ քարտապանին",
+					SourceType:           "InecoExcelAMD",
 					Source:               validFileCardPath,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 99999999999},

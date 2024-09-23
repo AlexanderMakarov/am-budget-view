@@ -24,6 +24,18 @@ var (
 		"Remitter/Beneficiary",
 		"Details",
 	}
+	csvHeadersWithAmd = []string{
+		"Date",
+		"Transaction Type",
+		"Doc.No.",
+		"Account",
+		"Credit",
+		"Credit(AMD)",
+		"Debit",
+		"Debit(AMD)",
+		"Remitter/Beneficiary",
+		"Details",
+	}
 )
 
 type AmeriaBusinessTransaction struct {
@@ -32,7 +44,9 @@ type AmeriaBusinessTransaction struct {
 	DocNo               string
 	Account             string
 	Credit              MoneyWith2DecimalPlaces
+	CreditAmd           MoneyWith2DecimalPlaces
 	Debit               MoneyWith2DecimalPlaces
+	DebitAmd            MoneyWith2DecimalPlaces
 	RemitterBeneficiary string
 	Details             string
 }
@@ -89,13 +103,29 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		header[0] = strings.TrimPrefix(header[0], "\ufeff")
 	}
 
-	// Validate header
-	for i, h := range csvHeaders {
-		if strings.TrimSpace(strings.Trim(header[i], `"`)) != h {
-			return nil, fmt.Errorf("unexpected header: got %s, want %s", header[i], h)
+	// Validate header. Check if CSV contains extra AMD columns.
+	headerStr := rowCellsToString(header)
+	csvHeadersStr := strings.Join(csvHeaders, "")
+	csvHeadersWithAmdStr := strings.Join(csvHeadersWithAmd, "")
+	withAmd := headerStr == csvHeadersWithAmdStr
+	if !withAmd {
+		if headerStr != csvHeadersStr {
+			return nil, fmt.Errorf("unexpected header: %s", headerStr)
 		}
 	}
 
+	// Decide which columns to use for credit and debit.
+	// If currency is not set or is AMD, use AMD columns (if available).
+	creditIndex := 4
+	debitIndex := 5
+	remitterBeneficiaryIndex := 6
+	detailsIndex := 7
+	if withAmd && (p.Currency == "" || p.Currency == "AMD") {
+		creditIndex = 5
+		debitIndex = 7
+		remitterBeneficiaryIndex = 8
+		detailsIndex = 9
+	}
 	// Parse transactions
 	var csvTransactions []AmeriaBusinessTransaction
 	for {
@@ -109,18 +139,23 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			record[i] = strings.Trim(record[i], `"`)
 		}
 
+		// Skip transactions with empty "Details" field.
+		if record[detailsIndex] == "" {
+			continue
+		}
+
 		// Parse date
 		date, err := time.Parse(AmeriaBusinessDateFormat, record[0])
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse date: %w", err)
 		}
 
-		// Parse credit and debit
+		// Parse credit and debit. Parse from AMD columns if possible.
 		var credit, debit MoneyWith2DecimalPlaces
-		if err := credit.UnmarshalText([]byte(record[4])); err != nil {
+		if err := credit.UnmarshalText([]byte(record[creditIndex])); err != nil {
 			return nil, fmt.Errorf("failed to parse credit %v: %w", record, err)
 		}
-		if err := debit.UnmarshalText([]byte(record[5])); err != nil {
+		if err := debit.UnmarshalText([]byte(record[debitIndex])); err != nil {
 			return nil, fmt.Errorf("failed to parse debit from %v: %w", record, err)
 		}
 
@@ -131,8 +166,8 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			Account:             record[3],
 			Credit:              credit,
 			Debit:               debit,
-			RemitterBeneficiary: record[6],
-			Details:             record[7],
+			RemitterBeneficiary: record[remitterBeneficiaryIndex],
+			Details:             record[detailsIndex],
 		}
 		csvTransactions = append(csvTransactions, transaction)
 	}
@@ -161,6 +196,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			IsExpense:       isExpense,
 			Date:            t.Date,
 			Details:         t.Details,
+			SourceType:      "AmeriaCsv" + p.Currency,
 			Source:          filePath,
 			Amount:          amount,
 			AccountCurrency: p.Currency, // The same, from settings.
@@ -170,4 +206,11 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	}
 
 	return transactions, nil
+}
+
+func rowCellsToString(rowCells []string) string {
+	for i, cell := range rowCells {
+		rowCells[i] = strings.TrimSpace(strings.Trim(cell, `"`))
+	}
+	return strings.Join(rowCells, "")
 }

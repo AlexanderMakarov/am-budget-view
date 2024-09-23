@@ -7,7 +7,7 @@ import (
 )
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *testing.T) {
-	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, err := AmeriaCsvFileParser{"AMD"}.ParseRawTransactionsFromFile(
 		"testdata/ameria/not_existing_path.csv",
 	)
 	if !strings.Contains(err.Error(), "failed to open file") {
@@ -17,9 +17,8 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *tes
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing.T) {
 	filePath := "testdata/ameria/with_bom_header.csv"
-	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
-		filePath,
-	)
+	sourceType := "AmeriaCsvAMD"
+	transactions, err := AmeriaCsvFileParser{"AMD"}.ParseRawTransactionsFromFile(filePath)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -30,8 +29,9 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 			Date:            time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
 			Details:         "Ք: SOME TEXT",
 			Amount:          MoneyWith2DecimalPlaces{int: 55000},
+			SourceType:      sourceType,
 			Source:          filePath,
-			AccountCurrency: "",
+			AccountCurrency: "AMD",
 			FromAccount:     "AccountFromtestdataameriawithbomheadercsv",
 			ToAccount:       "1234567890123456",
 		},
@@ -40,8 +40,9 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 			Date:            time.Date(2024, time.May, 17, 0, 0, 0, 0, time.UTC),
 			Details:         "Ք: Քարտից քարտ փոխանցում\\",
 			Amount:          MoneyWith2DecimalPlaces{int: 20000000},
+			SourceType:      sourceType,
 			Source:          filePath,
-			AccountCurrency: "",
+			AccountCurrency: "AMD",
 			FromAccount:     "9999999999999999",
 			ToAccount:       "AccountFromtestdataameriawithbomheadercsv",
 		},
@@ -57,7 +58,7 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidHeader(t *testing.T) {
 
 	// Act
-	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, err := AmeriaCsvFileParser{"AMD"}.ParseRawTransactionsFromFile(
 		"testdata/ameria/invalid_header.csv",
 	)
 

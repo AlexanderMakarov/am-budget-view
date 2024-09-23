@@ -35,7 +35,9 @@ type Transaction struct {
 	Details string
 	// Amount in account currency.
 	Amount MoneyWith2DecimalPlaces
-	// Source name, usually file path.
+	// SourceType is a type of the source of the transaction. No spaces.
+	SourceType string
+	// Source identified, usually file path.
 	Source string
 
 	// Extra fields for Beancount. May be empty - depends on source.

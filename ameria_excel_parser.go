@@ -143,10 +143,11 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 			}
 		}
 		transactions[i] = Transaction{
-			IsExpense: isExpense,
-			Date:      t.Date,
-			Details:   t.Details,
-			Source:    filePath,
+			IsExpense:  isExpense,
+			Date:       t.Date,
+			Details:    t.Details,
+			SourceType: "MyAmeriaExcel",
+			Source:     filePath,
 			// Ameria XLS files show only original currency amount.
 			OriginCurrency:       t.Currency,
 			OriginCurrencyAmount: t.Amount,

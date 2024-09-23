@@ -125,6 +125,7 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 			Details:   t.Details,
 			// Ineco XML shows amounts only in account currency.
 			Amount:          MoneyWith2DecimalPlaces{amount},
+			SourceType:      "InecoXml" + t.Currency,
 			Source:          filePath,
 			AccountCurrency: t.Currency,
 			FromAccount:     from,

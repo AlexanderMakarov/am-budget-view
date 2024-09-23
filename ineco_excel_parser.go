@@ -261,6 +261,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			Amount:               MoneyWith2DecimalPlaces{accountAmount},
 			OriginCurrency:       t.Currency,
 			OriginCurrencyAmount: MoneyWith2DecimalPlaces{t.AmountOrigCur.int},
+			SourceType:           "InecoExcel" + accountCurrency,
 			Source:               filePath,
 			AccountCurrency:      accountCurrency,
 			FromAccount:          from,

@@ -20,6 +20,7 @@ type Config struct {
 	MyAmeriaMyAccounts              []string            `yaml:"myAmeriaMyAccounts,omitempty"`
 	MyAmeriaIncomeSubstrings        []string            `yaml:"myAmeriaIncomeSubstrings,omitempty"`
 	DetailedOutput                  bool                `yaml:"detailedOutput"`
+	CategorizeMode                  bool                `yaml:"categorizeMode"`
 	MonthStartDayNumber             uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
 	TimeZoneLocation                string              `yaml:"timeZoneLocation,omitempty" validate:"timezone"`
 	GroupAllUnknownTransactions     bool                `yaml:"groupAllUnknownTransactions"`

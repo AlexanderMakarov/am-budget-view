@@ -41,11 +41,25 @@ See example (numbers are made up, sum may not match):
 Some banks provide similar dashboards on their websites, but they can't assign good categories suitable for everyone.
 This application allows you to configure it for your personal set of groups and ways to assign transactions to the specific group.
 
-List of supported banks and file extensions:
-- Inecobank XML files (downloaded per-account from https://online.inecobank.am/vcAccount/List, click on account, icon it right bottom corner)
-- Inecobank Excel/xlsx files (Inecobank sends them in emails with password protection)
-- MyAmeria Excel/xls files (downloaded from https://myameria.am/events)
-- AmeriaBank for Businesses CSV files (downloaded per-account from https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Transactions, icon at right top corner)
+## List of supported banks, file formats and relevant notes
+- Inecobank XML (.xml) or Excel (.xls) files downloaded per-account from https://online.inecobank.am/vcAccount/List
+  (click on account, choose dates range, icon to download in right bottom corner).
+  Supports all features of native to this app and for Beancount.
+- Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
+  Don't have Reciever/Payer account number so resulting Beancount report won't be full.
+  To allow app use such files need to unprotect them (
+  [MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
+  [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
+- MyAmeria History Excel (.xls) files downloaded from https://myameria.am/events
+  Page doesn't work for now (September 2024). TBD
+- AmeriaBank for Businesses CSV (.csv) files downloaded per-account from
+  https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Transactions,
+  "Export to CSV" icon is placed at right top corner.
+  Doesn't contain (at least externally referenceable) Reciever/Payer account numbers so
+  resulting Beancount report won't be full.
+- MyAmeria Account Statements Excel (.xls) dowloaded from pages like
+  https://myameria.am/cards-and-accounts/account-statement/****** - not supported yet
+  (introduced recently).
 
 To add new bank support please provide file with transactions (in private, because it may contain sensitive information)
 and instructions on how to get this file in your bank application.
@@ -92,23 +106,29 @@ It would explain how to work with multiple configuration files and see informati
 
 # Use with Beancount and Fava UI
 
-On each run application would generate [Beancount](https://github.com/beancount/beancount) file
+Application may generate [Beancount](https://github.com/beancount/beancount) file
 which then may be used with [Fava UI](https://github.com/beancount/fava).
-Actually Beancount report contains more data than usual TXT report, it allows to track currencies.
+Beancount report contains more data than usual TXT report, it allows to do full double-entry accounting.
+But Fava UI is an accounting tool, therefore hard to understand for those who don't have
+solid accounting knowledge.
 
 First of all need to install Fava UI (built in Python) with something like `pip3 install fava`.
 
 After getting log like `Built Beancount file 'Bank Aggregated Statement.beancount' with 1818 transactions.`
-command (in console) like `fava Bank\ Aggregated\ Statement.beancount` will print
-`Starting Fava on http://127.0.0.1:5000` - open this link in browser and it will show
+run in console `fava Bank\ Aggregated\ Statement.beancount` which should print
+`Starting Fava on http://127.0.0.1:5000` - open this link in browser and it would show
 graphs and other accounting visualization, financial statistic about your transactions.
+If run am-budget-view one more time (for example with corrected configuration) then
+Fava UI would catch up changes without restart.
 
 # Limitations
 
-- Application does not support currencies handling.
-  Therefore if you are handling transactions/statements from multiple accounts then make sure that they have the same currency.
-- Application does not support a way to group/assign transactions in a different way for different accounts.
-  So your configuration should handle both. See `ignoreSubstrings` parameter description to handle some edge cases.
+- Application does not support currencies handling in simple TXT report.
+  Therefore if you are handling transactions/statements from multiple accounts then make sure that they have the same currency. Or use Beancount report and Fava UI.
+- Application does not support a way to categorize transactions in a different way for different accounts.
+  So your configuration should handle both. Use `ignoreSubstrings` parameter to handle edge cases but
+  be aware that such "skipped" transactions affect output numbers!
+  Beancount report is not affected by `ignoreSubstrings` parameter.
 
 # Contributions
 
@@ -142,6 +162,7 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
       InecoBank doesn't allow to download data older than 2 years.
 - [x] Rename repo to don't be tied to Inecobank.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
+- [ ] Create default configuration file of first start.
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) More tests coverage.
 - [x] (?) Build translator to https://github.com/beancount/beancount

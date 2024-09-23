@@ -135,6 +135,15 @@ func main() {
 	}
 	log.Printf("Total found %d transactions.", len(transactions))
 
+	// Show uncategorized transactions if in "CategorizeMode".
+	if config.CategorizeMode {
+		err := PrintUncategorizedTransactions(transactions, config)
+		if err != nil {
+			log.Fatalf("Can't check for uncategorized transactions: %#v", err)
+		}
+		return
+	}
+
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
 		transLen, err := buildBeanconFile(transactions, config, resultBeancountFilePath)
