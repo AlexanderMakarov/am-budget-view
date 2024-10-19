@@ -28,7 +28,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.April, 20, 0, 0, 0, 0, time.UTC),
 					Details:              "ԱԱՀ այդ թվում` 16.67%",
-					SourceType:           "MyAmeriaExcel",
+					SourceType:           "MyAmeriaExcel:AMD",
 					Source:               validFilePath,
 					AccountCurrency:      "",
 					OriginCurrency:       "AMD",
@@ -40,7 +40,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.April, 21, 0, 0, 0, 0, time.UTC),
 					Details:              "Payment for services",
-					SourceType:           "MyAmeriaExcel",
+					SourceType:           "MyAmeriaExcel:USD",
 					Source:               validFilePath,
 					AccountCurrency:      "",
 					OriginCurrency:       "USD",
@@ -52,7 +52,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.April, 22, 0, 0, 0, 0, time.UTC),
 					Details:              "Transfer to myself",
-					SourceType:           "MyAmeriaExcel",
+					SourceType:           "MyAmeriaExcel:USD",
 					Source:               validFilePath,
 					AccountCurrency:      "",
 					OriginCurrency:       "USD",
@@ -64,7 +64,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.April, 19, 0, 0, 0, 0, time.UTC),
 					Details:              "Բանկի ձևանմուշից տարբերվող տեղեկա",
-					SourceType:           "MyAmeriaExcel",
+					SourceType:           "MyAmeriaExcel:AMD",
 					Source:               validFilePath,
 					AccountCurrency:      "",
 					OriginCurrency:       "AMD",
@@ -98,78 +98,20 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			wantErr:        false,
 			expectedResult: []Transaction{},
 		},
-		{
-			name:          "valid_file-check_by_details",
-			filePath:      validFilePath,
-			myAccounts:    []string{},
-			detailsIncome: []string{"Transfer to myself"},
-			wantErr:       false,
-			expectedResult: []Transaction{
-				{
-					IsExpense:            true,
-					Date:                 time.Date(2024, time.April, 20, 0, 0, 0, 0, time.UTC),
-					Details:              "ԱԱՀ այդ թվում` 16.67%",
-					SourceType:           "MyAmeriaExcel",
-					Source:               validFilePath,
-					AccountCurrency:      "",
-					OriginCurrency:       "AMD",
-					OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 10010},
-					FromAccount:          "1234567890123456",
-					ToAccount:            "9999999999999999",
-				},
-				{
-					IsExpense:            true,
-					Date:                 time.Date(2024, time.April, 21, 0, 0, 0, 0, time.UTC),
-					Details:              "Payment for services",
-					SourceType:           "MyAmeriaExcel",
-					Source:               validFilePath,
-					AccountCurrency:      "",
-					OriginCurrency:       "USD",
-					OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 50010},
-					FromAccount:          "1234567890123456",
-					ToAccount:            "9999999999999999",
-				},
-				{
-					IsExpense:            false,
-					Date:                 time.Date(2024, time.April, 22, 0, 0, 0, 0, time.UTC),
-					Details:              "Transfer to myself",
-					SourceType:           "MyAmeriaExcel",
-					Source:               validFilePath,
-					AccountCurrency:      "",
-					OriginCurrency:       "USD",
-					OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 100000},
-					FromAccount:          "9999999999999999",
-					ToAccount:            "1234567890123456",
-				},
-				{
-					IsExpense:            true,
-					Date:                 time.Date(2024, time.April, 19, 0, 0, 0, 0, time.UTC),
-					Details:              "Բանկի ձևանմուշից տարբերվող տեղեկա",
-					SourceType:           "MyAmeriaExcel",
-					Source:               validFilePath,
-					AccountCurrency:      "",
-					OriginCurrency:       "AMD",
-					OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 99999999999},
-					FromAccount:          "9999999999999999",
-					ToAccount:            "1234567890123456",
-				},
-			},
-			//add tests with "(AMD)" columns
-		},
+		//add tests with "(AMD)" columns
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := MyAmeriaExcelFileParser{
-				MyAccounts:              tt.myAccounts,
-				DetailsIncomeSubstrings: tt.detailsIncome,
+				MyAccounts: tt.myAccounts,
 			}
 			actual, err := parser.ParseRawTransactionsFromFile(tt.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseRawTransactionsFromFile() error = %+v, wantErr %+v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(actual, tt.expectedResult) {
-				t.Errorf("ParseRawTransactionsFromFile() = %+v, want %+v", actual, tt.expectedResult)
+				t.Errorf("ParseRawTransactionsFromFile() actual=%+v, expected=%+v", actual, tt.expectedResult)
 			}
 		})
 	}

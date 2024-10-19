@@ -36,9 +36,13 @@ import (
 
 const beancountOutputTimeFormat = "2006-01-02"
 
-type AccountFromTo struct {
+type AccountFromTransactions struct {
+	// SourceType is a source type of the account copied from Transaction.SourceType.
 	SourceType string
-	From, To time.Time
+	From       time.Time
+	To         time.Time
+	// Name is a valid beancount account full name if is my own account or an empty string.
+	Name string
 }
 
 func (m MoneyWith2DecimalPlaces) StringNoIndent() string {
@@ -76,8 +80,8 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 
 	// First iterate all transactions to:
 	// 1) validate currencies (transaction may have 1 or 2 currencies),
-	// 2) find all accounts and on which timespan it was used
-	accounts := make(map[string]AccountFromTo)
+	// 2) find all accounts, detemine its type, timespan
+	accounts := make(map[string]*AccountFromTransactions)
 	currencies := make(map[string]struct{})
 	for _, t := range transactions {
 		// Check account currency.
@@ -111,8 +115,7 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 				t, t.Source,
 			)
 		}
-		updateAccounts(accounts, t.ToAccount, t.SourceType, t.Date, t.IsExpense)
-		updateAccounts(accounts, t.FromAccount, t.SourceType, t.Date, t.IsExpense)
+		updateAccounts(accounts, t)
 	}
 
 	// Create accounts.beancount file.
@@ -133,16 +136,20 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 	}
 	fmt.Fprintln(file, "")
 
-	// Dump "open accounts".
+	// Check all found accounts and dump "open accounts" for my own accounts.
 	fmt.Fprintln(file, ";; Open accounts")
-	for account, fromTo := range accounts {
-		fmt.Fprintf(
-			file,
-			"%s open Income:%s:%s\n",
-			fromTo.From.Format(beancountOutputTimeFormat),
-			fromTo.SourceType,
-			account,
-		)
+	for nn, account := range accounts {
+		if account.SourceType == "" {
+			account.Name = ""
+		} else {
+			account.Name = fmt.Sprintf("Assets:%s:%s", account.SourceType, nn)
+			fmt.Fprintf(
+				file,
+				"%s open %s\n",
+				account.From.Format(beancountOutputTimeFormat),
+				account.Name,
+			)
+		}
 	}
 	fmt.Fprintln(file, "")
 
@@ -157,7 +164,7 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 			}
 		}
 
-		// Find category.
+		// Try to find category.
 		var category *string = nil
 		for substring, groupName := range substringsToGroupName {
 			if strings.Contains(t.Details, substring) {
@@ -200,18 +207,24 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 			isOriginCurAmount = false
 		}
 		if t.IsExpense {
-			source := fmt.Sprintf("Assets:%s:%s", t.SourceType, t.FromAccount)
-			destination := fmt.Sprintf("Expenses:%s", *category)
-			// Check destination account is my own account.
-			if accountData, ok := accounts[t.ToAccount]; ok {
-				if accountData.SourceType != "" {
-					destination = fmt.Sprintf("Assets:%s:%s", accountData.SourceType, t.ToAccount)
-				}
+			source := ""
+			if account, ok := accounts[t.FromAccount]; ok {
+				source = account.Name
+			} else {
+				// Expense from unknown account should not happen.
+				return 0, fmt.Errorf("source account '%s' not found", t.FromAccount)
+			}
+			destination := ""
+			if account, ok := accounts[t.ToAccount]; ok {
+				destination = account.Name
+			}
+			// If account wasn't found or doesn't have a name then it is an expense to unknown account.
+			if len(destination) == 0 {
+				destination = fmt.Sprintf("Expenses:%s:%s", t.ToAccount, *category)
 			}
 			if isAccountAmount && isOriginCurAmount {
-				// Assets:SourceType:AccountNumber  -100 USD @@ 40000 AMD
-				// DESTINATION                       100 USD @@ 40000 AMD
-				// (where DESTINATION is Expenses:Category or Assets:SourceType:AccountNumber)
+				// SOURCE        -100 USD @@ 40000 AMD
+				// DESTINATION  100 USD @@ 40000 AMD
 				sb.WriteString(
 					fmt.Sprintf("  %s    -%s %s @@ %s %s\n",
 						source,
@@ -268,20 +281,26 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 				)
 			}
 		} else { // Income
-			source := fmt.Sprintf("Income:%s", t.FromAccount)
-			// Check source account is my own account.
-			if accountData, ok := accounts[t.FromAccount]; ok {
-				if accountData.SourceType != "" {
-					source = fmt.Sprintf("Assets:%s:%s", accountData.SourceType, t.FromAccount)
-				}
+			source := ""
+			if account, ok := accounts[t.FromAccount]; ok {
+				source = account.Name
 			}
-			destination := fmt.Sprintf("Assets:%s:%s", t.SourceType, t.ToAccount)
+			// If account wasn't found or doesn't have a name then it is an income from unknown account.
+			if len(source) == 0 {
+				source = fmt.Sprintf("Income:%s:%s", t.FromAccount, *category)
+			}
+			destination := ""
+			if account, ok := accounts[t.ToAccount]; ok {
+				destination = account.Name
+			} else {
+				// Income to unknown account should not happen.
+				return 0, fmt.Errorf("destination account '%s' not found", t.ToAccount)
+			}
 			if isAccountAmount && isOriginCurAmount {
-				// SOURCE                            100 USD @@ 40000 AMD
-				// Assets:SourceType:AccountNumber  -100 USD @@ 40000 AMD
-				// (where SOURCE is Income:ForeignAccount or Assets:SourceType:AccountNumber)
+				// SOURCE       -100 USD @@ 40000 AMD
+				// DESTINATION  100 USD @@ 40000 AMD
 				sb.WriteString(
-					fmt.Sprintf("  %s    %s %s @@ %s %s\n",
+					fmt.Sprintf("  %s    -%s %s @@ %s %s\n",
 						source,
 						t.Amount.StringNoIndent(),
 						t.AccountCurrency,
@@ -290,7 +309,7 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 					),
 				)
 				sb.WriteString(
-					fmt.Sprintf("  %s    -%s %s @@ %s %s\n",
+					fmt.Sprintf("  %s    %s %s @@ %s %s\n",
 						destination,
 						t.Amount.StringNoIndent(),
 						t.AccountCurrency,
@@ -300,14 +319,14 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 				)
 			} else if isAccountAmount {
 				sb.WriteString(
-					fmt.Sprintf("  %s    %s %s\n",
+					fmt.Sprintf("  %s    -%s %s\n",
 						source,
 						t.Amount.StringNoIndent(),
 						t.AccountCurrency,
 					),
 				)
 				sb.WriteString(
-					fmt.Sprintf("  %s    -%s %s\n",
+					fmt.Sprintf("  %s    %s %s\n",
 						destination,
 						t.Amount.StringNoIndent(),
 						t.AccountCurrency,
@@ -316,14 +335,14 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 
 			} else if isOriginCurAmount {
 				sb.WriteString(
-					fmt.Sprintf("  %s    %s %s\n",
+					fmt.Sprintf("  %s    -%s %s\n",
 						source,
 						t.OriginCurrencyAmount.StringNoIndent(),
 						t.OriginCurrency,
 					),
 				)
 				sb.WriteString(
-					fmt.Sprintf("  %s    -%s %s\n",
+					fmt.Sprintf("  %s    %s %s\n",
 						destination,
 						t.OriginCurrencyAmount.StringNoIndent(),
 						t.OriginCurrency,
@@ -342,19 +361,47 @@ func buildBeanconFile(transactions []Transaction, config *Config, outputFileName
 	return len(transactions), nil
 }
 
-func updateAccounts(accounts map[string]AccountFromTo, account string, sourceType string, date time.Time, isExpense bool) {
-	if len(account) > 0 {
-		if fromTo, ok := accounts[account]; !ok {
-			accounts[account] = AccountFromTo{
-				From: date,
-				To:   date,
+// updateAccounts checks transaction to find my own accounts, theirs names and timespan of usage.
+func updateAccounts(accounts map[string]*AccountFromTransactions, t Transaction) {
+	// First handle destination account.
+	if len(t.ToAccount) > 0 {
+		if account, ok := accounts[t.ToAccount]; !ok {
+			sourceType := ""
+			// Income transaction's "ToAccount" is my own account.
+			if !t.IsExpense && len(t.SourceType) > 0 {
+				sourceType = t.SourceType
+			}
+			accounts[t.ToAccount] = &AccountFromTransactions{
 				SourceType: sourceType,
+				From:       t.Date,
+				To:         t.Date,
 			}
 		} else {
-			if isExpense {
-				fromTo.To = date
-			} else {
-				fromTo.From = date
+			// Expect transactions are sorted by date.
+			account.To = t.Date
+			if !t.IsExpense && len(t.SourceType) > 0 {
+				account.SourceType = t.SourceType
+			}
+		}
+	}
+	// Next handle source account.
+	if len(t.FromAccount) > 0 {
+		if account, ok := accounts[t.FromAccount]; !ok {
+			sourceType := ""
+			// Expense transaction's "FromAccount" is my own account.
+			if t.IsExpense && len(t.SourceType) > 0 {
+				sourceType = t.SourceType
+			}
+			accounts[t.FromAccount] = &AccountFromTransactions{
+				SourceType: sourceType,
+				From:       t.Date,
+				To:         t.Date,
+			}
+		} else {
+			// Expect transactions are sorted by date.
+			account.To = t.Date
+			if t.IsExpense && len(t.SourceType) > 0 {
+				account.SourceType = t.SourceType
 			}
 		}
 	}

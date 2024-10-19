@@ -7,7 +7,7 @@ import (
 )
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *testing.T) {
-	_, err := AmeriaCsvFileParser{"AMD"}.ParseRawTransactionsFromFile(
+	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/ameria/not_existing_path.csv",
 	)
 	if !strings.Contains(err.Error(), "failed to open file") {
@@ -17,24 +17,13 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *tes
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing.T) {
 	filePath := "testdata/ameria/with_bom_header.csv"
-	sourceType := "AmeriaCsvAMD"
-	transactions, err := AmeriaCsvFileParser{"AMD"}.ParseRawTransactionsFromFile(filePath)
+	sourceType := "AmeriaCsv:AMD"
+	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	expectedTransactions := []Transaction{
-		{
-			IsExpense:       true,
-			Date:            time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
-			Details:         "Ք: SOME TEXT",
-			Amount:          MoneyWith2DecimalPlaces{int: 55000},
-			SourceType:      sourceType,
-			Source:          filePath,
-			AccountCurrency: "AMD",
-			FromAccount:     "AccountFromtestdataameriawithbomheadercsv",
-			ToAccount:       "1234567890123456",
-		},
 		{
 			IsExpense:       false,
 			Date:            time.Date(2024, time.May, 17, 0, 0, 0, 0, time.UTC),
@@ -43,8 +32,19 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 			SourceType:      sourceType,
 			Source:          filePath,
 			AccountCurrency: "AMD",
+			FromAccount:     "1234567890123456",
+			ToAccount:       "9999999999999999",
+		},
+		{
+			IsExpense:       true,
+			Date:            time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
+			Details:         "Ք: SOME TEXT",
+			Amount:          MoneyWith2DecimalPlaces{int: 55000},
+			SourceType:      sourceType,
+			Source:          filePath,
+			AccountCurrency: "AMD",
 			FromAccount:     "9999999999999999",
-			ToAccount:       "AccountFromtestdataameriawithbomheadercsv",
+			ToAccount:       "123456",
 		},
 	}
 
@@ -58,14 +58,14 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidHeader(t *testing.T) {
 
 	// Act
-	_, err := AmeriaCsvFileParser{"AMD"}.ParseRawTransactionsFromFile(
+	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/ameria/invalid_header.csv",
 	)
 
 	// Assert
 	if err == nil {
 		t.Errorf("expected an error for invalid header, but got none")
-	} else if !strings.Contains(err.Error(), "unexpected header") {
+	} else if !strings.Contains(err.Error(), "failed to read line 14: EOF") {
 		t.Errorf("expected 'unexpected header' error, but got: %v", err)
 	}
 }

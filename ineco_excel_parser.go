@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,19 +27,6 @@ var (
 	inecoXlsxHeadersBeforeTransactions = "ԱմսաթիվԳումարԱրժույթՄուտքԵլք"
 )
 
-func (m *MoneyWith2DecimalPlaces) UnmarshalFromExcelCell(cell *xlsx.Cell) error {
-	if len(cell.Value) < 1 {
-		return nil
-	}
-	sanitizedText := strings.Replace(string(cell.Value), ",", "", -1)
-	floatVal, err := strconv.ParseFloat(sanitizedText, 64)
-	if err != nil {
-		return err
-	}
-	m.int = int(floatVal * 100)
-	return nil
-}
-
 type InecoXlsxTransaction struct {
 	Date               time.Time
 	AmountOrigCur      MoneyWith2DecimalPlaces
@@ -56,9 +42,7 @@ type InecoXlsxTransaction struct {
 type InecoExcelFileParser struct {
 }
 
-func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
-	filePath string,
-) ([]Transaction, error) {
+func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]Transaction, error) {
 	f, err := xlsx.OpenFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -71,7 +55,8 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 
 	// Parse Ineco XLSX ransactions.
 	var inecoXlsxTransactions []InecoXlsxTransaction
-	var accountDescriptor = ""
+	var accountNumber = ""
+	var sourceType = ""
 	var accountCurrency = ""
 	var isHeaderRowFound bool
 	var isRegularAccount bool
@@ -95,8 +80,8 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			// i.e. 5 columns only, unique headers are placed in the row below.
 			if i > giveUpFindHeaderInInecoExcelAfterRows {
 				return nil, fmt.Errorf(
-					"%s: after scanning %d rows can't find headers %v",
-					filePath, i, inecoXlsxHeadersBeforeTransactions,
+					"after scanning %d rows can't find headers %v",
+					i, inecoXlsxHeadersBeforeTransactions,
 				)
 			}
 
@@ -104,11 +89,12 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			rowString := mergeCellsToString(cells)
 
 			// Try to find account number and currency first.
-			if len(accountDescriptor) < 1 {
+			if len(accountNumber) < 1 {
 				var indexOfAccountNumberLabel = strings.Index(rowString, inecoXlsxAccountNumberLabel)
 				if indexOfAccountNumberLabel != -1 {
-					// Note that descriptor will be updated later.
-					accountDescriptor = rowString[indexOfAccountNumberLabel+len(inecoXlsxAccountNumberLabel):]
+					accountNumber = rowString[indexOfAccountNumberLabel+len(inecoXlsxAccountNumberLabel):]
+					// Remove all "-" characters in the account number.
+					accountNumber = strings.ReplaceAll(accountNumber, "-", "")
 				}
 			}
 			if len(accountCurrency) < 1 {
@@ -123,31 +109,31 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			if isHeaderRowFound {
 
 				// Check if account number and currenct are found.
-				if len(accountDescriptor) < 1 {
+				if len(accountNumber) < 1 {
 					return nil, fmt.Errorf(
-						"%s: failed to parse account number under label '%s' after transactions header is found in %d row",
-						filePath, inecoXlsxAccountNumberLabel, i,
+						"failed to parse account number under label '%s' after transactions header is found in %d row",
+						inecoXlsxAccountNumberLabel, i,
 					)
 				}
 				if len(accountCurrency) < 1 {
 					return nil, fmt.Errorf(
-						"%s: failed to parse account currency under label '%s' after transactions header is found in %d row",
-						filePath, inecoXlsxAccountCurrencyLabel, i,
+						"failed to parse account currency under label '%s' after transactions header is found in %d row",
+						inecoXlsxAccountCurrencyLabel, i,
 					)
 				}
 
 				// Check which XLSX type is by previousRow.
 				if strings.HasPrefix(prevRowString, inecoXlsxRegularAccountHeaders) {
 					isRegularAccount = true
-					accountDescriptor = "Regular:" + accountDescriptor
+					sourceType = fmt.Sprintf("InecoExcelRegular:%s", accountCurrency)
 				} else if strings.HasPrefix(prevRowString, inecoXlsxCardAccountHeaders) {
 					isRegularAccount = false
-					accountDescriptor = "Card:" + accountDescriptor
+					sourceType = fmt.Sprintf("InecoExcelCard:%s", accountCurrency)
 				} else {
 					return nil, fmt.Errorf(
-						"%s: after scanning %d rows and locating '%s' headers"+
+						"after scanning %d rows and locating '%s' headers"+
 							" can't find either '%s' or '%s' headers (got only '%s') to understand which XLSX type it is",
-						filePath, i, inecoXlsxHeadersBeforeTransactions, inecoXlsxRegularAccountHeaders, inecoXlsxCardAccountHeaders, prevRowString,
+						i, inecoXlsxHeadersBeforeTransactions, inecoXlsxRegularAccountHeaders, inecoXlsxCardAccountHeaders, prevRowString,
 					)
 				}
 
@@ -179,19 +165,19 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 		if isRegularAccount {
 			amountOrigCur, err := parseAmount(i, cells, 1, "amount in original currency")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 			amountIn, err := parseAmount(i, cells, 5, "income amount")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 			amountOut, err := parseAmount(i, cells, 6, "expense amount")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 			rate, err := parseAmount(i, cells, 7, "rate")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 
 			transaction = InecoXlsxTransaction{
@@ -211,19 +197,19 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			}
 			amountOrigCur, err := parseAmount(i, cells, 1, "amount in original currency")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 			amountIn, err := parseAmount(i, cells, 5, "income amount")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 			amountOut, err := parseAmount(i, cells, 6, "expense amount")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 			rate, err := parseAmount(i, cells, 7, "rate")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w", err)
 			}
 
 			transaction = InecoXlsxTransaction{
@@ -245,14 +231,14 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 	for _, t := range inecoXlsxTransactions {
 		isExpense := t.Income.int <= 0
 		// Assume is expense.
-		from := accountDescriptor
+		from := accountNumber
 		to := "UnknownAccount" // Ineco XLSX doesn't have receiver information.
 		accountAmount := -t.Expense.int
 		// If is income then change values.
 		if !isExpense {
 			accountAmount = t.Income.int
 			from = "UnknownAccount" // Ineco XLSX doesn't have payer information.
-			to = accountDescriptor
+			to = accountNumber
 		}
 		transactions = append(transactions, Transaction{
 			IsExpense:            isExpense,
@@ -261,7 +247,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(
 			Amount:               MoneyWith2DecimalPlaces{accountAmount},
 			OriginCurrency:       t.Currency,
 			OriginCurrencyAmount: MoneyWith2DecimalPlaces{t.AmountOrigCur.int},
-			SourceType:           "InecoExcel" + accountCurrency,
+			SourceType:           sourceType,
 			Source:               filePath,
 			AccountCurrency:      accountCurrency,
 			FromAccount:          from,

@@ -32,7 +32,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v5
         with:
-          go-version: '^1.20.6'
+          go-version: '^1.22.6'
 
       - name: Get dependencies
         run: go get -v -t -d
@@ -109,7 +109,7 @@ jobs:
           cat ${GITHUB_ENV} || true
 
       - name: Upload Binaries and Release data to artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: data
           # Note that each job "thread" would write it's own files here.
@@ -125,7 +125,7 @@ jobs:
     steps:
 
       - name: Download Info Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: data
 
@@ -140,7 +140,7 @@ jobs:
           echo "version=$(cat version.txt)" >> $GITHUB_ENV
 
       - name: Make Release in repo
-        uses: ncipollo/release-action@v3
+        uses: ncipollo/release-action@v1
         with:
           name: ${{ env.version }}
           bodyFile: "body.log"

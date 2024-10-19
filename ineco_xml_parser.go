@@ -78,21 +78,21 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 	// Open XML file.
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error opening '%s' file: %w", filePath, err)
+		return nil, fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	// Read the file content
 	xmlData, err := io.ReadAll(file)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file: %v", err)
+		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
 	// Unmarshal XML.
 	var stmt Statement
 	err = xml.Unmarshal(xmlData, &stmt)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling XML: %v", err)
+		return nil, fmt.Errorf("error unmarshalling XML: %w", err)
 	}
 
 	// Validate that all fields are set.
@@ -100,9 +100,10 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 	for i, operation := range stmt.Operations.Transactions {
 		err = validate.Struct(operation)
 		if err != nil {
-			return nil, fmt.Errorf("error in %d transaction in '%s': %v", i+1, filePath, err)
+			return nil, fmt.Errorf("error in %d transaction: %w", i+1, err)
 		}
 	}
+	sourceType := fmt.Sprintf("InecoXml:%s", stmt.Currency)
 
 	// Conver Inecobank rows to unified transactions.
 	transactions := make([]Transaction, 0, len(stmt.Operations.Transactions))
@@ -125,7 +126,7 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 			Details:   t.Details,
 			// Ineco XML shows amounts only in account currency.
 			Amount:          MoneyWith2DecimalPlaces{amount},
-			SourceType:      "InecoXml" + t.Currency,
+			SourceType:      sourceType,
 			Source:          filePath,
 			AccountCurrency: t.Currency,
 			FromAccount:     from,

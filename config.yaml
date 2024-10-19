@@ -4,25 +4,22 @@ inecobankStatementXmlFilesGlob: "Statement*.xml"
 # Write "glob" template to your Inecobank "statement" XLSX (Excel) files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 inecobankStatementXlsxFilesGlob: "statement*.xlsx"
-# Write "glob" template to your Ameriabank Business "AccountTransactions" CSV files.
+# Write "glob" template to your MyAmeria "Statement" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-ameriaCsvFilesGlob: "AccountTransactions*.csv"
-# Specify currency used in Ameriabank CSV files (absent in files).
-ameriaCsvFilesCurrency: "AMD"
+myAmeriaAccountStatementXlsxFilesGlob: "* account statement *.xls"
+# Write "glob" template to your Ameriabank Business "AccountStatement" CSV files.
+# Glob supports wildcard "star" (*) which replaces any substring in the path.
+ameriaCsvFilesGlob: "AccountStatement*.csv"
 # Write "glob" template to your MyAmeria "History" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 myAmeriaHistoryXlsFilesGlob: "History *.xls"
 # Due to MyAmeria "History" files doesn't provide "is expense or income" information
-# need to specify how to separate transactions. Supported 2 ways:
-# 1. (preferable) specify your account(s) number (16 digits number) and all transactions
-#    with "Beneficiary account" from this list would be treated as an income.
+# need to specify your account(s) number (16 digits number) and all transactions
+# with "Beneficiary account" from this list would be treated as an income.
 myAmeriaMyAccounts:
-# 2. (unreliable) specify substrings to search in "Details" of transactions
-#     and if they found then such transaction would be treated as an income.
-myAmeriaIncomeSubstrings:
-  - "Transfer to myself"
-  - "Account replenishment"
-  - "Cash deposit"
+  - "1111111111111111"
+# Flag to print details for all uncategorized transactions. Skips any other actions.
+categorizeMode: false
 # Flag to output all information about the result.
 detailedOutput: true
 # Flag to aggregate all transactions with "Details" not matched with "substrings"

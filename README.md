@@ -42,27 +42,53 @@ Some banks provide similar dashboards on their websites, but they can't assign g
 This application allows you to configure it for your personal set of groups and ways to assign transactions to the specific group.
 
 ## List of supported banks, file formats and relevant notes
-- Inecobank XML (.xml) or Excel (.xls) files downloaded per-account from https://online.inecobank.am/vcAccount/List
+- [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (click on account, choose dates range, icon to download in right bottom corner).
-  Supports all features of native to this app and for Beancount.
-- Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
+  Supports all features native to app and Beancount reports.
+  In `config.yaml` is referenced by `inecobankStatementXmlFilesGlob` setting.
+  Parsed by [ineco_xml_parser.go](/ineco_xml_parser.go).
+- [NONE] Inecobank Excel (.xls) files downloaded per-account from https://online.inecobank.am/vcAccount/List
+  (the same place as XML above) - ARE NOT SUPPORTED because XML downloaded from the same place
+  is more light and predictable format for parsing.
+- [PARTIAL] Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
   Don't have Reciever/Payer account number so resulting Beancount report won't be full.
-  To allow app use such files need to unprotect them (
+  To allow app use such files need to unprotect them first (
   [MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
   [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
-- MyAmeria History Excel (.xls) files downloaded from https://myameria.am/events
-  Page doesn't work for now (September 2024). TBD
-- AmeriaBank for Businesses CSV (.csv) files downloaded per-account from
-  https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Transactions,
-  "Export to CSV" icon is placed at right top corner.
-  Doesn't contain (at least externally referenceable) Reciever/Payer account numbers so
-  resulting Beancount report won't be full.
-- MyAmeria Account Statements Excel (.xls) dowloaded from pages like
-  https://myameria.am/cards-and-accounts/account-statement/****** - not supported yet
-  (introduced recently).
+  In `config.yaml` is referenced by `inecobankStatementXlsxFilesGlob` setting.
+  Parsed by [ineco_excel_parser.go](/ineco_excel_parser.go).
+- [FULL] AmeriaBank for Businesses CSV (.CSV) files downloaded per-account from
+  https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Statement,
+  chose period (for custom use "FromDate" and "To" date pickers),
+  set "Show equivalent in AMD" checkbox, press "Export to CSV" icon is placed at right top corner.
+  Supports all features native to app and Beancount reports.
+  In `config.yaml` is referenced by `ameriaCsvFilesGlob` setting.
+  Parsed by [ameria_csv_parser.go](/ameria_csv_parser.go).
+- [NONE] AmeriaBank for Businesses XML (.XML) files downloaded per-account from
+  https://online.ameriabank.am/InternetBank/MainForm.wgx
+  (the same place as CSV above) - ARE NOT SUPPORTED
+  XML files from "Transactions" don't contain its own Reciever/Payer account number and currency.
+- [FULL] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
+  https://myameria.am/cards-and-accounts/account-statement/******
+  From the web site choose Cards and Accounts -> Current account -> Statement,
+  here select period (last option usually), if available the set "In AMD" (under "Show also"),
+  choose "Excel" format, press "Download". Almost the same in mobile app.
+  Default file name "<account_number> account statement.xls".
+  Supports all features native to app and Beancount reports.
+  In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
+  Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
+- [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/events
+  Page doesn't work on the bank's web site and mobile app for now (September 2024)
+  but is supported for previously downloaded reports.
+  In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
+  Note that it should be accompanied by `myAmeriaMyAccounts` setting because files
+  don't have account number or by `myAmeriaIncomeSubstrings` setting
+  to at least distinguish incomes from expenses in the file.
+  Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
 
-To add new bank support please provide file with transactions (in private, because it may contain sensitive information)
-and instructions on how to get this file in your bank application.
+To add new bank support please provide file with transactions (in private or with obfuscsated data,
+because it contains sensitive information) downloaded from bank application
+and instructions how you got this file.
 
 # JUST FOR INECOBANK XML - How to use
 

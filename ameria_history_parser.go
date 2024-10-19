@@ -9,7 +9,7 @@ import (
 	"github.com/tealeg/xlsx"
 )
 
-const MyAmeriaDateFormat = "02/01/2006"
+const MyAmeriaHistoryDateFormat = "02/01/2006"
 const giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells = 15
 
 var (
@@ -43,8 +43,7 @@ type MyAmeriaTransaction struct {
 }
 
 type MyAmeriaExcelFileParser struct {
-	MyAccounts              []string
-	DetailsIncomeSubstrings []string
+	MyAccounts []string
 }
 
 func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
@@ -66,18 +65,17 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	for i, row := range firstSheet.Rows {
 		cells := row.Cells
 		if len(cells) < len(xlsxHeaders) {
-			return nil,
-				fmt.Errorf(
-					"%s: %d row has only %d cells while need to find information for headers %v",
-					filePath, i, len(cells), xlsxHeaders,
-				)
+			return nil, fmt.Errorf(
+				"%d row has only %d cells while need to find information for headers %v",
+				i, len(cells), xlsxHeaders,
+			)
 		}
 		// Find header row.
 		if !isHeaderRowFound {
 			if i > giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells {
 				return nil, fmt.Errorf(
-					"%s: after scanning %d rows can't find headers %v",
-					filePath, i, xlsxHeaders,
+					"after scanning %d rows can't find headers %v",
+					i, xlsxHeaders,
 				)
 			}
 			var isCellMatches = true
@@ -101,7 +99,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		}
 
 		// Parse date and amount.
-		date, err := time.Parse(MyAmeriaDateFormat, cells[0].String())
+		date, err := time.Parse(MyAmeriaHistoryDateFormat, cells[0].String())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
 		}
@@ -134,19 +132,13 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 			if slices.Contains(p.MyAccounts, t.BeneficiaryAccount) {
 				isExpense = false
 			}
-		} else if len(p.DetailsIncomeSubstrings) > 0 {
-			for _, substring := range p.DetailsIncomeSubstrings {
-				if strings.Contains(t.Details, substring) {
-					isExpense = false
-					break
-				}
-			}
 		}
 		transactions[i] = Transaction{
-			IsExpense:  isExpense,
-			Date:       t.Date,
-			Details:    t.Details,
-			SourceType: "MyAmeriaExcel",
+			IsExpense: isExpense,
+			Date:      t.Date,
+			Details:   t.Details,
+			// Currency is different for each transaction.
+			SourceType: fmt.Sprintf("MyAmeriaExcel:%s", t.Currency),
 			Source:     filePath,
 			// Ameria XLS files show only original currency amount.
 			OriginCurrency:       t.Currency,

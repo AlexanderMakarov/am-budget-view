@@ -6,42 +6,42 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 )
 
 const AmeriaBusinessDateFormat = "02/01/2006"
+const giveUpFindHeaderInAmeriaCsvAfterNoHeaderLines = 20
 
 var (
 	csvHeaders = []string{
 		"Date",
-		"Transaction Type",
 		"Doc.No.",
+		"Type",
 		"Account",
-		"Credit",
-		"Debit",
-		"Remitter/Beneficiary",
 		"Details",
+		"Debit",
+		"Credit",
+		"Remitter/Beneficiary",
 	}
 	csvHeadersWithAmd = []string{
 		"Date",
-		"Transaction Type",
 		"Doc.No.",
+		"Type",
 		"Account",
-		"Credit",
-		"Credit(AMD)",
-		"Debit",
-		"Debit(AMD)",
-		"Remitter/Beneficiary",
 		"Details",
+		"Debit",
+		"Credit",
+		"Remitter/Beneficiary",
+		"Debit(AMD)",
+		"Credit(AMD)",
 	}
 )
 
 type AmeriaBusinessTransaction struct {
 	Date                time.Time
-	TransactionType     string
 	DocNo               string
+	TransactionType     string
 	Account             string
 	Credit              MoneyWith2DecimalPlaces
 	CreditAmd           MoneyWith2DecimalPlaces
@@ -52,16 +52,6 @@ type AmeriaBusinessTransaction struct {
 }
 
 type AmeriaCsvFileParser struct {
-	Currency string
-}
-
-func NormilazeAccountName(input string) string {
-	reg, err := regexp.Compile("[^a-zA-Z0-9-]+")
-	if err != nil {
-		panic(err)
-	}
-	processedString := reg.ReplaceAllString(input, "")
-	return processedString
 }
 
 func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
@@ -73,8 +63,8 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	}
 	defer file.Close()
 
-	// Due to file doesn't have Account information use file name.
-	accountNamePlaceholder := fmt.Sprintf("AccountFrom%s", NormilazeAccountName(file.Name()))
+	// Initialize variables for currency and account number
+	var currency, accountNumber string
 
 	// Read the file into a byte slice
 	fileData, err := io.ReadAll(file)
@@ -89,49 +79,68 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	}
 
 	reader := csv.NewReader(bytes.NewReader(utf8Data))
-	reader.Comma = '\t'      // Assuming the CSV is tab-delimited
-	reader.LazyQuotes = true // Allow the reader to handle bare quotes
+	reader.Comma = '\t'         // Assuming the CSV is tab-delimited
+	reader.LazyQuotes = true    // Allow the reader to handle bare quotes
+	reader.FieldsPerRecord = -1 // Allow a variable number of fields per record
 
-	// Read the header row
-	header, err := reader.Read()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read header: %w", err)
+	// Search for account, currency and header.
+	csvHeadersStr := strings.Join(csvHeaders, "")
+	csvHeadersWithAmdStr := strings.Join(csvHeadersWithAmd, "")
+	var headerFound bool
+	var header []string
+	for i := 0; i < giveUpFindHeaderInAmeriaCsvAfterNoHeaderLines && !headerFound; i++ {
+		record, err := reader.Read()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read line %d: %w", i, err)
+		}
+
+		// Check for currency and account number in the initial lines
+		if len(currency) < 1 && strings.Contains(record[0], "Currency") {
+			currency = record[3]
+			continue
+		}
+		if len(accountNumber) < 1 && strings.Contains(record[0], "Account No.") {
+			accountNumber = record[3]
+			continue
+		}
+
+		// Check if the current row is a header row
+		currentRowStr := rowCellsToString(record)
+		if currentRowStr == csvHeadersStr || currentRowStr == csvHeadersWithAmdStr {
+			header = record
+			headerFound = true
+		}
 	}
 
-	// Strip BOM from the first header field if present
-	if len(header) > 0 && strings.HasPrefix(header[0], "\ufeff") {
-		header[0] = strings.TrimPrefix(header[0], "\ufeff")
+	if !headerFound || len(currency) < 1 || len(accountNumber) < 1 {
+		return nil, fmt.Errorf(
+			"header/currency/account not found after scanning %d lines",
+			giveUpFindHeaderInAmeriaCsvAfterNoHeaderLines,
+		)
 	}
 
 	// Validate header. Check if CSV contains extra AMD columns.
 	headerStr := rowCellsToString(header)
-	csvHeadersStr := strings.Join(csvHeaders, "")
-	csvHeadersWithAmdStr := strings.Join(csvHeadersWithAmd, "")
 	withAmd := headerStr == csvHeadersWithAmdStr
 	if !withAmd {
 		if headerStr != csvHeadersStr {
 			return nil, fmt.Errorf("unexpected header: %s", headerStr)
 		}
 	}
+	transactionLength := len(header)
 
-	// Decide which columns to use for credit and debit.
-	// If currency is not set or is AMD, use AMD columns (if available).
-	creditIndex := 4
-	debitIndex := 5
-	remitterBeneficiaryIndex := 6
-	detailsIndex := 7
-	if withAmd && (p.Currency == "" || p.Currency == "AMD") {
-		creditIndex = 5
-		debitIndex = 7
-		remitterBeneficiaryIndex = 8
-		detailsIndex = 9
-	}
 	// Parse transactions
 	var csvTransactions []AmeriaBusinessTransaction
 	for {
 		record, err := reader.Read()
+		if err == io.EOF {
+			return nil, fmt.Errorf("wrong file format - EOF reached before empty line and 'Days count': %w", err)
+		}
 		if err != nil {
-			break
+			return nil, fmt.Errorf("error reading record: %w", err)
+		}
+		if len(record) < transactionLength {
+			break // Not a transaction row, stop processing.
 		}
 
 		// Strip quotes from each field
@@ -139,8 +148,9 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			record[i] = strings.Trim(record[i], `"`)
 		}
 
-		// Skip transactions with empty "Details" field.
-		if record[detailsIndex] == "" {
+		// Skip transactions with empty "Details" field - these are adjustments for not-AMD accounts.
+		// I.e. for not-AMD accounts there are transactions without "Details" but with some AMD amounts and Type=RVL.
+		if record[4] == "" {
 			continue
 		}
 
@@ -150,27 +160,50 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			return nil, fmt.Errorf("failed to parse date: %w", err)
 		}
 
-		// Parse credit and debit. Parse from AMD columns if possible.
+		// Parse credit and debit.
+		// Ameria converts everything to AMD. And takes fees for transactions.
+		// Therefore transactions for not AMD accounts may have Type=MSC rows
+		// where Credit=0, Debit=0, but Debit(AMD) is non-zero - fees for transaction.
+		// Real transaction with both Debit!=0 and Debit(AMD)!=0 goes below with Type=CEX.
 		var credit, debit MoneyWith2DecimalPlaces
-		if err := credit.UnmarshalText([]byte(record[creditIndex])); err != nil {
+		if err := credit.UnmarshalText([]byte(record[6])); err != nil {
 			return nil, fmt.Errorf("failed to parse credit %v: %w", record, err)
 		}
-		if err := debit.UnmarshalText([]byte(record[debitIndex])); err != nil {
+		if err := debit.UnmarshalText([]byte(record[5])); err != nil {
 			return nil, fmt.Errorf("failed to parse debit from %v: %w", record, err)
+		}
+
+		// Skip no-amount rows - these are Type=CEX adjustments for not-AMD accounts.
+		if credit.int == 0 && debit.int == 0 {
+			continue
 		}
 
 		transaction := AmeriaBusinessTransaction{
 			Date:                date,
-			TransactionType:     record[1],
-			DocNo:               record[2],
+			DocNo:               record[1],
+			TransactionType:     record[2],
 			Account:             record[3],
-			Credit:              credit,
 			Debit:               debit,
-			RemitterBeneficiary: record[remitterBeneficiaryIndex],
-			Details:             record[detailsIndex],
+			Credit:              credit,
+			RemitterBeneficiary: record[7],
+			Details:             record[4],
+		}
+		// If currency is not AMD then use credit and debit in AMD amounts.
+		if currency != "AMD" {
+			var creditAmd, debitAmd MoneyWith2DecimalPlaces
+			if err := debitAmd.UnmarshalText([]byte(record[8])); err != nil {
+				return nil, fmt.Errorf("failed to parse debit(AMD) %v: %w", record, err)
+			}
+			transaction.DebitAmd = debitAmd
+			if err := creditAmd.UnmarshalText([]byte(record[9])); err != nil {
+				return nil, fmt.Errorf("failed to parse credit(AMD) %v: %w", record, err)
+			}
+			transaction.CreditAmd = creditAmd
 		}
 		csvTransactions = append(csvTransactions, transaction)
 	}
+
+	sourceType := fmt.Sprintf("AmeriaCsv:%s", currency)
 
 	// Convert CSV rows to unified transactions and separate expenses from incomes.
 	transactions := make([]Transaction, len(csvTransactions))
@@ -178,15 +211,14 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		// By-default is expense.
 		isExpense := true
 		amount := t.Debit
-		var from string = accountNamePlaceholder
+		var from string = accountNumber
 		var to string = t.Account
 		// If debit is empty then it is income.
 		if amount.int == 0 {
 			isExpense = false
 			amount = t.Credit
-			// "Account" field always contain foreign account.
 			from = t.Account
-			to = accountNamePlaceholder
+			to = accountNumber
 		}
 		// Eventually check that transaction is not empty.
 		if amount.int == 0 {
@@ -196,12 +228,21 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			IsExpense:       isExpense,
 			Date:            t.Date,
 			Details:         t.Details,
-			SourceType:      "AmeriaCsv" + p.Currency,
+			SourceType:      sourceType,
 			Source:          filePath,
 			Amount:          amount,
-			AccountCurrency: p.Currency, // The same, from settings.
+			AccountCurrency: currency,
 			FromAccount:     from,
 			ToAccount:       to,
+		}
+		// If there is AMD amount then treat it as an "original currency" amount.
+		if t.CreditAmd.int > 0 || t.DebitAmd.int > 0 {
+			transactions[i].OriginCurrency = "AMD"
+			if isExpense {
+				transactions[i].OriginCurrencyAmount = t.DebitAmd
+			} else {
+				transactions[i].OriginCurrencyAmount = t.CreditAmd
+			}
 		}
 	}
 
@@ -211,6 +252,10 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 func rowCellsToString(rowCells []string) string {
 	for i, cell := range rowCells {
 		rowCells[i] = strings.TrimSpace(strings.Trim(cell, `"`))
+	}
+	// Strip BOM prefix from the first cell if cell is present.
+	if len(rowCells) > 0 {
+		rowCells[0] = strings.TrimPrefix(rowCells[0], "\ufeff")
 	}
 	return strings.Join(rowCells, "")
 }

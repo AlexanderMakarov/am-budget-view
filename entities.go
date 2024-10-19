@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tealeg/xlsx"
 )
 
 // MoneyWith2DecimalPlaces is a wrapper to parse money from "1,500.00" or "1,500" to 150000.
@@ -11,15 +13,28 @@ type MoneyWith2DecimalPlaces struct {
 	int
 }
 
-// UnmarshalText removes commas and parses string as float.
-func (m *MoneyWith2DecimalPlaces) UnmarshalText(text []byte) error {
-	sanitizedText := strings.Replace(string(text), ",", "", -1)
+// ParseString removes commas and parses string as float.
+func (m *MoneyWith2DecimalPlaces) ParseString(s string) error {
+	sanitizedText := strings.Replace(s, ",", "", -1)
 	floatVal, err := strconv.ParseFloat(sanitizedText, 64)
 	if err != nil {
 		return err
 	}
 	m.int = int(floatVal * 100)
 	return nil
+}
+
+// UnmarshalText removes commas and parses string as float.
+func (m *MoneyWith2DecimalPlaces) UnmarshalText(text []byte) error {
+	return m.ParseString(string(text))
+}
+
+// UnmarshalFromExcelCell removes commas and parses cell's string value as float.
+func (m *MoneyWith2DecimalPlaces) UnmarshalFromExcelCell(cell *xlsx.Cell) error {
+	if len(cell.Value) < 1 {
+		return nil
+	}
+	return m.ParseString(cell.Value)
 }
 
 // OutputDateFormat format for data in outputs.
@@ -37,7 +52,7 @@ type Transaction struct {
 	Amount MoneyWith2DecimalPlaces
 	// SourceType is a type of the source of the transaction. No spaces.
 	SourceType string
-	// Source identified, usually file path.
+	// Source identifier, usually file path.
 	Source string
 
 	// Extra fields for Beancount. May be empty - depends on source.
@@ -52,6 +67,13 @@ type Transaction struct {
 	FromAccount string
 	// ToAccount is an account which receives the transaction, amount is increasing here.
 	ToAccount string
+}
+
+type FileParser interface {
+	// ParseRawTransactionsFromFile parses raw/unified transactions
+	// from the specified by path file.
+	// Returns list of parsed transactions and account number on success or error if can't parse.
+	ParseRawTransactionsFromFile(filePath string) ([]Transaction, error)
 }
 
 // Group is a struct representing a group of transactions.
