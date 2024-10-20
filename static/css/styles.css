@@ -1,0 +1,36 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.chart {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.chart-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.chart-row .chart {
+    width: 48%;
+}
+
+#expensesVsIncome, #monthlyExpenses {
+    height: 400px;
+}
+
+#totalExpenses, #totalIncome {
+    height: 300px;
+}

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Title }}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ .Title }}</h1>
+        <div id="expensesVsIncome" class="chart"></div>
+        <div class="chart-row">
+            <div id="totalExpenses" class="chart"></div>
+            <div id="totalIncome" class="chart"></div>
+        </div>
+        <div id="monthlyExpenses" class="chart"></div>
+    </div>
+    <script src="/static/js/charts.js"></script>
+</body>
+</html>

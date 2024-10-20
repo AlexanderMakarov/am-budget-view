@@ -4,15 +4,23 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/alexflint/go-arg"
 )
 
+const resultFilePath = "Bank Aggregated Statement.txt"
+const resultBeancountFilePath = "Bank Aggregated Statement.beancount"
+const OPEN_MODE_NONE = "none"
+const OPEN_MODE_WEB = "web"
+const OPEN_MODE_FILE = "file"
+
 type Args struct {
-	ConfigPath           string `arg:"positional" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
-	DontOpenFile         bool   `arg:"-n" help:"Flag to don't open result file in OS at the end, only print in STDOUT."`
+	ConfigPath           string `arg:"positional" default:"config.yaml" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
+	ResultMode           string `arg:"-o" default:"web" help:"Specify how to open the result: 'none' for print into STDOUT only, 'web' for web server to see in browser, 'file' for opening result file in OS." enum:"none,web,file"`
 	DontBuildBeanconFile bool   `arg:"--no-beancount" help:"Flag to don't build Beancount file."`
 	DontBuildTextReport  bool   `arg:"--no-txt-report" help:"Flag to don't build TXT file report."`
 }
@@ -20,25 +28,48 @@ type Args struct {
 // Version is application version string and should be updated with `go build -ldflags`.
 var Version = "development"
 
-const resultFilePath = "Bank Aggregated Statement.txt"
-const resultBeancountFilePath = "Bank Aggregated Statement.beancount"
+func (Args) Version() string {
+	return Version
+}
+
+func (Args) Description() string {
+	return "AM-Budget-View is a local tool to investigate your expenses and incomes by bank transactions."
+}
 
 func main() {
 	log.Printf("Version: %s", Version)
-	configPath := "config.yaml"
 
 	// Parse arguments and set configPath.
 	var args Args
-	arg.MustParse(&args)
-	if args.ConfigPath != "" {
-		configPath = args.ConfigPath
+	p, err := arg.NewParser(arg.Config{}, &args)
+	if err != nil {
+		log.Fatalf("Error creating argument parser: %v", err)
 	}
-	configPath, err := getAbsolutePath(configPath)
+
+	err = p.Parse(os.Args[1:])
+	if err != nil {
+		// Check if the error is a help request
+		if err == arg.ErrHelp {
+			p.WriteHelp(os.Stdout)
+			os.Exit(0)
+		}
+		log.Fatalf("Error parsing arguments: %v", err)
+	}
+
+	// Validate ResultMode
+	switch args.ResultMode {
+	case OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE:
+		// Valid modes
+	default:
+		log.Fatalf("Invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE)
+	}
+
+	configPath, err := getAbsolutePath(args.ConfigPath)
 	if err != nil {
 		fatalError(fmt.Errorf("can't find configuration file '%s': %w", configPath, err), true, true)
 	}
 	isWriteToFile := !args.DontBuildTextReport
-	isOpenFileWithResult := !args.DontOpenFile
+	isOpenFileWithResult := args.ResultMode != OPEN_MODE_NONE
 
 	// Parse configuration.
 	config, err := readConfig(configPath)
@@ -166,21 +197,19 @@ func main() {
 		log.Printf("Built Beancount file '%s' with %d transactions.", resultBeancountFilePath, transLen)
 	}
 
+	// Build statistic.
+	statistics, err := BuildMonthlyStatistic(
+		transactions,
+		groupExtractorFactory,
+		config.MonthStartDayNumber,
+		timeZone,
+	)
+	if err != nil {
+		fatalError(fmt.Errorf("can't build statistic: %w", err), isWriteToFile, isOpenFileWithResult)
+	}
+
 	// Produce and show TXT report file if not disabled.
 	if !args.DontBuildTextReport {
-
-		// Build statistic.
-		statistics, err := BuildMonthlyStatistic(
-			transactions,
-			groupExtractorFactory,
-			config.MonthStartDayNumber,
-			timeZone,
-		)
-		if err != nil {
-			fatalError(fmt.Errorf("can't build statistic: %w", err), isWriteToFile, isOpenFileWithResult)
-		}
-
-		// Process received statistics.
 		result := strings.Join(parsingWarnings, "\n")
 		for _, s := range statistics {
 			if config.DetailedOutput {
@@ -210,6 +239,18 @@ func main() {
 		if !args.DontBuildTextReport {
 			writeAndOpenFile(resultFilePath, result, isOpenFileWithResult)
 		}
+	}
+
+	// Start web server if needed.
+	if args.ResultMode == OPEN_MODE_WEB {
+		go func() {
+			time.Sleep(100 * time.Millisecond) // Give the server a moment to start
+			err := openBrowser("http://localhost:8080")
+			if err != nil {
+				log.Printf("Failed to open browser: %v", err)
+			}
+		}()
+		ListenAndServe(statistics)
 	}
 }
 
@@ -279,4 +320,19 @@ func parseTransactionFiles(glog string, parser FileParser) ([]Transaction, strin
 		result = append(result, rawTransactions...)
 	}
 	return result, notFatalError, nil
+}
+
+func openBrowser(url string) error {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
 }
