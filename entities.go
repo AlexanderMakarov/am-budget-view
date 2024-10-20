@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -35,6 +37,28 @@ func (m *MoneyWith2DecimalPlaces) UnmarshalFromExcelCell(cell *xlsx.Cell) error 
 		return nil
 	}
 	return m.ParseString(cell.Value)
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (m MoneyWith2DecimalPlaces) MarshalJSON() ([]byte, error) {
+	intPart := m.int / 100
+	fracPart := m.int % 100
+
+	intStr := strconv.Itoa(intPart)
+	fracStr := fmt.Sprintf("%02d", fracPart)
+
+	// Add thousands separator
+	var parts []string
+	for i := len(intStr); i > 0; i -= 3 {
+		if i-3 > 0 {
+			parts = append([]string{intStr[i-3 : i]}, parts...)
+		} else {
+			parts = append([]string{intStr[:i]}, parts...)
+		}
+	}
+
+	formattedValue := strings.Join(parts, " ") + "." + fracStr
+	return json.Marshal(formattedValue)
 }
 
 // OutputDateFormat format for data in outputs.
@@ -89,4 +113,13 @@ type IntervalStatistic struct {
 	End     time.Time
 	Income  map[string]*Group
 	Expense map[string]*Group
+}
+
+type GroupData struct {
+	Total Money
+	// other fields...
+}
+
+type Money struct {
+	Amount int64 `json:"amount"`
 }

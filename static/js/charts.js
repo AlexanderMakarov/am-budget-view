@@ -1,60 +1,176 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Expenses vs Income Line Chart
+    // Parse the JSON data
+    const data = JSON.parse(document.getElementById('interval-statistics').textContent);
+
+    console.log(data);
+
+    const labels = data.map(stat => stat.Start.substring(0, 7)); // Format: YYYY-MM
+    const incomeData = [];
+    const expenseData = [];
+    const incomeGroups = new Set();
+    const expenseGroups = new Set();
+
+    function parseMoneyString(str) {
+        return parseFloat(str.replace(/\s/g, ''));
+    }
+
+    data.forEach(stat => {
+        let totalIncome = 0;
+        let totalExpense = 0;
+
+        Object.entries(stat.Income).forEach(([group, data]) => {
+            totalIncome += parseMoneyString(data.Total);
+            incomeGroups.add(group);
+        });
+
+        Object.entries(stat.Expense).forEach(([group, data]) => {
+            totalExpense += parseMoneyString(data.Total);
+            expenseGroups.add(group);
+        });
+
+        incomeData.push(totalIncome);
+        expenseData.push(totalExpense);
+    });
+
+    // Expenses vs Income Chart
     const expensesVsIncome = echarts.init(document.getElementById('expensesVsIncome'));
-    expensesVsIncome.setOption({
+    const expensesVsIncomeOption = {
         title: { text: 'Expenses vs Income' },
-        xAxis: { type: 'category', data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] },
-        yAxis: { type: 'value' },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'cross',
+                label: {
+                    backgroundColor: '#6a7985'
+                }
+            }
+        },
+        legend: {
+            data: ['Expenses', 'Income']
+        },
+        toolbox: {
+            feature: {
+                saveAsImage: {},
+                magicType: {
+                    type: ['line', 'bar']
+                },
+                dataView: {}
+            }
+        },
+        xAxis: {
+            type: 'category',
+            data: labels
+        },
+        yAxis: {
+            type: 'value'
+        },
         series: [
-            { name: 'Expenses', type: 'line', data: [1000, 1200, 900, 1500, 1300, 1100] },
-            { name: 'Income', type: 'line', data: [1200, 1300, 1400, 1100, 1600, 1500] }
+            { name: 'Expenses', type: 'line', data: expenseData },
+            { name: 'Income', type: 'line', data: incomeData }
         ]
-    });
+    };
+    expensesVsIncome.setOption(expensesVsIncomeOption);
 
-    // Total Expenses Pie Chart
+    // Total Expenses Bar Chart (previously Pie Chart)
     const totalExpenses = echarts.init(document.getElementById('totalExpenses'));
-    totalExpenses.setOption({
+    const totalExpensesOption = {
         title: { text: 'Total Expenses per Category' },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'shadow'
+            }
+        },
+        legend: {
+            show: false // Hide legend as category names are on y-axis
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Amount'
+        },
+        yAxis: {
+            type: 'category',
+            data: Array.from(expenseGroups)
+        },
         series: [{
-            type: 'pie',
-            data: [
-                { value: 1000, name: 'Housing' },
-                { value: 800, name: 'Food' },
-                { value: 600, name: 'Transport' },
-                { value: 400, name: 'Entertainment' }
-            ]
+            name: 'Expenses',
+            type: 'bar',
+            data: Array.from(expenseGroups).map(group => ({
+                value: data.reduce((sum, stat) => sum + parseMoneyString(stat.Expense[group]?.Total || '0'), 0),
+                name: group
+            }))
         }]
-    });
+    };
+    totalExpenses.setOption(totalExpensesOption);
 
-    // Total Income Pie Chart
+    // Total Income Bar Chart (previously Pie Chart)
     const totalIncome = echarts.init(document.getElementById('totalIncome'));
-    totalIncome.setOption({
+    const totalIncomeOption = {
         title: { text: 'Total Income per Category' },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'shadow'
+            }
+        },
+        legend: {
+            show: false // Hide legend as category names are on y-axis
+        },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Amount'
+        },
+        yAxis: {
+            type: 'category',
+            data: Array.from(incomeGroups)
+        },
         series: [{
-            type: 'pie',
-            data: [
-                { value: 3000, name: 'Salary' },
-                { value: 500, name: 'Investments' },
-                { value: 200, name: 'Side Hustle' }
-            ]
+            name: 'Income',
+            type: 'bar',
+            data: Array.from(incomeGroups).map(group => ({
+                value: data.reduce((sum, stat) => sum + parseMoneyString(stat.Income[group]?.Total || '0'), 0),
+                name: group
+            }))
         }]
-    });
+    };
+    totalIncome.setOption(totalIncomeOption);
 
     // Monthly Expenses Bar Chart
     const monthlyExpenses = echarts.init(document.getElementById('monthlyExpenses'));
-    monthlyExpenses.setOption({
+    const monthlyExpensesOption = {
         title: { text: 'Monthly Expenses per Category' },
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        legend: { data: ['Housing', 'Food', 'Transport', 'Entertainment'] },
-        xAxis: { type: 'category', data: ['Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024'] },
+        legend: { data: Array.from(expenseGroups) },
+        toolbox: {
+            feature: {
+                saveAsImage: {},
+                magicType: {
+                    type: ['line', 'bar', 'stack']
+                },
+                dataView: {}
+            }
+        },
+        xAxis: { type: 'category', data: labels },
         yAxis: { type: 'value' },
-        series: [
-            { name: 'Housing', type: 'bar', data: [500, 520, 510, 530] },
-            { name: 'Food', type: 'bar', data: [400, 420, 410, 430] },
-            { name: 'Transport', type: 'bar', data: [300, 310, 305, 315] },
-            { name: 'Entertainment', type: 'bar', data: [200, 210, 205, 215] }
-        ]
-    });
+        series: Array.from(expenseGroups).map(group => ({
+            name: group,
+            type: 'bar',
+            data: data.map(stat => parseMoneyString(stat.Expense[group]?.Total || '0'))
+        }))
+    };
+    monthlyExpenses.setOption(monthlyExpensesOption);
 
     // Resize charts when window size changes
     window.addEventListener('resize', function() {

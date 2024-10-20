@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -25,53 +26,19 @@ func handleIndex(statistics []*IntervalStatistic) func(w http.ResponseWriter, r 
 			return
 		}
 
-		// Prepare data for the template
-		var labels []string
-		var incomeData []float64
-		var expenseData []float64
-		var incomeGroups []string
-		var expenseGroups []string
-
-		for _, stat := range statistics {
-			labels = append(labels, stat.Start.Format("2006-01"))
-			
-			var totalIncome float64
-			var totalExpense float64
-			
-			for group, data := range stat.Income {
-				totalIncome += float64(data.Total.int) / 100
-				if !contains(incomeGroups, group) {
-					incomeGroups = append(incomeGroups, group)
-				}
-			}
-			
-			for group, data := range stat.Expense {
-				totalExpense += float64(data.Total.int) / 100
-				if !contains(expenseGroups, group) {
-					expenseGroups = append(expenseGroups, group)
-				}
-			}
-			
-			incomeData = append(incomeData, totalIncome)
-			expenseData = append(expenseData, totalExpense)
+		// JSON encode the statistics
+		jsonData, err := json.Marshal(statistics)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		data := struct {
-			Title         string
-			Labels        []string
-			IncomeData    []float64
-			ExpenseData   []float64
-			IncomeGroups  []string
-			ExpenseGroups []string
-			Statistics    []*IntervalStatistic
+			Title      string
+			Statistics template.JS
 		}{
-			Title:         "Expenses vs Income",
-			Labels:        labels,
-			IncomeData:    incomeData,
-			ExpenseData:   expenseData,
-			IncomeGroups:  incomeGroups,
-			ExpenseGroups: expenseGroups,
-			Statistics:    statistics,
+			Title:      "Interval Statistics",
+			Statistics: template.JS(jsonData),
 		}
 
 		err = tmpl.Execute(w, data)
