@@ -69,7 +69,7 @@ func main() {
 		fatalError(fmt.Errorf("can't find configuration file '%s': %w", configPath, err), true, true)
 	}
 	isWriteToFile := !args.DontBuildTextReport
-	isOpenFileWithResult := args.ResultMode != OPEN_MODE_NONE
+	isOpenFileWithResult := args.ResultMode == OPEN_MODE_FILE
 
 	// Parse configuration.
 	config, err := readConfig(configPath)

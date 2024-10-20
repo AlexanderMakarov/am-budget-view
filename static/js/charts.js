@@ -94,6 +94,14 @@ document.addEventListener('DOMContentLoaded', function() {
         legend: {
             show: false // Hide legend as category names are on y-axis
         },
+        toolbox: {
+            show: true,
+            feature: {
+                saveAsImage: {},
+                dataView: {},
+                restore: {}
+            }
+        },
         grid: {
             left: '3%',
             right: '4%',
@@ -118,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
             name: 'Expenses',
             type: 'bar',
             data: Array.from(expenseGroups).map(group => ({
-                value: data.reduce((sum, stat) => sum + parseMoneyString(stat.Expense[group]?.Total || '0'), 0),
+                value: data.reduce((sum, stat) => Number((sum + parseMoneyString(stat.Expense[group]?.Total || '0')).toFixed(2)), 0),
                 name: group
             }))
         }]
@@ -137,6 +145,14 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         legend: {
             show: false // Hide legend as category names are on y-axis
+        },
+        toolbox: {
+            show: true,
+            feature: {
+                saveAsImage: {},
+                dataView: {},
+                restore: {}
+            }
         },
         grid: {
             left: '3%',
@@ -162,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
             name: 'Income',
             type: 'bar',
             data: Array.from(incomeGroups).map(group => ({
-                value: data.reduce((sum, stat) => sum + parseMoneyString(stat.Income[group]?.Total || '0'), 0),
+                value: data.reduce((sum, stat) => Number((sum + parseMoneyString(stat.Income[group]?.Total || '0')).toFixed(2)), 0),
                 name: group
             }))
         }]
