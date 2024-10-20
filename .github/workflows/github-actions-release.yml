@@ -46,9 +46,9 @@ jobs:
 
   # Job to build artifacts only if tag was pushed.
   build:
-    # needs: check_code
+    needs: check_code
     runs-on: ubuntu-latest
-    # if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/')
 
     # Run concurrently for all major OS-es and architectures.
     strategy:
@@ -140,15 +140,11 @@ jobs:
           # Use only one body.log file (they should all be identical)
           cp $(find artifacts -name body.log | head -n 1) body.log
           find artifacts -name "am-budget-view-*" -exec cp {} . \;
-          # TODO remove this after testing.
-          echo "version=${{ env.version }}"
-          cat body.log
-          ls -la am-budget-view-*
 
-      # - name: Make Release in repo
-      #   uses: ncipollo/release-action@v1
-      #   with:
-      #     name: ${{ env.version }}
-      #     bodyFile: "body.log"
-      #     token: ${{ secrets.GHACTIONS_PUBLIC_REPO_RW }} # Note that it is custom PAT which expires.
-      #     artifacts: "am-budget-view-*"
+      - name: Make Release in repo
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ env.version }}
+          bodyFile: "body.log"
+          token: ${{ secrets.GHACTIONS_PUBLIC_REPO_RW }} # Note that it is custom PAT which expires.
+          artifacts: "am-budget-view-*"
