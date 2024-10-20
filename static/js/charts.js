@@ -65,13 +65,23 @@ document.addEventListener('DOMContentLoaded', function() {
             type: 'value'
         },
         series: [
-            { name: 'Expenses', type: 'line', data: expenseData },
-            { name: 'Income', type: 'line', data: incomeData }
+            { 
+                name: 'Expenses', 
+                color: 'red',
+                type: 'line', 
+                data: expenseData,
+            },
+            { 
+                name: 'Income', 
+                color: 'darkgreen',
+                type: 'line', 
+                data: incomeData 
+            }
         ]
     };
     expensesVsIncome.setOption(expensesVsIncomeOption);
 
-    // Total Expenses Bar Chart (previously Pie Chart)
+    // Total Expenses Bar Chart
     const totalExpenses = echarts.init(document.getElementById('totalExpenses'));
     const totalExpensesOption = {
         title: { text: 'Total Expenses per Category' },
@@ -109,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     totalExpenses.setOption(totalExpensesOption);
 
-    // Total Income Bar Chart (previously Pie Chart)
+    // Total Income Bar Chart
     const totalIncome = echarts.init(document.getElementById('totalIncome'));
     const totalIncomeOption = {
         title: { text: 'Total Income per Category' },

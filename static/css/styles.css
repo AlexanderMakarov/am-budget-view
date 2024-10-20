@@ -21,10 +21,13 @@ body {
 .chart-row {
     display: flex;
     justify-content: space-between;
+    gap: 20px; /* Add this line to create horizontal gap */
+    margin-bottom: 20px;
 }
 
 .chart-row .chart {
-    width: 48%;
+    width: calc(50% - 10px); /* Adjust width to account for the gap */
+    margin-bottom: 0; /* Remove bottom margin for charts in the row */
 }
 
 #expensesVsIncome, #monthlyExpenses {
@@ -37,4 +40,25 @@ body {
 
 #monthlyExpenses {
     height: 600px; /* Increased height for better visibility of horizontal bars */
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+h1 {
+    margin: 0;
+}
+
+.github-link {
+    text-decoration: none;
+    color: #0366d6;
+    font-weight: bold;
+}
+
+.github-link:hover {
+    text-decoration: underline;
 }
