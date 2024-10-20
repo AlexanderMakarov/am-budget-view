@@ -6,6 +6,7 @@ on:
   push:
     branches:
     - master
+    - fix_ci
     tags:
     - '*'
 
@@ -45,7 +46,6 @@ jobs:
 
   # Job to build artifacts only if tag was pushed.
   build:
-    needs: check_code
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
