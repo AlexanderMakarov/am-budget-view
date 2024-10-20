@@ -147,16 +147,33 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     totalIncome.setOption(totalIncomeOption);
 
-    // Monthly Expenses Horizontal Stacked Bar Chart
+    // Monthly Expenses Horizontal Stacked Bar Chart (Percentage)
     const monthlyExpenses = echarts.init(document.getElementById('monthlyExpenses'));
     const monthlyExpensesOption = {
-        title: { text: 'Monthly Expenses per Category' },
+        title: {
+            text: 'Monthly Expenses per Category (%)',
+            left: 'center',
+            top: '5%'
+        },
         tooltip: {
             trigger: 'axis',
-            axisPointer: { type: 'shadow' }
+            axisPointer: { type: 'shadow' },
+            formatter: function(params) {
+                const monthData = data.find(d => d.Start.startsWith(params[0].axisValue));
+                let result = `${params[0].axisValue}<br>`;
+                let total = 0;
+                params.forEach(item => {
+                    const value = parseMoneyString(monthData.Expense[item.seriesName]?.Total || '0');
+                    total += value;
+                    result += `${item.marker} ${item.seriesName}: ${value.toFixed(2)}<br>`;
+                });
+                result += `<strong>Total: ${total.toFixed(2)}</strong>`;
+                return result;
+            }
         },
         legend: {
-            data: Array.from(expenseGroups)
+            data: Array.from(expenseGroups),
+            top: '10%'
         },
         toolbox: {
             feature: {
@@ -168,11 +185,13 @@ document.addEventListener('DOMContentLoaded', function() {
             left: '3%',
             right: '4%',
             bottom: '3%',
+            top: '20%',
             containLabel: true
         },
         xAxis: {
             type: 'value',
-            name: 'Amount'
+            name: 'Percentage',
+            max: 100
         },
         yAxis: {
             type: 'category',
@@ -182,7 +201,14 @@ document.addEventListener('DOMContentLoaded', function() {
             name: group,
             type: 'bar',
             stack: 'total',
-            data: data.map(stat => parseMoneyString(stat.Expense[group]?.Total || '0')).reverse()
+            emphasis: {
+                focus: 'series'
+            },
+            data: data.map(stat => {
+                let monthTotal = Object.values(stat.Expense).reduce((sum, expense) => sum + parseMoneyString(expense.Total), 0);
+                let groupValue = parseMoneyString(stat.Expense[group]?.Total || '0');
+                return (groupValue / monthTotal) * 100;
+            }).reverse()
         }))
     };
     monthlyExpenses.setOption(monthlyExpensesOption);
