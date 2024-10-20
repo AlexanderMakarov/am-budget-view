@@ -46,7 +46,9 @@ jobs:
 
   # Job to build artifacts only if tag was pushed.
   build:
+    # needs: check_code
     runs-on: ubuntu-latest
+    # if: startsWith(github.ref, 'refs/tags/')
 
     # Run concurrently for all major OS-es and architectures.
     strategy:
@@ -76,7 +78,12 @@ jobs:
           curtag=${GITHUB_REF_NAME}
           prevtag=`git describe --tags --abbrev=0 HEAD^1`
 
-          git log --format=%B -n 1 > body.log
+          echo "Release: ${curtag}" > body.log
+          echo "" >> body.log
+          # Extract and add the tag message/annotation.
+          git tag -n99 --format='%(contents)' ${curtag} >> body.log
+          echo "" >> body.log
+          echo "Changes since previous release:" >> body.log
           if git tag | grep ${prevtag} ; then
             git log -q ${curtag}...${prevtag} --pretty="- %s" -q --no-color >> body.log
           else
@@ -102,41 +109,37 @@ jobs:
           echo "${{ steps.vars.outputs.version }}" > version.txt
           # Idea here that the last `ls` would overwrite content with all files list.
           ls am-budget-view-*  # For debugging.
-          echo "binaries=$(ls am-budget-view-*)" >> $GITHUB_ENV
+          echo "binaries=$(ls am-budget-view-*)" >> $GITHUB_OUTPUT
           # For debugging.
-          echo "GITHUB_ENV=$GITHUB_ENV"
-          cat ${GITHUB_ENV} || true
+          echo "GITHUB_OUTPUT=$GITHUB_OUTPUT"
+          cat ${GITHUB_OUTPUT} || true
 
       - name: Upload Binaries and Release data to artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: data
-          # Note that each job "thread" would write it's own files here.
+          name: data-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             version.txt
             body.log
-            ${{ env.binaries }}
+            ${{ steps.save_info.outputs.binaries }}
 
   # Job to prepare artifacts only if they were built.
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-
       - name: Download Info Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: data
+          path: artifacts
 
       - name: Read Version and Binaries
         run: |
-          # Print what we have in the result.
-          ls -la
-          echo "--- version.txt ---"
-          cat version.txt
-          echo "--- body.log ---"
-          cat body.log
-          echo "version=$(cat version.txt)" >> $GITHUB_ENV
+          ls -R artifacts
+          echo "version=$(cat artifacts/*/version.txt | head -n 1)" >> $GITHUB_ENV
+          # Use only one body.log file (they should all be identical)
+          cp $(find artifacts -name body.log | head -n 1) body.log
+          find artifacts -name "am-budget-view-*" -exec cp {} . \;
 
       - name: Make Release in repo
         uses: ncipollo/release-action@v1
@@ -144,4 +147,4 @@ jobs:
           name: ${{ env.version }}
           bodyFile: "body.log"
           token: ${{ secrets.GHACTIONS_PUBLIC_REPO_RW }} # Note that it is custom PAT which expires.
-          artifacts: am-budget-view-*
+          artifacts: "am-budget-view-*"
