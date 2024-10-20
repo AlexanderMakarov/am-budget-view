@@ -34,3 +34,7 @@ body {
 #totalExpenses, #totalIncome {
     height: 400px; /* Increased height to accommodate more categories */
 }
+
+#monthlyExpenses {
+    height: 600px; /* Increased height for better visibility of horizontal bars */
+}

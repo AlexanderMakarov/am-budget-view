@@ -147,27 +147,42 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     totalIncome.setOption(totalIncomeOption);
 
-    // Monthly Expenses Bar Chart
+    // Monthly Expenses Horizontal Stacked Bar Chart
     const monthlyExpenses = echarts.init(document.getElementById('monthlyExpenses'));
     const monthlyExpensesOption = {
         title: { text: 'Monthly Expenses per Category' },
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        legend: { data: Array.from(expenseGroups) },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' }
+        },
+        legend: {
+            data: Array.from(expenseGroups)
+        },
         toolbox: {
             feature: {
                 saveAsImage: {},
-                magicType: {
-                    type: ['line', 'bar', 'stack']
-                },
                 dataView: {}
             }
         },
-        xAxis: { type: 'category', data: labels },
-        yAxis: { type: 'value' },
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Amount'
+        },
+        yAxis: {
+            type: 'category',
+            data: labels.reverse()
+        },
         series: Array.from(expenseGroups).map(group => ({
             name: group,
             type: 'bar',
-            data: data.map(stat => parseMoneyString(stat.Expense[group]?.Total || '0'))
+            stack: 'total',
+            data: data.map(stat => parseMoneyString(stat.Expense[group]?.Total || '0')).reverse()
         }))
     };
     monthlyExpenses.setOption(monthlyExpensesOption);
