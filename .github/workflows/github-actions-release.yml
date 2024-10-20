@@ -47,7 +47,6 @@ jobs:
   # Job to build artifacts only if tag was pushed.
   build:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
 
     # Run concurrently for all major OS-es and architectures.
     strategy:
