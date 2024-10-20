@@ -28,8 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
             expenseGroups.add(group);
         });
 
-        incomeData.push(totalIncome);
-        expenseData.push(totalExpense);
+        incomeData.push(Number(totalIncome.toFixed(2)));
+        expenseData.push(Number(totalExpense.toFixed(2)));
     });
 
     // Expenses vs Income Chart
@@ -97,12 +97,18 @@ document.addEventListener('DOMContentLoaded', function() {
         grid: {
             left: '3%',
             right: '4%',
-            bottom: '3%',
+            bottom: '10%', // Increase bottom margin to accommodate axis name
             containLabel: true
         },
         xAxis: {
             type: 'value',
-            name: 'Amount'
+            name: 'Amount',
+            nameLocation: 'middle',
+            nameGap: 30,
+            nameRotate: 0, // Keep it horizontal
+            nameTextStyle: {
+                padding: [10, 0, 0, 0] // Add some padding to move it down
+            }
         },
         yAxis: {
             type: 'category',
@@ -135,12 +141,18 @@ document.addEventListener('DOMContentLoaded', function() {
         grid: {
             left: '3%',
             right: '4%',
-            bottom: '3%',
+            bottom: '10%', // Increase bottom margin to accommodate axis name
             containLabel: true
         },
         xAxis: {
             type: 'value',
-            name: 'Amount'
+            name: 'Amount',
+            nameLocation: 'middle',
+            nameGap: 30,
+            nameRotate: 0, // Keep it horizontal
+            nameTextStyle: {
+                padding: [10, 0, 0, 0] // Add some padding to move it down
+            }
         },
         yAxis: {
             type: 'category',
@@ -163,27 +175,28 @@ document.addEventListener('DOMContentLoaded', function() {
         title: {
             text: 'Monthly Expenses per Category (%)',
             left: 'center',
-            top: '5%'
+            top: '10px'
         },
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter: function(params) {
-                const monthData = data.find(d => d.Start.startsWith(params[0].axisValue));
-                let result = `${params[0].axisValue}<br>`;
-                let total = 0;
-                params.forEach(item => {
-                    const value = parseMoneyString(monthData.Expense[item.seriesName]?.Total || '0');
-                    total += value;
-                    result += `${item.marker} ${item.seriesName}: ${value.toFixed(2)}<br>`;
+                const monthLabel = params[0].axisValue;
+                let result = `${monthLabel}<br>`;
+                params.forEach(param => {
+                    if (param.value > 0) {
+                        result += `${param.marker} ${param.seriesName}: ${param.value.toFixed(2)}%<br>`;
+                    }
                 });
-                result += `<strong>Total: ${total.toFixed(2)}</strong>`;
                 return result;
             }
         },
         legend: {
-            data: Array.from(expenseGroups),
-            top: '10%'
+            type: 'scroll',
+            orient: 'horizontal',
+            top: '40px',
+            left: 'center',
+            right: '10%',
         },
         toolbox: {
             feature: {
@@ -193,19 +206,31 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         grid: {
             left: '3%',
-            right: '4%',
-            bottom: '3%',
-            top: '20%',
+            right: '5%',
+            bottom: '5%',
+            top: '100px',
             containLabel: true
         },
         xAxis: {
             type: 'value',
             name: 'Percentage',
-            max: 100
+            nameLocation: 'middle',
+            nameGap: 30,
+            max: 100,
+            axisLabel: {
+                formatter: '{value}%'
+            }
         },
         yAxis: {
             type: 'category',
-            data: labels.reverse()
+            data: labels.reverse(),
+            axisLabel: {
+                interval: 0,
+                rotate: 0
+            },
+            axisTick: {
+                alignWithLabel: true
+            }
         },
         series: Array.from(expenseGroups).map(group => ({
             name: group,
@@ -214,6 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
             emphasis: {
                 focus: 'series'
             },
+            barCategoryGap: '30%',
             data: data.map(stat => {
                 let monthTotal = Object.values(stat.Expense).reduce((sum, expense) => sum + parseMoneyString(expense.Total), 0);
                 let groupValue = parseMoneyString(stat.Expense[group]?.Total || '0');

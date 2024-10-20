@@ -35,11 +35,12 @@ body {
 }
 
 #totalExpenses, #totalIncome {
-    height: 400px; /* Increased height to accommodate more categories */
+    height: 400px;
 }
 
 #monthlyExpenses {
-    height: 600px; /* Increased height for better visibility of horizontal bars */
+    height: 100vh; /* Set initial height to 100% of viewport height */
+    min-height: 400px; /* Set a minimum height to prevent it from becoming too small */
 }
 
 header {
