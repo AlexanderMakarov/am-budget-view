@@ -1,0 +1,65 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+
+.container {
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.chart {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.chart-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px; /* Add this line to create horizontal gap */
+    margin-bottom: 20px;
+}
+
+.chart-row .chart {
+    width: calc(50% - 10px); /* Adjust width to account for the gap */
+    margin-bottom: 0; /* Remove bottom margin for charts in the row */
+}
+
+#expensesVsIncome, #monthlyExpenses {
+    height: 400px;
+}
+
+#totalExpenses, #totalIncome {
+    height: 400px;
+}
+
+#monthlyExpenses {
+    height: 100vh; /* Set initial height to 100% of viewport height */
+    min-height: 400px; /* Set a minimum height to prevent it from becoming too small */
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+h1 {
+    margin: 0;
+}
+
+.github-link {
+    text-decoration: none;
+    color: #0366d6;
+    font-weight: bold;
+}
+
+.github-link:hover {
+    text-decoration: underline;
+}

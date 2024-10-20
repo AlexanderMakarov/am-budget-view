@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AM Budget View</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AM Budget View</h1>
+            <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">See on GitHub</a>
+        </header>
+        <div id="expensesVsIncome" class="chart"></div>
+        <div class="chart-row">
+            <div id="totalExpenses" class="chart"></div>
+            <div id="totalIncome" class="chart"></div>
+        </div>
+        <div id="monthlyExpenses" class="chart"></div>
+    </div>
+    <script id="interval-statistics" type="application/json">
+        {{.Statistics}}
+    </script>
+    <script src="/static/js/charts.js"></script>
+</body>
+</html>

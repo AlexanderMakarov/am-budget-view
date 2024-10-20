@@ -16,7 +16,16 @@ provide list of monthly transactions in downloadable files.
 
 This is a simple tool which allows to aggregate all transactions (hundreds of them) from
 multiple accounts and banks into customisable and personalizable groups.
-Result is a small structured piece of text provides valuable insights into your budget.
+
+Results are:
+
+### 1. Browser page with aggregated information about your budget in intuitive charts:
+
+<img src="docsdata/UI 1 1.png" alt="UI 1 1" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/UI 1 2.png" alt="UI 1 2" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/UI 1 3.png" alt="UI 1 3" width="300" onclick="window.open(this.src)"/>
+
+### 2. Text report with most important and structured insights into your budget.
 See example (numbers are made up, sum may not match):
 ```
 2023-08-01..2023-08-31:
@@ -38,6 +47,9 @@ See example (numbers are made up, sum may not match):
   Income (2, sum=1,516,629.00):
 ...
 ```
+
+### 3. [Beancount](https://github.com/beancount/beancount) file with full accounting details for further exploration in [Fava UI](https://github.com/beancount/fava).
+
 Some banks provide similar dashboards on their websites, but they can't assign good categories suitable for everyone.
 This application allows you to configure it for your personal set of groups and ways to assign transactions to the specific group.
 
@@ -126,7 +138,10 @@ and instructions how you got this file.
 7. Run application one more time to get a clean report for manual investigation, comparing months, etc.
 8. Next month it is enough to download "Statements" with new transactions and run application again.
 
-Note that it is a command line application and may work completely in the terminal.
+### Notes:
+1. For remained formats and banks steps are near the same.
+Files may be even sent by emails.
+2. It is a command line application and may work completely in the terminal.
 Run in it terminal with `-h` for details.
 It would explain how to work with multiple configuration files and see information directly in terminal.
 
@@ -187,13 +202,17 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
 - [x] Parse InecoBank XLS files which are sent in emails and
       InecoBank doesn't allow to download data older than 2 years.
 - [x] Rename repo to don't be tied to Inecobank.
+- [x] Build translator to https://github.com/beancount/beancount
+      Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
-- [ ] Create default configuration file of first start.
+- [ ] Add currencies support in UI.
+- [ ] Add config support in UI.
+- [ ] Add categorization mode in UI.
+- [ ] Add drill-down clicks to see individual transactions.
+- [ ] Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) More tests coverage.
-- [x] (?) Build translator to https://github.com/beancount/beancount
-      Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
-- [ ] Build UI with Fyne and https://github.com/wcharczuk/go-chart
-      (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).
 - [ ] Add multi-currency support: config for rates. Also see how Beancount handles it.
-- [ ] Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
+- [ ] ~~Build UI with Fyne and https://github.com/wcharczuk/go-chart
+      (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).~~
+      There are issue with [performance and charts flexibility](https://github.com/fyne-io/fyne/issues/2228) this way.
