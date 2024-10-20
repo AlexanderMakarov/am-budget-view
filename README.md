@@ -202,16 +202,17 @@ Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
 - [x] Parse InecoBank XLS files which are sent in emails and
       InecoBank doesn't allow to download data older than 2 years.
 - [x] Rename repo to don't be tied to Inecobank.
+- [x] Build translator to https://github.com/beancount/beancount
+      Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] Add currencies support in UI.
 - [ ] Add config support in UI.
 - [ ] Add categorization mode in UI.
 - [ ] Add drill-down clicks to see individual transactions.
+- [ ] Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) More tests coverage.
-- [x] (?) Build translator to https://github.com/beancount/beancount
-      Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
-- [ ] Build UI with Fyne and https://github.com/wcharczuk/go-chart
-      (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).
 - [ ] Add multi-currency support: config for rates. Also see how Beancount handles it.
-- [ ] Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
+- [ ] ~~Build UI with Fyne and https://github.com/wcharczuk/go-chart
+      (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).~~
+      There are issue with [performance and charts flexibility](https://github.com/fyne-io/fyne/issues/2228) this way.
