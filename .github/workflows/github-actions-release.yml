@@ -80,8 +80,7 @@ jobs:
           echo "Release: ${curtag}" > body.log
           echo "" >> body.log
           # Extract and add the tag message/annotation.
-          git tag -n99 --format='%(contents)' ${curtag} >> body.log
-          echo "" >> body.log
+          git cat-file -p ${curtag} | tail -n 1 >> body.log
           echo "Changes since previous release:" >> body.log
           if git tag | grep ${prevtag} ; then
             git log -q ${curtag}...${prevtag} --pretty="- %s" -q --no-color >> body.log
