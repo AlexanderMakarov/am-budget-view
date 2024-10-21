@@ -190,7 +190,8 @@ me with pretty mediocre translation but my Armenian knowledge is not enough to m
 - Make PR.
 
 ## Release
-Merge to "master" and push tag with name "releaseX.X.X". CI will do the rest.
+Merge to "master", next push tag with name "releaseX.X.X" and some comment to put into release log.
+CI will do the rest.
 
 ## TODO/Roadmap
 
