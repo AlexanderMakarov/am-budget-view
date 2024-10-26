@@ -18,6 +18,9 @@ myAmeriaHistoryXlsFilesGlob: "History *.xls"
 # with "Beneficiary account" from this list would be treated as an income.
 myAmeriaMyAccounts:
   - "1111111111111111"
+# List of currencies to unconditionally convert transactions into.
+convertToCurrencies:
+  - AMD
 # Flag to print details for all uncategorized transactions. Skips any other actions.
 categorizeMode: false
 # Flag to output all information about the result.

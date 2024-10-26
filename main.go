@@ -188,9 +188,37 @@ func main() {
 		return
 	}
 
+	journalEntries, accounts, currencies, err := buildJournalEntries(transactions, config)
+	if err != nil {
+		fatalError(fmt.Errorf("can't build journal entries: %w", err), isWriteToFile, isOpenFileWithResult)
+	}
+	// currenciesList := make([]string, 0, len(journalEntries[0].Amounts))
+	// for currency := range journalEntries[0].Amounts {
+	// 	currenciesList = append(currenciesList, currency)
+	// }
+	// sort.Strings(currenciesList)
+	// fmt.Println("Date        \tIsExpense\tAmounts                         \tCategory\tSourceType\tDetails")
+	// fmt.Println("------------------------------------------------------------------------------------------------")
+	// for _, entry := range journalEntries {
+	// 	amounts := ""
+	// 	for _, currency := range currenciesList {
+	// 		amount := entry.Amounts[currency]
+	// 		amounts += fmt.Sprintf("%s %s (%d) ", amount.Amount, currency, amount.ConversionPrecision)
+	// 	}
+	// 	fmt.Printf("%s\t%t\t%s\t%s\t%s\t%s\n",
+	// 		entry.Date.Format("2006-01-02"),
+	// 		entry.IsExpense,
+	// 		strings.TrimSpace(amounts),
+	// 		entry.Category,
+	// 		entry.SourceType,
+	// 		entry.Details,
+	// 	)
+	// }
+	// os.Exit(0) // TODO: remove
+
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
-		transLen, err := buildBeanconFile(transactions, config, resultBeancountFilePath)
+		transLen, err := buildBeancountFile(journalEntries, currencies, accounts, resultBeancountFilePath)
 		if err != nil {
 			fatalError(fmt.Errorf("can't build Beancount report: %w", err), isWriteToFile, isOpenFileWithResult)
 		}

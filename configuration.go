@@ -18,6 +18,9 @@ type Config struct {
 	MyAmeriaAccountStatementXlsFilesGlob string              `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaHistoryXlsFilesGlob          string              `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaMyAccounts                   []string            `yaml:"myAmeriaMyAccounts,omitempty"`
+	ConvertToCurrencies                  []string            `yaml:"convertToCurrencies,omitempty"`
+	MinCurrencyTimespanPercent           int                 `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
+	MaxCurrencyTimespanGapsDays          int                 `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
 	DetailedOutput                       bool                `yaml:"detailedOutput"`
 	CategorizeMode                       bool                `yaml:"categorizeMode"`
 	MonthStartDayNumber                  uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`

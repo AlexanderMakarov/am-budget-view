@@ -64,7 +64,7 @@ func (m MoneyWith2DecimalPlaces) MarshalJSON() ([]byte, error) {
 // OutputDateFormat format for data in outputs.
 const OutputDateFormat = "2006-01-02"
 
-// Transaction is a struct representing a single transaction.
+// Transaction represents a single transaction with data available in the source file.
 type Transaction struct {
 	// IsExpense is true if transaction is an expense, false if it is an income.
 	IsExpense bool
@@ -78,9 +78,6 @@ type Transaction struct {
 	SourceType string
 	// Source identifier, usually file path.
 	Source string
-
-	// Extra fields for Beancount. May be empty - depends on source.
-
 	// AccountCurrency is a currency of the account.
 	AccountCurrency string
 	// OriginCurrency is a currency of the transaction before conversion.
@@ -91,6 +88,51 @@ type Transaction struct {
 	FromAccount string
 	// ToAccount is an account which receives the transaction, amount is increasing here.
 	ToAccount string
+}
+
+// AmountInCurrency is an amount in a specific currency with marks of origin and account currencies.
+type AmountInCurrency struct {
+	Amount MoneyWith2DecimalPlaces
+	// Currency name (as in source file but verified by Beancount rules).
+	Currency string
+	// ConversionPrecision is a number representing how precise conversion was.
+	// 0 - no conversion (transaction in this currency),
+	// 1 - with direct exchange rate to this currency at the same date,
+	// >1 - number of days between transaction date to used exchange rate date, plus the number of days to the next exchange rate if first one was not direct.
+	ConversionPrecision int
+}
+
+// JournalEntry represents a single transaction with normalized data.
+// Normalization means that it has common:
+// - category assigned,
+// - amount converted into all supported currencies and with marks of origin and account currencies.
+type JournalEntry struct {
+	// Date of the transaction.
+	Date time.Time
+	// IsExpense is true if transaction is an expense, false if it is an income.
+	IsExpense bool
+	// SourceType is a type of the source of the transaction. No spaces.
+	SourceType string
+	// Source identifier, usually file path.
+	Source string
+	// Details is a description of the transaction.
+	Details string
+	// Category is a user-defined and evaluated category of the transaction.
+	Category string
+	// FromAccount is an account which pays the transaction, amount is decreasing here.
+	FromAccount string
+	// ToAccount is an account which receives the transaction, amount is increasing here.
+	ToAccount string
+	// AccountCurrency is a currency of the account.
+	AccountCurrency string
+	// AccountCurrencyAmount is an amount in account currency.
+	AccountCurrencyAmount MoneyWith2DecimalPlaces
+	// OriginCurrency is a currency of the transaction before conversion.
+	OriginCurrency string
+	// OriginCurrencyAmount is an amount in origin currency.
+	OriginCurrencyAmount MoneyWith2DecimalPlaces
+	// Amounts contains "converted" amounts in given currencies.
+	Amounts map[string]AmountInCurrency
 }
 
 type FileParser interface {
