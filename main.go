@@ -75,7 +75,7 @@ func main() {
 	config, err := readConfig(configPath)
 	if err != nil {
 		fatalError(
-			fmt.Errorf("Configuration file '%s' is wrong: %w", configPath, err),
+			fmt.Errorf("configuration file '%s' is wrong: %w", configPath, err),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
@@ -85,21 +85,7 @@ func main() {
 	timeZone, err := time.LoadLocation(config.TimeZoneLocation)
 	if err != nil {
 		fatalError(
-			fmt.Errorf("Unknown TimeZoneLocation: %#v.\n", config.TimeZoneLocation),
-			isWriteToFile,
-			isOpenFileWithResult,
-		)
-	}
-
-	// Build groupsExtractor earlier to check for configuration errors.
-	groupExtractorFactory, err := NewStatisticBuilderByDetailsSubstrings(
-		config.GroupNamesToSubstrings,
-		config.GroupAllUnknownTransactions,
-		config.IgnoreSubstrings,
-	)
-	if err != nil {
-		fatalError(
-			fmt.Errorf("can't create statistic builder: %w", err),
+			fmt.Errorf("unknown TimeZoneLocation: %#v\n", config.TimeZoneLocation),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
@@ -226,20 +212,41 @@ func main() {
 	}
 
 	// Build statistic.
-	statistics, err := BuildMonthlyStatistic(
-		transactions,
+	groupExtractorFactory, err := NewStatisticBuilderByDetailsSubstrings()
+	if err != nil {
+		fatalError(
+			fmt.Errorf("can't create statistic builder: %w", err),
+			isWriteToFile,
+			isOpenFileWithResult,
+		)
+	}
+	monthlyStatistics, err := BuildMonthlyStatistics(
+		journalEntries,
 		groupExtractorFactory,
 		config.MonthStartDayNumber,
 		timeZone,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't build statistic: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(fmt.Errorf("can't build statistics: %w", err), isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Produce and show TXT report file if not disabled.
 	if !args.DontBuildTextReport {
 		result := strings.Join(parsingWarnings, "\n")
-		for _, s := range statistics {
+		// For text report use first from ConvertToCurrencies or just first currency.
+		currency := ""
+		if len(config.ConvertToCurrencies) > 0 {
+			currency = config.ConvertToCurrencies[0]
+		} else {
+			currency = journalEntries[0].AccountCurrency
+			if currency == "" {
+				currency = journalEntries[0].OriginCurrency
+			}
+		}
+		result = result + "\n" + fmt.Sprintf("Text report currency: %s\n", currency)
+		// Iterate over all interval statistics.
+		for _, oneMonthStatistics := range monthlyStatistics {
+			s := oneMonthStatistics[currency]
 			if config.DetailedOutput {
 				result = result + "\n" + s.String()
 				continue
@@ -260,7 +267,7 @@ func main() {
 				strings.Join(expense, ""),
 			)
 		}
-		result = fmt.Sprintf("%s\nTotal %d months.", result, len(statistics))
+		result = fmt.Sprintf("%s\nTotal %d months.", result, len(monthlyStatistics))
 
 		// Always print result into logs and conditionally into the file which open through the OS.
 		log.Print(result)
@@ -278,7 +285,7 @@ func main() {
 				log.Printf("Failed to open browser: %v", err)
 			}
 		}()
-		ListenAndServe(statistics)
+		ListenAndServe(monthlyStatistics)
 	}
 }
 

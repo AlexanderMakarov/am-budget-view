@@ -17,7 +17,7 @@ var templateFS embed.FS
 
 var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
-func ListenAndServe(statistics []*IntervalStatistic) {
+func ListenAndServe(statistics []map[string]*IntervalStatistic) {
 	http.HandleFunc("/", handleIndex(statistics))
 
 	// Serve static files
@@ -43,7 +43,7 @@ func ListenAndServe(statistics []*IntervalStatistic) {
 	}
 }
 
-func handleIndex(statistics []*IntervalStatistic) func(w http.ResponseWriter, r *http.Request) {
+func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// JSON encode the statistics
 		jsonData, err := json.Marshal(statistics)
@@ -52,11 +52,18 @@ func handleIndex(statistics []*IntervalStatistic) func(w http.ResponseWriter, r 
 			return
 		}
 
+		currencies := make([]string, 0)
+		for _, stat := range statistics[0] {
+			currencies = append(currencies, stat.Currency)
+		}
+
 		data := struct {
 			Title      string
+			Currencies []string
 			Statistics template.JS
 		}{
 			Title:      "Interval Statistics",
+			Currencies: currencies,
 			Statistics: template.JS(jsonData),
 		}
 

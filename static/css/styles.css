@@ -38,7 +38,7 @@ body {
     height: 400px;
 }
 
-#monthlyExpenses {
+#monthlyExpenses, #monthlyIncome {
     height: 100vh; /* Set initial height to 100% of viewport height */
     min-height: 400px; /* Set a minimum height to prevent it from becoming too small */
 }
@@ -62,4 +62,23 @@ h1 {
 
 .github-link:hover {
     text-decoration: underline;
+}
+
+/* Add these new styles */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.currency-selector {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background-color: white;
+}
+
+.currency-selector:hover {
+    border-color: #666;
 }

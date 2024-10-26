@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strings"
 )
 
 func PrintUncategorizedTransactions(transactions []Transaction, config *Config) error {
@@ -19,16 +18,6 @@ func PrintUncategorizedTransactions(transactions []Transaction, config *Config) 
 			return fmt.Errorf("empty details for transaction from '%s': %+v", tr.Source, tr)
 		}
 		details := tr.Details
-		isIgnored := false
-		for _, ignoreSubstring := range config.IgnoreSubstrings {
-			if strings.Contains(details, ignoreSubstring) {
-				isIgnored = true
-				break
-			}
-		}
-		if isIgnored {
-			continue
-		}
 		if !trieRoot.searchSubstring(details) {
 			log.Printf("Uncategorized transaction %+v", tr)
 			missedCnt++

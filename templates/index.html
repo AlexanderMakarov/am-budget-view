@@ -12,7 +12,14 @@
     <div class="container">
         <header>
             <h1>AM Budget View</h1>
-            <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">See on GitHub</a>
+            <div class="header-right">
+                <select id="currencySelector" class="currency-selector">
+                    {{range .Currencies}}
+                        <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+                <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">See on GitHub</a>
+            </div>
         </header>
         <div id="expensesVsIncome" class="chart"></div>
         <div class="chart-row">
@@ -20,6 +27,7 @@
             <div id="totalIncome" class="chart"></div>
         </div>
         <div id="monthlyExpenses" class="chart"></div>
+        <div id="monthlyIncome" class="chart"></div>
     </div>
     <script id="interval-statistics" type="application/json">
         {{.Statistics}}

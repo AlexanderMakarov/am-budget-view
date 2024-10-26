@@ -142,26 +142,19 @@ type FileParser interface {
 	ParseRawTransactionsFromFile(filePath string) ([]Transaction, error)
 }
 
-// Group is a struct representing a group of transactions.
+// Group is a struct representing a group of journal entries.
 type Group struct {
-	Name         string
-	Total        MoneyWith2DecimalPlaces
-	Transactions []Transaction
+	Name           string
+	Total          MoneyWith2DecimalPlaces
+	JournalEntries []JournalEntry
 }
 
-// IntervalStatistics is a struct representing a list of transactions for time interval, usually month.
+// IntervalStatistics is a struct representing a list of journal entries for time interval, usually month.
+// Contains "income" and "expense" groups of journal entries for one currency.
 type IntervalStatistic struct {
-	Start   time.Time
-	End     time.Time
-	Income  map[string]*Group
-	Expense map[string]*Group
-}
-
-type GroupData struct {
-	Total Money
-	// other fields...
-}
-
-type Money struct {
-	Amount int64 `json:"amount"`
+	Currency string
+	Start    time.Time
+	End      time.Time
+	Income   map[string]*Group
+	Expense  map[string]*Group
 }

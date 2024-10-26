@@ -6,12 +6,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"log"
 )
 
 func (t *Transaction) String() string {
 	return fmt.Sprintf("Transaction %s %s %s", t.Date.Format(OutputDateFormat), t.Amount, t.Details)
+}
+
+func (je *JournalEntry) String() string {
+	return fmt.Sprintf("JournalEntry %s %s %s", je.Date.Format(OutputDateFormat), je.AccountCurrencyAmount, je.Details)
 }
 
 func (m MoneyWith2DecimalPlaces) String() string {
@@ -24,7 +26,7 @@ func (m MoneyWith2DecimalPlaces) String() string {
 	return fmt.Sprintf("%9s.%02d", dollarString, cents)
 }
 
-// GroupList structure to sort groups by `TotalAmount2DigitAfterDot` descending.
+// GroupList structure to sort groups by `MoneyWith2DecimalPlaces` descending.
 type GroupList []*Group
 
 func (g GroupList) Len() int {
@@ -55,8 +57,8 @@ func (g TransactionList) Swap(i, j int) {
 }
 
 // MapOfGroupsToStringFull converts map of `Group`-s to human readable string.
-// `withTransactions` parameter allows to output all transactions for the each group.
-func MapOfGroupsToStringFull(mapOfGroups map[string]*Group, withTransactions bool) []string {
+// `withJournalEntries` parameter allows to output all journal entries for the each group.
+func MapOfGroupsToStringFull(mapOfGroups map[string]*Group, withJournalEntries bool) []string {
 	groupList := make(GroupList, 0, len(mapOfGroups))
 	for _, group := range mapOfGroups {
 		groupList = append(groupList, group)
@@ -67,18 +69,18 @@ func MapOfGroupsToStringFull(mapOfGroups map[string]*Group, withTransactions boo
 
 	groupStrings := []string{}
 	for _, group := range groupList {
-		if withTransactions {
-			transStrings := make([]string, len(group.Transactions))
-			for j, t := range group.Transactions {
-				transStrings[j] = t.String()
+		if withJournalEntries {
+			journalEntryStrings := make([]string, len(group.JournalEntries))
+			for j, je := range group.JournalEntries {
+				journalEntryStrings[j] = je.String()
 			}
 			groupStrings = append(groupStrings,
 				fmt.Sprintf(
 					"\n    %-35s: %s, from %d transaction(s):\n      %s",
 					group.Name,
 					group.Total,
-					len(transStrings),
-					strings.Join(transStrings, "\n      "),
+					len(journalEntryStrings),
+					strings.Join(journalEntryStrings, "\n      "),
 				),
 			)
 		} else {
@@ -123,15 +125,15 @@ func MapOfGroupsSum(mapOfGroups map[string]*Group) MoneyWith2DecimalPlaces {
 	return sum
 }
 
-// IntervalStatisticsBuilder builds `IntervalStatistic` from `Transaction-s`.
+// IntervalStatisticsBuilder builds `IntervalStatistic` from `JournalEntry`-s.
 type IntervalStatisticsBuilder interface {
 
-	// HandleTransaction updates inner `MonthStatistics` object with transaction details.
+	// HandleJournalEntry updates inner state with JournalEntry details.
 	// The main purpose is to choose right `Group` instance to add data into.
-	HandleTransaction(trans Transaction) error
+	HandleJournalEntry(je JournalEntry, start, end time.Time) error
 
-	// GetIntervalStatistic returns `IntervalStatistic` assembled so far.
-	GetIntervalStatistic() *IntervalStatistic
+	// GetIntervalStatistics returns map of `IntervalStatistic` per each currency assembled so far.
+	GetIntervalStatistics() map[string]*IntervalStatistic
 }
 
 const UnknownGroupName = "unknown"
@@ -144,80 +146,52 @@ const UnknownGroupName = "unknown"
 //  4. If `false` then create new group with name equal to `Transaction.Details` field
 //  5. If `true` then add into single group with name from `UnknownGroupName` constant.
 type GroupExtractorByDetailsSubstrings struct {
-	intervalStats          *IntervalStatistic
-	groupNamesToSubstrings map[string][]string
-	substringsToGroupName  map[string]string
-	isGroupAllUnknown      bool
-	ignoreSubstrings       []string
+	intervalStats map[string]*IntervalStatistic
 }
 
-func (s GroupExtractorByDetailsSubstrings) HandleTransaction(trans Transaction) error {
-
-	// Choose map of groups to operate on.
-	var mapOfGroups map[string]*Group
-	if trans.IsExpense {
-		mapOfGroups = s.intervalStats.Expense
-	} else {
-		mapOfGroups = s.intervalStats.Income
-	}
-
-	// First check that need to ignore transaction.
-	for _, substring := range s.ignoreSubstrings {
-		if strings.Contains(trans.Details, substring) {
-			return nil
+func (s GroupExtractorByDetailsSubstrings) HandleJournalEntry(je JournalEntry, start, end time.Time) error {
+	for _, amount := range je.Amounts {
+		currency := amount.Currency
+		stat, ok := s.intervalStats[currency]
+		if !ok {
+			stat = &IntervalStatistic{
+				Currency: currency,
+				Start:    start,
+				End:      end,
+				Income:   make(map[string]*Group),
+				Expense:  make(map[string]*Group),
+			}
+			s.intervalStats[currency] = stat
 		}
-	}
-
-	// Try to find user-defined group in configuration and add transaction to it.
-	// It is O(nm) operation, we may do better with Trie of runes but it wonn't worth complexity+effort.
-	found := false
-	for substring, groupName := range s.substringsToGroupName {
-		if strings.Contains(trans.Details, substring) {
-			group, exists := mapOfGroups[groupName]
+		if je.IsExpense {
+			group, exists := stat.Expense[je.Category]
 			if !exists {
-				// If the group doesn't exist in the map, create a new one.
 				group = &Group{
-					Name:         groupName,
-					Total:        MoneyWith2DecimalPlaces{},
-					Transactions: []Transaction{},
+					Name:  je.Category,
+					Total: MoneyWith2DecimalPlaces{int: 0},
 				}
-				mapOfGroups[groupName] = group
+				stat.Expense[je.Category] = group
 			}
-			group.Transactions = append(group.Transactions, trans)
-			group.Total.int += trans.Amount.int
-			found = true
-			break
-		}
-	}
-
-	// Otherwise add transaction to either "unknown" or personal group.
-	if !found {
-		// Choose name of group to add transaction into.
-		var groupName string
-		if s.isGroupAllUnknown {
-			groupName = UnknownGroupName
+			group.Total.int += amount.Amount.int
+			group.JournalEntries = append(group.JournalEntries, je)
 		} else {
-			groupName = trans.Details
-		}
-
-		// Check group exists or create a new one. Add transaction to group.
-		if group, exists := mapOfGroups[groupName]; exists {
-			group.Total.int += trans.Amount.int
-			group.Transactions = append(group.Transactions, trans)
-		} else {
-			newGroup := Group{
-				Name:         groupName,
-				Total:        trans.Amount,
-				Transactions: []Transaction{trans},
+			group, exists := stat.Income[je.Category]
+			if !exists {
+				group = &Group{
+					Name:  je.Category,
+					Total: MoneyWith2DecimalPlaces{int: 0},
+				}
+				stat.Income[je.Category] = group
 			}
-			mapOfGroups[newGroup.Name] = &newGroup
+			group.Total.int += amount.Amount.int
+			group.JournalEntries = append(group.JournalEntries, je)
 		}
 	}
 
 	return nil
 }
 
-func (s GroupExtractorByDetailsSubstrings) GetIntervalStatistic() *IntervalStatistic {
+func (s GroupExtractorByDetailsSubstrings) GetIntervalStatistics() map[string]*IntervalStatistic {
 	return s.intervalStats
 }
 
@@ -226,91 +200,56 @@ type StatisticBuilderFactory func(start, end time.Time) IntervalStatisticsBuilde
 // NewStatisticBuilderByDetailsSubstrings returns
 // [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
 // [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByDetailsSubstrings] in a safe way.
-func NewStatisticBuilderByDetailsSubstrings(
-	groupNamesToSubstrings map[string][]string,
-	isGroupAllUnknownTransactions bool,
-	ignoreSubstrings []string,
-) (StatisticBuilderFactory, error) {
-
-	// Invert groupNamesToSubstrings and check for duplicates.
-	substringsToGroupName := map[string]string{}
-	for name, substrings := range groupNamesToSubstrings {
-		for _, substring := range substrings {
-			if group, exist := substringsToGroupName[substring]; exist {
-				return nil, fmt.Errorf("'%s' is duplicated in '%s' and in previous '%s'",
-					substring, name, group)
-			}
-			substringsToGroupName[substring] = name
-		}
-	}
-	log.Printf("Going to separate transactions by %d named groups from %d substrings",
-		len(groupNamesToSubstrings), len(substringsToGroupName))
-
+func NewStatisticBuilderByDetailsSubstrings() (StatisticBuilderFactory, error) {
 	return func(start, end time.Time) IntervalStatisticsBuilder {
-
-		// Return new groupExtractorByDetailsSubstrings.
 		return GroupExtractorByDetailsSubstrings{
-			intervalStats: &IntervalStatistic{
-				Start:   start,
-				End:     end,
-				Income:  make(map[string]*Group),
-				Expense: make(map[string]*Group),
-			},
-			groupNamesToSubstrings: groupNamesToSubstrings,
-			substringsToGroupName:  substringsToGroupName,
-			isGroupAllUnknown:      isGroupAllUnknownTransactions,
-			ignoreSubstrings:       ignoreSubstrings,
+			intervalStats: make(map[string]*IntervalStatistic),
 		}
 	}, nil
 }
 
-// BuildMonthlyStatistic builds list of
+// BuildMonthlyStatistics builds list of
 // [github.com/AlexanderMakarov/am-budget-view.main.IntervalStatistic]
-// per each month from provided transactions.
-func BuildMonthlyStatistic(
-	transactions []Transaction,
+// per each month from provided journal entries.
+func BuildMonthlyStatistics(
+	journalEntries []JournalEntry,
 	statisticBuilderFactory StatisticBuilderFactory,
 	monthStart uint,
 	timeZone *time.Location,
-) ([]*IntervalStatistic, error) {
+) ([]map[string]*IntervalStatistic, error) {
 
-	// Sort transactions.
-	sort.Sort(TransactionList(transactions))
-
-	var stats []*IntervalStatistic
+	result := make([]map[string]*IntervalStatistic, 0)
 	var statBuilder IntervalStatisticsBuilder
 
 	// Get first month boundaries from the first transaction. Build first month statistics.
-	start := time.Date(transactions[0].Date.Year(), transactions[0].Date.Month(),
+	start := time.Date(journalEntries[0].Date.Year(), journalEntries[0].Date.Month(),
 		int(monthStart), 0, 0, 0, 0, timeZone)
 	end := start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
 	statBuilder = statisticBuilderFactory(start, end)
 
-	// Iterate through all the transactions.
-	for _, trans := range transactions {
+	// Iterate through all the journal entries.
+	for _, je := range journalEntries {
 
 		// Check if this transaction is part of the new month.
-		if trans.Date.After(end) {
+		if je.Date.After(end) {
 
 			// Save previous month statistic if there is one.
-			stats = append(stats, statBuilder.GetIntervalStatistic())
+			result = append(result, statBuilder.GetIntervalStatistics())
 
 			// Calculate start and end of the next month.
-			start = time.Date(trans.Date.Year(), trans.Date.Month(), int(monthStart), 0, 0, 0, 0, timeZone)
+			start = time.Date(je.Date.Year(), je.Date.Month(), int(monthStart), 0, 0, 0, 0, timeZone)
 			end = start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
 			statBuilder = statisticBuilderFactory(start, end)
 		}
 
-		// Handle transaction.
-		if err := statBuilder.HandleTransaction(trans); err != nil {
+		// Handle/append journal entry.
+		if err := statBuilder.HandleJournalEntry(je, start, end); err != nil {
 			return nil, err
 		}
 	}
 
-	// Add last IntervalStatistic if need.
-	lastStatistic := statBuilder.GetIntervalStatistic()
-	if len(lastStatistic.Expense) > 0 || len(lastStatistic.Income) > 0 {
-		stats = append(stats, lastStatistic)
-	}
-	return stats, nil
+	// Add last IntervalStatistics if need.
+	result = append(result, statBuilder.GetIntervalStatistics())
+
+	return result, nil
 }
