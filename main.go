@@ -222,6 +222,7 @@ func main() {
 	}
 	monthlyStatistics, err := BuildMonthlyStatistics(
 		journalEntries,
+		accounts,
 		groupExtractorFactory,
 		config.MonthStartDayNumber,
 		timeZone,

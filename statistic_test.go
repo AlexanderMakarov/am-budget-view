@@ -58,12 +58,12 @@ func Test_NewGroupExtractorByDetailsSubstrings(t *testing.T) {
 			if actualGE == nil {
 				t.Errorf("%s builder returned null", testName)
 			}
-			groupNamesToSubstrings := actualGE.(GroupExtractorByDetailsSubstrings).groupNamesToSubstrings
+			groupNamesToSubstrings := actualGE.(GroupExtractorByCategories).groupNamesToSubstrings
 			if !reflect.DeepEqual(groupNamesToSubstrings, tt.groupNamesToSubstrings) {
 				t.Errorf("%s builder set wrong groupNamesToSubstrings: expected=%+v, actual=%+v", testName,
 					tt.groupNamesToSubstrings, groupNamesToSubstrings)
 			}
-			substringsToGroupName := actualGE.(GroupExtractorByDetailsSubstrings).substringsToGroupName
+			substringsToGroupName := actualGE.(GroupExtractorByCategories).substringsToGroupName
 			if !reflect.DeepEqual(substringsToGroupName, tt.expectedSubstringsToGroupName) {
 				t.Errorf("%s builder set wrong substringsToGroupName: expected=%+v, actual=%+v", testName,
 					tt.expectedSubstringsToGroupName, substringsToGroupName)
@@ -214,7 +214,7 @@ func Test_groupExtractorByDetailsSubstrings_HandleTransaction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Arrange
-			handler := GroupExtractorByDetailsSubstrings{
+			handler := GroupExtractorByCategories{
 				intervalStats:          tt.fields.intervalStats,
 				groupNamesToSubstrings: tt.fields.groupNamesToSubstrings,
 				substringsToGroupName:  tt.fields.substringsToGroupName,

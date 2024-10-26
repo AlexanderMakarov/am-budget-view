@@ -90,6 +90,20 @@ type Transaction struct {
 	ToAccount string
 }
 
+// AccountFromTransactions is a struct representing an account found in transactions.
+type AccountFromTransactions struct {
+	// IsTransactionAccount flag that account is "from" in expense or "to" in income.
+	IsTransactionAccount bool
+	// SourceType is copied from Transaction.SourceType.
+	SourceType string
+	// From is a first transaction date.
+	From time.Time
+	// To is a last transaction date.
+	To time.Time
+	// Number is an account number.
+	Number string
+}
+
 // AmountInCurrency is an amount in a specific currency with marks of origin and account currencies.
 type AmountInCurrency struct {
 	Amount MoneyWith2DecimalPlaces

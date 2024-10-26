@@ -138,18 +138,14 @@ type IntervalStatisticsBuilder interface {
 
 const UnknownGroupName = "unknown"
 
-// GroupExtractorByDetailsSubstrings is [main.IntervalStatisticsBuilder] which uses
-// `Transaction.Details` field to choose right group. Logic is following:
-//  1. Find is group for expenses of incomes.
-//  2. Search group in `substringsToGroupName` field. If there are such then update it.
-//  3. Otherwise check isGroupAllUnknown value:
-//  4. If `false` then create new group with name equal to `Transaction.Details` field
-//  5. If `true` then add into single group with name from `UnknownGroupName` constant.
-type GroupExtractorByDetailsSubstrings struct {
+// GroupExtractorByCategories is [main.IntervalStatisticsBuilder] which
+// converts JournalEntry-s into groups by category and ignores transactions to my accounts in "Total".
+type GroupExtractorByCategories struct {
 	intervalStats map[string]*IntervalStatistic
+	myAccounts    map[string]struct{}
 }
 
-func (s GroupExtractorByDetailsSubstrings) HandleJournalEntry(je JournalEntry, start, end time.Time) error {
+func (s GroupExtractorByCategories) HandleJournalEntry(je JournalEntry, start, end time.Time) error {
 	for _, amount := range je.Amounts {
 		currency := amount.Currency
 		stat, ok := s.intervalStats[currency]
@@ -172,8 +168,11 @@ func (s GroupExtractorByDetailsSubstrings) HandleJournalEntry(je JournalEntry, s
 				}
 				stat.Expense[je.Category] = group
 			}
-			group.Total.int += amount.Amount.int
 			group.JournalEntries = append(group.JournalEntries, je)
+			// Add to total only if destination account is not mine.
+			if _, ok := s.myAccounts[je.ToAccount]; !ok {
+				group.Total.int += amount.Amount.int
+			}
 		} else {
 			group, exists := stat.Income[je.Category]
 			if !exists {
@@ -183,27 +182,38 @@ func (s GroupExtractorByDetailsSubstrings) HandleJournalEntry(je JournalEntry, s
 				}
 				stat.Income[je.Category] = group
 			}
-			group.Total.int += amount.Amount.int
 			group.JournalEntries = append(group.JournalEntries, je)
+			// Add to total only if source account is not mine.
+			if _, ok := s.myAccounts[je.FromAccount]; !ok {
+				group.Total.int += amount.Amount.int
+			}
 		}
 	}
 
 	return nil
 }
 
-func (s GroupExtractorByDetailsSubstrings) GetIntervalStatistics() map[string]*IntervalStatistic {
+func (s GroupExtractorByCategories) GetIntervalStatistics() map[string]*IntervalStatistic {
 	return s.intervalStats
 }
 
-type StatisticBuilderFactory func(start, end time.Time) IntervalStatisticsBuilder
+type StatisticBuilderFactory func(start, end time.Time, accounts map[string]*AccountFromTransactions) IntervalStatisticsBuilder
 
 // NewStatisticBuilderByDetailsSubstrings returns
 // [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
 // [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByDetailsSubstrings] in a safe way.
 func NewStatisticBuilderByDetailsSubstrings() (StatisticBuilderFactory, error) {
-	return func(start, end time.Time) IntervalStatisticsBuilder {
-		return GroupExtractorByDetailsSubstrings{
+	return func(start, end time.Time, accounts map[string]*AccountFromTransactions) IntervalStatisticsBuilder {
+		myAccounts := make(map[string]struct{})
+		for _, account := range accounts {
+			if account.IsTransactionAccount {
+				myAccounts[account.Number] = struct{}{}
+			}
+		}
+		fmt.Printf("My accounts (will be ignored for totals): %v\n", myAccounts)
+		return GroupExtractorByCategories{
 			intervalStats: make(map[string]*IntervalStatistic),
+			myAccounts:    myAccounts,
 		}
 	}, nil
 }
@@ -213,6 +223,7 @@ func NewStatisticBuilderByDetailsSubstrings() (StatisticBuilderFactory, error) {
 // per each month from provided journal entries.
 func BuildMonthlyStatistics(
 	journalEntries []JournalEntry,
+	accounts map[string]*AccountFromTransactions,
 	statisticBuilderFactory StatisticBuilderFactory,
 	monthStart uint,
 	timeZone *time.Location,
@@ -225,7 +236,7 @@ func BuildMonthlyStatistics(
 	start := time.Date(journalEntries[0].Date.Year(), journalEntries[0].Date.Month(),
 		int(monthStart), 0, 0, 0, 0, timeZone)
 	end := start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
-	statBuilder = statisticBuilderFactory(start, end)
+	statBuilder = statisticBuilderFactory(start, end, accounts)
 
 	// Iterate through all the journal entries.
 	for _, je := range journalEntries {
@@ -239,7 +250,7 @@ func BuildMonthlyStatistics(
 			// Calculate start and end of the next month.
 			start = time.Date(je.Date.Year(), je.Date.Month(), int(monthStart), 0, 0, 0, 0, timeZone)
 			end = start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
-			statBuilder = statisticBuilderFactory(start, end)
+			statBuilder = statisticBuilderFactory(start, end, accounts)
 		}
 
 		// Handle/append journal entry.

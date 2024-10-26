@@ -205,11 +205,14 @@ CI will do the rest.
 - [x] Rename repo to don't be tied to Inecobank.
 - [x] Build translator to https://github.com/beancount/beancount
       Check in https://fava.pythonanywhere.com/example-beancount-file/editor/#
+- [x] Add currencies support in UI.
+- [ ] Solve double counting of transactions between own accounts.
+- [ ] Provide rates conversion precision in UI and other reports.
+- [ ] Add drill-down page to see individual journal entries.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
-- [ ] Add currencies support in UI (see how Fava UI handles it).
 - [ ] Make default config.yml on first run and add UI page to change it.
 - [ ] Add "Categorization" page in UI and relevant functionality.
-- [ ] Add drill-down clicks to see individual transactions.
+- [ ] Manage all settings in web UI.
 - [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) Higher tests coverage.

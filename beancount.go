@@ -47,15 +47,6 @@ func (m MoneyWith2DecimalPlaces) StringNoIndent() string {
 	return fmt.Sprintf("%s.%02d", dollarString, cents)
 }
 
-type AccountFromTransactions struct {
-	// SourceType is a source type of the account copied from Transaction.SourceType.
-	SourceType string
-	From       time.Time
-	To         time.Time
-	// Name is a valid beancount account full name if is my own account or an empty string.
-	Name string
-}
-
 type ExchangeRate struct {
 	// Date is a date of the exchange rate.
 	date time.Time
@@ -386,15 +377,20 @@ func buildJournalEntries(
 					sourceType = t.SourceType
 				}
 				accounts[t.ToAccount] = &AccountFromTransactions{
-					SourceType: sourceType,
-					From:       t.Date,
-					To:         t.Date,
+					IsTransactionAccount: !t.IsExpense,
+					SourceType:           sourceType,
+					From:                 t.Date,
+					To:                   t.Date,
+					Number:               t.ToAccount,
 				}
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
 				if !t.IsExpense && len(t.SourceType) > 0 {
 					account.SourceType = t.SourceType
+				}
+				if !t.IsExpense {
+					account.IsTransactionAccount = true
 				}
 			}
 		}
@@ -407,15 +403,20 @@ func buildJournalEntries(
 					sourceType = t.SourceType
 				}
 				accounts[t.FromAccount] = &AccountFromTransactions{
-					SourceType: sourceType,
-					From:       t.Date,
-					To:         t.Date,
+					IsTransactionAccount: t.IsExpense,
+					SourceType:           sourceType,
+					From:                 t.Date,
+					To:                   t.Date,
+					Number:               t.FromAccount,
 				}
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
 				if t.IsExpense && len(t.SourceType) > 0 {
 					account.SourceType = t.SourceType
+				}
+				if t.IsExpense {
+					account.IsTransactionAccount = true
 				}
 			}
 		}
@@ -639,6 +640,7 @@ func buildJournalEntries(
 		}
 		journalEntries = append(journalEntries, entry)
 	}
+
 	fmt.Printf("Total assembled %d journal entries with amounts in %d currencies.\n", len(journalEntries), len(curStates))
 	return journalEntries, accounts, currencies, nil
 }
@@ -667,16 +669,14 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 
 	// Check all found accounts and dump "open accounts" for my own accounts.
 	fmt.Fprintln(file, ";; Open accounts")
-	for nn, account := range accounts {
-		if account.SourceType == "" {
-			account.Name = ""
-		} else {
-			account.Name = fmt.Sprintf("Assets:%s:%s", account.SourceType, nn)
+	for _, account := range accounts {
+		if account.SourceType != "" {
 			fmt.Fprintf(
 				file,
-				"%s open %s\n",
+				"%s open Assets:%s:%s\n",
 				account.From.Format(beancountOutputTimeFormat),
-				account.Name,
+				account.SourceType,
+				account.Number,
 			)
 		}
 	}
@@ -717,14 +717,14 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 		if je.IsExpense {
 			source := ""
 			if account, ok := accounts[je.FromAccount]; ok {
-				source = account.Name
+				source = account.Number
 			} else {
 				// Expense from unknown account should not happen.
 				return 0, fmt.Errorf("source account '%s' not found", je.FromAccount)
 			}
 			destination := ""
 			if account, ok := accounts[je.ToAccount]; ok {
-				destination = account.Name
+				destination = account.Number
 			}
 			// If account wasn't found or doesn't have a name then it is an expense to unknown account.
 			if len(destination) == 0 {
@@ -791,7 +791,7 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 		} else { // Income
 			source := ""
 			if account, ok := accounts[je.FromAccount]; ok {
-				source = account.Name
+				source = account.Number
 			}
 			// If account wasn't found or doesn't have a name then it is an income from unknown account.
 			if len(source) == 0 {
@@ -799,7 +799,7 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 			}
 			destination := ""
 			if account, ok := accounts[je.ToAccount]; ok {
-				destination = account.Name
+				destination = account.Number
 			} else {
 				// Income to unknown account should not happen.
 				return 0, fmt.Errorf("destination account '%s' not found", je.ToAccount)
