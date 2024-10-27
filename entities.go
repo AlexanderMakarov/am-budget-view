@@ -158,17 +158,26 @@ type FileParser interface {
 
 // Group is a struct representing a group of journal entries.
 type Group struct {
-	Name           string
-	Total          MoneyWith2DecimalPlaces
+	// Name is a name of the group.
+	Name string
+	// Total is a total amount of the group.
+	// May be lower than sum of amounts in journal entries if some entries are not included.
+	Total MoneyWith2DecimalPlaces
+	// JournalEntries is a list of all journal entries in the group.
 	JournalEntries []JournalEntry
 }
 
 // IntervalStatistics is a struct representing a list of journal entries for time interval, usually month.
 // Contains "income" and "expense" groups of journal entries for one currency.
 type IntervalStatistic struct {
+	// Currency is a currency of the interval.
 	Currency string
-	Start    time.Time
-	End      time.Time
-	Income   map[string]*Group
-	Expense  map[string]*Group
+	// Start is a start date of the interval.
+	Start time.Time
+	// End is a end date of the interval.
+	End time.Time
+	// Income is a map of "income" type `Group`-s.
+	Income map[string]*Group
+	// Expense is a map of "expense" type `Group`-s.
+	Expense map[string]*Group
 }

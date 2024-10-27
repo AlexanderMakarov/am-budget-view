@@ -85,7 +85,7 @@ func main() {
 	timeZone, err := time.LoadLocation(config.TimeZoneLocation)
 	if err != nil {
 		fatalError(
-			fmt.Errorf("unknown TimeZoneLocation: %#v\n", config.TimeZoneLocation),
+			fmt.Errorf("unknown TimeZoneLocation: %s", config.TimeZoneLocation),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
@@ -156,7 +156,7 @@ func main() {
 	if len(transactions) < 1 {
 		fatalError(
 			fmt.Errorf(
-				"can't find transactions, check that '*Glob' configuration parameters matches something and see parsing warnings:\n%s\n",
+				"can't find transactions, check that '*Glob' configuration parameters matches something and see parsing warnings:\n%s",
 				strings.Join(parsingWarnings, "\n"),
 			),
 			isWriteToFile,
@@ -174,33 +174,11 @@ func main() {
 		return
 	}
 
+	// Build journal entries.
 	journalEntries, accounts, currencies, err := buildJournalEntries(transactions, config)
 	if err != nil {
 		fatalError(fmt.Errorf("can't build journal entries: %w", err), isWriteToFile, isOpenFileWithResult)
 	}
-	// currenciesList := make([]string, 0, len(journalEntries[0].Amounts))
-	// for currency := range journalEntries[0].Amounts {
-	// 	currenciesList = append(currenciesList, currency)
-	// }
-	// sort.Strings(currenciesList)
-	// fmt.Println("Date        \tIsExpense\tAmounts                         \tCategory\tSourceType\tDetails")
-	// fmt.Println("------------------------------------------------------------------------------------------------")
-	// for _, entry := range journalEntries {
-	// 	amounts := ""
-	// 	for _, currency := range currenciesList {
-	// 		amount := entry.Amounts[currency]
-	// 		amounts += fmt.Sprintf("%s %s (%d) ", amount.Amount, currency, amount.ConversionPrecision)
-	// 	}
-	// 	fmt.Printf("%s\t%t\t%s\t%s\t%s\t%s\n",
-	// 		entry.Date.Format("2006-01-02"),
-	// 		entry.IsExpense,
-	// 		strings.TrimSpace(amounts),
-	// 		entry.Category,
-	// 		entry.SourceType,
-	// 		entry.Details,
-	// 	)
-	// }
-	// os.Exit(0) // TODO: remove
 
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
@@ -212,7 +190,7 @@ func main() {
 	}
 
 	// Build statistic.
-	groupExtractorFactory, err := NewStatisticBuilderByDetailsSubstrings()
+	groupExtractorFactory, err := NewStatisticBuilderByCategories()
 	if err != nil {
 		fatalError(
 			fmt.Errorf("can't create statistic builder: %w", err),
@@ -233,42 +211,28 @@ func main() {
 
 	// Produce and show TXT report file if not disabled.
 	if !args.DontBuildTextReport {
-		result := strings.Join(parsingWarnings, "\n")
-		// For text report use first from ConvertToCurrencies or just first currency.
-		currency := ""
-		if len(config.ConvertToCurrencies) > 0 {
-			currency = config.ConvertToCurrencies[0]
-		} else {
-			currency = journalEntries[0].AccountCurrency
-			if currency == "" {
-				currency = journalEntries[0].OriginCurrency
-			}
-		}
-		result = result + "\n" + fmt.Sprintf("Text report currency: %s\n", currency)
-		// Iterate over all interval statistics.
-		for _, oneMonthStatistics := range monthlyStatistics {
-			s := oneMonthStatistics[currency]
-			if config.DetailedOutput {
-				result = result + "\n" + s.String()
-				continue
-			}
+		var reportStringBuilder strings.Builder
+		reportStringBuilder.WriteString(strings.Join(parsingWarnings, "\n"))
 
-			// Note that this logic is intentionally separated from `func (s *IntervalStatistic) String()`.
-			income := MapOfGroupsToString(s.Income)
-			expense := MapOfGroupsToString(s.Expense)
-			result = result + "\n" + fmt.Sprintf(
-				"\n%s..%s:\n  Income (%d, sum=%s):%s\n  Expenses (%d, sum=%s):%s",
-				s.Start.Format(OutputDateFormat),
-				s.End.Format(OutputDateFormat),
-				len(income),
-				MapOfGroupsSum(s.Income),
-				strings.Join(income, ""),
-				len(s.Expense),
-				MapOfGroupsSum(s.Expense),
-				strings.Join(expense, ""),
-			)
+		currency := ""
+		if !config.DetailedOutput {
+			// For text report use first from ConvertToCurrencies or just first currency.
+			if len(config.ConvertToCurrencies) > 0 {
+				currency = config.ConvertToCurrencies[0]
+			} else {
+				currency = journalEntries[0].AccountCurrency
+				if currency == "" {
+					currency = journalEntries[0].OriginCurrency
+				}
+			}
 		}
-		result = fmt.Sprintf("%s\nTotal %d months.", result, len(monthlyStatistics))
+		for _, oneMonthStatistics := range monthlyStatistics {
+			if err := DumpIntervalStatistics(oneMonthStatistics, &reportStringBuilder, currency, config.DetailedOutput); err != nil {
+				log.Fatalf("can't dump interval statistics: %#v", err)
+			}
+		}
+		fmt.Fprintf(&reportStringBuilder, "\nTotal %d months.", len(monthlyStatistics))
+		result := reportStringBuilder.String()
 
 		// Always print result into logs and conditionally into the file which open through the OS.
 		log.Print(result)

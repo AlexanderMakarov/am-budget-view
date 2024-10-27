@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,7 +14,34 @@ func (t *Transaction) String() string {
 }
 
 func (je *JournalEntry) String() string {
-	return fmt.Sprintf("JournalEntry %s %s %s", je.Date.Format(OutputDateFormat), je.AccountCurrencyAmount, je.Details)
+	direction := "Income "
+	if je.IsExpense {
+		direction = "Expense"
+	}
+	amounts := ""
+	currencies := []string{}
+	for currency := range je.Amounts {
+		currencies = append(currencies, currency)
+	}
+	sort.Strings(currencies)
+	for _, currency := range currencies {
+		amount := je.Amounts[currency]
+		amounts += fmt.Sprintf("\t%s %s (%d)", amount.Amount.StringNoIndent(), currency, amount.ConversionPrecision)
+	}
+	return fmt.Sprintf(
+		"%s\t%s\t%s %s\t%s\t%s->%s\t%s\t%s\t'%s'%s",
+		je.Date.Format(OutputDateFormat),
+		direction,
+		je.AccountCurrencyAmount.String(),
+		je.AccountCurrency,
+		je.Category,
+		je.FromAccount,
+		je.ToAccount,
+		je.SourceType,
+		je.Source,
+		je.Details,
+		amounts,
+	)
 }
 
 func (m MoneyWith2DecimalPlaces) String() string {
@@ -69,6 +97,11 @@ func MapOfGroupsToStringFull(mapOfGroups map[string]*Group, withJournalEntries b
 
 	groupStrings := []string{}
 	for _, group := range groupList {
+		// Skip groups with zero total.
+		if group.Total.int == 0 {
+			continue
+		}
+		// Check if need to output journal entries.
 		if withJournalEntries {
 			journalEntryStrings := make([]string, len(group.JournalEntries))
 			for j, je := range group.JournalEntries {
@@ -104,7 +137,8 @@ func MapOfGroupsToString(mapOfGroups map[string]*Group) []string {
 func (s *IntervalStatistic) String() string {
 	income := MapOfGroupsToStringFull(s.Income, true)
 	expense := MapOfGroupsToStringFull(s.Expense, true)
-	return fmt.Sprintf("Statistics for %s..%s:\n  Income (%d, sum=%s):%s\n  Expenses (%d, sum=%s):%s\n",
+	return fmt.Sprintf(
+		"Statistics for %s..%s:\n  Income  (total %2d groups, filtered sum %s):%s\n  Expenses (total %2d groups, filt-ed sum %s):%s\n",
 		s.Start.Format(OutputDateFormat),
 		s.End.Format(OutputDateFormat),
 		len(income),
@@ -123,6 +157,56 @@ func MapOfGroupsSum(mapOfGroups map[string]*Group) MoneyWith2DecimalPlaces {
 		sum.int += group.Total.int
 	}
 	return sum
+}
+
+// DumpIntervalStatistics dumps `IntervalStatistic` to `io.Writer`.
+// If `currency` is not empty string then only statistics for this currency will be dumped.
+func DumpIntervalStatistics(intervalStatistics map[string]*IntervalStatistic, writer io.Writer, currency string, isDetailed bool) error {
+	if currency == "" {
+		// If currency is not provided then dump statistics for all currencies alphabetically.
+		currenciesSorted := make([]string, 0, len(intervalStatistics))
+		for currency := range intervalStatistics {
+			currenciesSorted = append(currenciesSorted, currency)
+		}
+		sort.Strings(currenciesSorted)
+		for _, currency := range currenciesSorted {
+			DumpIntervalStatistic(intervalStatistics[currency], writer, currency, isDetailed)
+		}
+	} else {
+		// If currency is provided then dump statistics only for this currency.
+		if stat, ok := intervalStatistics[currency]; ok {
+			DumpIntervalStatistic(stat, writer, currency, isDetailed)
+		} else {
+			return fmt.Errorf("no statistics for currency %s", currency)
+		}
+	}
+	return nil
+}
+
+// DumpIntervalStatistic dumps `IntervalStatistic` to `io.Writer`.
+// If `isDetailed` is true then uses `String()` method.
+func DumpIntervalStatistic(intervalStatistic *IntervalStatistic, writer io.Writer, currency string, isDetailed bool) {
+	// If need detailed output then use `String()` method.
+	if isDetailed {
+		fmt.Fprintf(writer, "%s amounts:\n", currency)
+		fmt.Fprintf(writer, "%s\n", intervalStatistic)
+		return
+	}
+	// Otherwise use `MapOfGroupsToString` to dump income and expense.
+	income := MapOfGroupsToString(intervalStatistic.Income)
+	expense := MapOfGroupsToString(intervalStatistic.Expense)
+	fmt.Fprintf(writer,
+		"Statistics for %s..%s (in %s):\n  Income  (total %2d groups, filtered sum %s):%s\n  Expenses (total %2d groups, filt-ed sum %s):%s\n",
+		intervalStatistic.Start.Format(OutputDateFormat),
+		intervalStatistic.End.Format(OutputDateFormat),
+		currency,
+		len(income),
+		MapOfGroupsSum(intervalStatistic.Income),
+		strings.Join(income, ""),
+		len(expense),
+		MapOfGroupsSum(intervalStatistic.Expense),
+		strings.Join(expense, ""),
+	)
 }
 
 // IntervalStatisticsBuilder builds `IntervalStatistic` from `JournalEntry`-s.
@@ -199,10 +283,10 @@ func (s GroupExtractorByCategories) GetIntervalStatistics() map[string]*Interval
 
 type StatisticBuilderFactory func(start, end time.Time, accounts map[string]*AccountFromTransactions) IntervalStatisticsBuilder
 
-// NewStatisticBuilderByDetailsSubstrings returns
+// NewStatisticBuilderByCategories returns
 // [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
-// [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByDetailsSubstrings] in a safe way.
-func NewStatisticBuilderByDetailsSubstrings() (StatisticBuilderFactory, error) {
+// [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByCategories] in a safe way.
+func NewStatisticBuilderByCategories() (StatisticBuilderFactory, error) {
 	return func(start, end time.Time, accounts map[string]*AccountFromTransactions) IntervalStatisticsBuilder {
 		myAccounts := make(map[string]struct{})
 		for _, account := range accounts {

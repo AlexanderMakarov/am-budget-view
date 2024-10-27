@@ -3,53 +3,53 @@ package main
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
 
-func Test_NewGroupExtractorByDetailsSubstrings(t *testing.T) {
+var (
+	date1 = time.Date(2024, 10, 27, 0, 0, 0, 0, time.Local)
+	date2 = date1.AddDate(0, 0, 1)
+)
+
+func Test_NewGroupExtractorByCategories(t *testing.T) {
 
 	// Cases
 	tests := []struct {
-		name                          string
-		groupNamesToSubstrings        map[string][]string
-		isGroupAllUnknownTransactions bool
-		expectedSubstringsToGroupName map[string]string
+		name               string
+		accounts           map[string]*AccountFromTransactions
+		expectedMyAccounts map[string]struct{}
 	}{
 		{
-			"no_groups_all_unknown",
-			map[string][]string{},
-			false,
-			map[string]string{},
+			"no_accounts",
+			map[string]*AccountFromTransactions{},
+			map[string]struct{}{},
 		},
 		{
-			"no_groups_1_unknown",
-			map[string][]string{},
-			true,
-			map[string]string{},
+			"no_my_accounts",
+			map[string]*AccountFromTransactions{
+				"a": {Number: "a", IsTransactionAccount: false},
+			},
+			map[string]struct{}{},
 		},
 		{
-			"many_groups_all_unknown",
-			groups1,
-			false,
-			func() map[string]string {
-				m := map[string]string{}
-				m["a"] = "g1"
-				m["b"] = "g2"
-				m["c"] = "g2"
-				m["d"] = "g3"
-				return m
-			}(),
+			"many_my_accounts",
+			map[string]*AccountFromTransactions{
+				"a": {Number: "a", IsTransactionAccount: true},
+				"b": {Number: "b", IsTransactionAccount: false},
+				"c": {Number: "c", IsTransactionAccount: true},
+			},
+			map[string]struct{}{"a": {}, "c": {}},
 		},
 	}
-	const testName = "NewGroupExtractorByDetailsSubstrings()"
+	const testName = "NewGroupExtractorByCategories()"
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Act
-			builder, err := NewStatisticBuilderByDetailsSubstrings(tt.groupNamesToSubstrings,
-				tt.isGroupAllUnknownTransactions, []string{})
-			actualGE := builder(now, nowPlusMonth)
+			builder, err := NewStatisticBuilderByCategories()
+			actualGE := builder(date1, date2, tt.accounts)
 
 			// Assert
 			if err != nil {
@@ -58,298 +58,303 @@ func Test_NewGroupExtractorByDetailsSubstrings(t *testing.T) {
 			if actualGE == nil {
 				t.Errorf("%s builder returned null", testName)
 			}
-			groupNamesToSubstrings := actualGE.(GroupExtractorByCategories).groupNamesToSubstrings
-			if !reflect.DeepEqual(groupNamesToSubstrings, tt.groupNamesToSubstrings) {
-				t.Errorf("%s builder set wrong groupNamesToSubstrings: expected=%+v, actual=%+v", testName,
-					tt.groupNamesToSubstrings, groupNamesToSubstrings)
-			}
-			substringsToGroupName := actualGE.(GroupExtractorByCategories).substringsToGroupName
-			if !reflect.DeepEqual(substringsToGroupName, tt.expectedSubstringsToGroupName) {
-				t.Errorf("%s builder set wrong substringsToGroupName: expected=%+v, actual=%+v", testName,
-					tt.expectedSubstringsToGroupName, substringsToGroupName)
+			myAccounts := actualGE.(GroupExtractorByCategories).myAccounts
+			if !reflect.DeepEqual(myAccounts, tt.expectedMyAccounts) {
+				t.Errorf("%s builder set wrong myAccounts: expected=%+v, actual=%+v", testName,
+					tt.expectedMyAccounts, myAccounts)
 			}
 		})
 	}
 }
 
-func Test_groupExtractorByDetailsSubstrings_HandleTransaction(t *testing.T) {
-	tI1a := newT(1, false, "a")
-	tE1b := newT(1, true, "b")
-	tI2c := newT(1, false, "c")
-	tI3d := newT(1, false, "d")
-	tI4c := newT(1, false, "c")
-	tE2b := newT(1, true, "b")
-	tE3b := newT(1, true, "b")
-	tE4c := newT(1, true, "c")
-	tI5b := newT(1, false, "b")
-	tI6e := newT(2, false, "e") // Put here "2" to check something other than 1.
-	tE6e := newT(2, true, "e")
-	tI7f := newT(1, false, "f")
-	tE7f := newT(1, true, "f")
-	transactions1 := []Transaction{tI1a, tE1b, tI2c, tI3d, tI4c, tE2b, tE3b, tE4c, tI5b, tI6e, tE6e, tI7f, tE7f}
-	// For groups1 which is:
-	// "g1": {"a"},
-	// "g2": {"b", "c"},
-	// "g3": {"d"},
-	// we should get:
-	// Income: {g1 1 [tI1a], g2 3 [tI2c,tI4c,tI5b], g3 1 [tI3d], e 2 [tI6e], f 1 [tI7f]}
-	// Expenses: {g1 0 [], g2 4 [tE1b,tE2b,tE3b,tE4c], g3 0 [], e 2 [tE6e], f 1 [tE7f]}
-
-	// fields is aggregator of parameters for `groupExtractorByDetailsSubstrings`.
-	type fields struct {
-		intervalStats          *IntervalStatistic
-		groupNamesToSubstrings map[string][]string
-		substringsToGroupName  map[string]string
-		isGroupAllUnknown      bool
+func Test_groupExtractorByCategories_HandleJournalEntry(t *testing.T) {
+	a1Mine := &AccountFromTransactions{Number: "a1", IsTransactionAccount: true}
+	a1NotMine := &AccountFromTransactions{Number: "a1", IsTransactionAccount: false}
+	a2NotMine := &AccountFromTransactions{Number: "a2", IsTransactionAccount: false}
+	a3NotMine := &AccountFromTransactions{Number: "a3", IsTransactionAccount: false}
+	jesVariousCategories := []JournalEntry{
+		newUsdJE(1, false, "a", "a1", "a2"),
+		newUsdJE(2, false, "a", "a3", "a1"),
+		newUsdJE(3, true, "b", "a1", "a3"),
+		newUsdJE(4, true, "b", "a2", "a3"),
+		newUsdJE(5, true, "b", "a2", "a3"),
+		newUsdJE(6, false, "b", "a1", "a2"),
+		newUsdJE(7, false, "c", "a2", "a3"),
+		newUsdJE(8, true, "c", "a1", "a3"),
+		newUsdJE(9, false, "c", "a3", "a1"),
+		newUsdJE(10, true, "c", "a2", "a1"),
+		newUsdJE(11, false, "c", "a3", "a1"),
+		newUsdJE(12, false, "e", "a2", "a1"),
+		newUsdJE(13, true, "e", "a3", "a2"),
 	}
+	expectedVariousCategoriesFull := `USD amounts:
+Statistics for 2024-10-27..2024-10-28:
+  Income  (total  4 groups, filtered sum         0.48):
+    c                                  :         0.27, from 3 transaction(s):
+      2024-10-27	Income 	        0.07 	c	a2->a3			'+7c'	0.07 USD (0)
+      2024-10-27	Income 	        0.09 	c	a3->a1			'+9c'	0.09 USD (0)
+      2024-10-27	Income 	        0.11 	c	a3->a1			'+11c'	0.11 USD (0)
+    e                                  :         0.12, from 1 transaction(s):
+      2024-10-27	Income 	        0.12 	e	a2->a1			'+12e'	0.12 USD (0)
+    b                                  :         0.06, from 1 transaction(s):
+      2024-10-27	Income 	        0.06 	b	a1->a2			'+6b'	0.06 USD (0)
+    a                                  :         0.03, from 2 transaction(s):
+      2024-10-27	Income 	        0.01 	a	a1->a2			'+1a'	0.01 USD (0)
+      2024-10-27	Income 	        0.02 	a	a3->a1			'+2a'	0.02 USD (0)
+  Expenses (total  3 groups, filt-ed sum         0.43):
+    c                                  :         0.18, from 2 transaction(s):
+      2024-10-27	Expense	        0.08 	c	a1->a3			'-8c'	0.08 USD (0)
+      2024-10-27	Expense	        0.10 	c	a2->a1			'-10c'	0.10 USD (0)
+    e                                  :         0.13, from 1 transaction(s):
+      2024-10-27	Expense	        0.13 	e	a3->a2			'-13e'	0.13 USD (0)
+    b                                  :         0.12, from 3 transaction(s):
+      2024-10-27	Expense	        0.03 	b	a1->a3			'-3b'	0.03 USD (0)
+      2024-10-27	Expense	        0.04 	b	a2->a3			'-4b'	0.04 USD (0)
+      2024-10-27	Expense	        0.05 	b	a2->a3			'-5b'	0.05 USD (0)
 
-	// newFields is a factory for `fields`.
-	newFields := func(groupNamesToSubstrings map[string][]string, isGroupAllUnknown bool) fields {
-		substringsToGroupName := map[string]string{}
-		for name, substrings := range groupNamesToSubstrings {
-			for _, substring := range substrings {
-				substringsToGroupName[substring] = name
-			}
-		}
-		return fields{
-			newIntervalStatistic(),
-			groupNamesToSubstrings,
-			substringsToGroupName,
-			isGroupAllUnknown,
-		}
+`
+	expectedVariousCategoriesA1Mine := `USD amounts:
+Statistics for 2024-10-27..2024-10-28:
+  Income  (total  3 groups, filtered sum         0.41):
+    c                                  :         0.27, from 3 transaction(s):
+      2024-10-27	Income 	        0.07 	c	a2->a3			'+7c'	0.07 USD (0)
+      2024-10-27	Income 	        0.09 	c	a3->a1			'+9c'	0.09 USD (0)
+      2024-10-27	Income 	        0.11 	c	a3->a1			'+11c'	0.11 USD (0)
+    e                                  :         0.12, from 1 transaction(s):
+      2024-10-27	Income 	        0.12 	e	a2->a1			'+12e'	0.12 USD (0)
+    a                                  :         0.02, from 2 transaction(s):
+      2024-10-27	Income 	        0.01 	a	a1->a2			'+1a'	0.01 USD (0)
+      2024-10-27	Income 	        0.02 	a	a3->a1			'+2a'	0.02 USD (0)
+  Expenses (total  3 groups, filt-ed sum         0.33):
+    e                                  :         0.13, from 1 transaction(s):
+      2024-10-27	Expense	        0.13 	e	a3->a2			'-13e'	0.13 USD (0)
+    b                                  :         0.12, from 3 transaction(s):
+      2024-10-27	Expense	        0.03 	b	a1->a3			'-3b'	0.03 USD (0)
+      2024-10-27	Expense	        0.04 	b	a2->a3			'-4b'	0.04 USD (0)
+      2024-10-27	Expense	        0.05 	b	a2->a3			'-5b'	0.05 USD (0)
+    c                                  :         0.08, from 2 transaction(s):
+      2024-10-27	Expense	        0.08 	c	a1->a3			'-8c'	0.08 USD (0)
+      2024-10-27	Expense	        0.10 	c	a2->a1			'-10c'	0.10 USD (0)
+
+`
+	jesVariousCurrencies := []JournalEntry{
+		{
+			IsExpense:             true,
+			Date:                  date1,
+			SourceType:            "t1",
+			Source:                "s1",
+			Details:               "expense, all in USD",
+			Category:              "a",
+			FromAccount:           "a1",
+			ToAccount:             "a2",
+			AccountCurrency:       "USD",
+			AccountCurrencyAmount: MoneyWith2DecimalPlaces{1},
+			OriginCurrency:        "USD",
+			OriginCurrencyAmount:  MoneyWith2DecimalPlaces{1},
+			Amounts: map[string]AmountInCurrency{
+				"USD": {Currency: "USD", Amount: MoneyWith2DecimalPlaces{1}},
+				"AMD": {Currency: "AMD", Amount: MoneyWith2DecimalPlaces{400}},
+			},
+		},
+		{
+			IsExpense:             true,
+			Date:                  date1,
+			SourceType:            "t1",
+			Source:                "s1",
+			Details:               "expense, account USD, paid in AMD",
+			Category:              "a",
+			FromAccount:           "a1",
+			ToAccount:             "a2",
+			AccountCurrency:       "USD",
+			AccountCurrencyAmount: MoneyWith2DecimalPlaces{2},
+			OriginCurrency:        "AMD",
+			OriginCurrencyAmount:  MoneyWith2DecimalPlaces{800},
+			Amounts: map[string]AmountInCurrency{
+				"USD": {Currency: "USD", Amount: MoneyWith2DecimalPlaces{2}},
+				"AMD": {Currency: "AMD", Amount: MoneyWith2DecimalPlaces{800}},
+			},
+		},
+		{
+			IsExpense:             true,
+			Date:                  date1,
+			SourceType:            "t1",
+			Source:                "s1",
+			Details:               "expense, account AMD, paid in USD",
+			Category:              "a",
+			FromAccount:           "a1",
+			ToAccount:             "a2",
+			AccountCurrency:       "AMD",
+			AccountCurrencyAmount: MoneyWith2DecimalPlaces{1200},
+			OriginCurrency:        "USD",
+			OriginCurrencyAmount:  MoneyWith2DecimalPlaces{3},
+			Amounts: map[string]AmountInCurrency{
+				"USD": {Currency: "USD", Amount: MoneyWith2DecimalPlaces{3}},
+				"AMD": {Currency: "AMD", Amount: MoneyWith2DecimalPlaces{1200}},
+			},
+		},
+		{
+			IsExpense:             true,
+			Date:                  date1,
+			SourceType:            "t1",
+			Source:                "s1",
+			Details:               "expense, account AMD",
+			Category:              "a",
+			FromAccount:           "a1",
+			ToAccount:             "a2",
+			AccountCurrency:       "AMD",
+			AccountCurrencyAmount: MoneyWith2DecimalPlaces{1600},
+			Amounts: map[string]AmountInCurrency{
+				"USD": {Currency: "USD", Amount: MoneyWith2DecimalPlaces{4}},
+				"AMD": {Currency: "AMD", Amount: MoneyWith2DecimalPlaces{1600}},
+			},
+		},
+		{
+			IsExpense:             false,
+			Date:                  date1,
+			SourceType:            "t1",
+			Source:                "s1",
+			Details:               "income, account is AMD, paid in USD",
+			Category:              "a",
+			FromAccount:           "a1",
+			ToAccount:             "a2",
+			AccountCurrency:       "AMD",
+			AccountCurrencyAmount: MoneyWith2DecimalPlaces{2000},
+			OriginCurrency:        "USD",
+			OriginCurrencyAmount:  MoneyWith2DecimalPlaces{5},
+			Amounts: map[string]AmountInCurrency{
+				"USD": {Currency: "USD", Amount: MoneyWith2DecimalPlaces{5}},
+				"AMD": {Currency: "AMD", Amount: MoneyWith2DecimalPlaces{2000}},
+			},
+		},
 	}
+	expectedVariousCurrenciesFull := `AMD amounts:
+Statistics for 2024-10-27..2024-10-28:
+  Income  (total  1 groups, filtered sum        20.00):
+    a                                  :        20.00, from 1 transaction(s):
+      2024-10-27	Income 	       20.00 AMD	a	a1->a2	t1	s1	'income, account is AMD, paid in USD'	20.00 AMD (0)	0.05 USD (0)
+  Expenses (total  1 groups, filt-ed sum        40.00):
+    a                                  :        40.00, from 4 transaction(s):
+      2024-10-27	Expense	        0.01 USD	a	a1->a2	t1	s1	'expense, all in USD'	4.00 AMD (0)	0.01 USD (0)
+      2024-10-27	Expense	        0.02 USD	a	a1->a2	t1	s1	'expense, account USD, paid in AMD'	8.00 AMD (0)	0.02 USD (0)
+      2024-10-27	Expense	       12.00 AMD	a	a1->a2	t1	s1	'expense, account AMD, paid in USD'	12.00 AMD (0)	0.03 USD (0)
+      2024-10-27	Expense	       16.00 AMD	a	a1->a2	t1	s1	'expense, account AMD'	16.00 AMD (0)	0.04 USD (0)
 
+USD amounts:
+Statistics for 2024-10-27..2024-10-28:
+  Income  (total  1 groups, filtered sum         0.05):
+    a                                  :         0.05, from 1 transaction(s):
+      2024-10-27	Income 	       20.00 AMD	a	a1->a2	t1	s1	'income, account is AMD, paid in USD'	20.00 AMD (0)	0.05 USD (0)
+  Expenses (total  1 groups, filt-ed sum         0.10):
+    a                                  :         0.10, from 4 transaction(s):
+      2024-10-27	Expense	        0.01 USD	a	a1->a2	t1	s1	'expense, all in USD'	4.00 AMD (0)	0.01 USD (0)
+      2024-10-27	Expense	        0.02 USD	a	a1->a2	t1	s1	'expense, account USD, paid in AMD'	8.00 AMD (0)	0.02 USD (0)
+      2024-10-27	Expense	       12.00 AMD	a	a1->a2	t1	s1	'expense, account AMD, paid in USD'	12.00 AMD (0)	0.03 USD (0)
+      2024-10-27	Expense	       16.00 AMD	a	a1->a2	t1	s1	'expense, account AMD'	16.00 AMD (0)	0.04 USD (0)
+
+`
 	tests := []struct {
-		name         string
-		fields       fields
-		transactions []Transaction
-		expected     *IntervalStatistic
+		name           string
+		accounts       map[string]*AccountFromTransactions
+		journalEntries []JournalEntry
+		expected       string
 	}{
 		{
-			name:         "no_groups-common_unknown",
-			fields:       newFields(map[string][]string{}, true),
-			transactions: transactions1,
-			expected: func() *IntervalStatistic {
-				r := newIntervalStatistic()
-				r.Income = map[string]*Group{}
-				r.Income[UnknownGroupName] = &Group{
-					Name:         UnknownGroupName,
-					Total:        MoneyWith2DecimalPlaces{8},
-					Transactions: []Transaction{tI1a, tI2c, tI3d, tI4c, tI5b, tI6e, tI7f},
-				}
-				r.Expense = map[string]*Group{}
-				r.Expense[UnknownGroupName] = &Group{
-					Name:         UnknownGroupName,
-					Total:        MoneyWith2DecimalPlaces{7},
-					Transactions: []Transaction{tE1b, tE2b, tE3b, tE4c, tE6e, tE7f},
-				}
-				return r
-			}(),
+			name:           "various_groups_no_accounts",
+			accounts:       map[string]*AccountFromTransactions{},
+			journalEntries: jesVariousCategories,
+			expected:       expectedVariousCategoriesFull,
 		},
 		{
-			name:         "no_groups-personal_unknowns",
-			fields:       newFields(map[string][]string{}, false),
-			transactions: transactions1,
-			expected: func() *IntervalStatistic {
-				r := newIntervalStatistic()
-				r.Income = map[string]*Group{
-					"+1a": groupFromITs("+1a", []Transaction{tI1a}),
-					"+1c": groupFromITs("+1c", []Transaction{tI2c, tI4c}),
-					"+1d": groupFromITs("+1d", []Transaction{tI3d}),
-					"+1b": groupFromITs("+1b", []Transaction{tI5b}),
-					"+2e": groupFromITs("+2e", []Transaction{tI6e}),
-					"+1f": groupFromITs("+1f", []Transaction{tI7f}),
-				}
-				r.Expense = map[string]*Group{
-					"-1b": groupFromITs("-1b", []Transaction{tE1b, tE2b, tE3b}),
-					"-1c": groupFromITs("-1c", []Transaction{tE4c}),
-					"-2e": groupFromITs("-2e", []Transaction{tE6e}),
-					"-1f": groupFromITs("-1f", []Transaction{tE7f}),
-				}
-				return r
-			}(),
+			name:           "various_groups_not_mine_accounts",
+			accounts:       map[string]*AccountFromTransactions{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			journalEntries: jesVariousCategories,
+			expected:       expectedVariousCategoriesFull,
 		},
 		{
-			name:         "many_groups-common_unknown",
-			fields:       newFields(groups1, true),
-			transactions: transactions1,
-			expected: func() *IntervalStatistic {
-				r := newIntervalStatistic()
-				r.Income = map[string]*Group{
-					"g1":             groupFromITs("g1", []Transaction{tI1a}),
-					"g2":             groupFromITs("g2", []Transaction{tI2c, tI4c, tI5b}),
-					"g3":             groupFromITs("g3", []Transaction{tI3d}),
-					UnknownGroupName: groupFromITs(UnknownGroupName, []Transaction{tI6e, tI7f}),
-				}
-				r.Expense = map[string]*Group{
-					"g2":             groupFromITs("g2", []Transaction{tE1b, tE2b, tE3b, tE4c}),
-					UnknownGroupName: groupFromITs(UnknownGroupName, []Transaction{tE6e, tE7f}),
-				}
-				return r
-			}(),
+			name:           "various_groups_a1_mine_account",
+			accounts:       map[string]*AccountFromTransactions{"a1": a1Mine},
+			journalEntries: jesVariousCategories,
+			expected:       expectedVariousCategoriesA1Mine,
 		},
 		{
-			name:         "many_groups-personal_unknowns",
-			fields:       newFields(groups1, false),
-			transactions: transactions1,
-			expected: func() *IntervalStatistic {
-				r := newIntervalStatistic()
-				r.Income = map[string]*Group{
-					"g1":  groupFromITs("g1", []Transaction{tI1a}),
-					"g2":  groupFromITs("g2", []Transaction{tI2c, tI4c, tI5b}),
-					"g3":  groupFromITs("g3", []Transaction{tI3d}),
-					"+2e": groupFromITs("+2e", []Transaction{tI6e}),
-					"+1f": groupFromITs("+1f", []Transaction{tI7f}),
-				}
-				r.Expense = map[string]*Group{
-					"g2":  groupFromITs("g2", []Transaction{tE1b, tE2b, tE3b, tE4c}),
-					"-2e": groupFromITs("-2e", []Transaction{tE6e}),
-					"-1f": groupFromITs("-1f", []Transaction{tE7f}),
-				}
-				return r
-			}(),
+			name:           "various_currencies",
+			accounts:       map[string]*AccountFromTransactions{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			journalEntries: jesVariousCurrencies,
+			expected: expectedVariousCurrenciesFull,
 		},
 	}
+	factoryMethod, _ := NewStatisticBuilderByCategories()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Arrange
-			handler := GroupExtractorByCategories{
-				intervalStats:          tt.fields.intervalStats,
-				groupNamesToSubstrings: tt.fields.groupNamesToSubstrings,
-				substringsToGroupName:  tt.fields.substringsToGroupName,
-				isGroupAllUnknown:      tt.fields.isGroupAllUnknown,
-			}
+			builder := factoryMethod(date1, date2, tt.accounts)
 
 			// Act
-			for _, trans := range tt.transactions {
-				if err := handler.HandleTransaction(trans); err != nil {
-					t.Errorf("groupExtractorByDetailsSubstrings.HandleTransaction() failed on %v with %#v", trans, err)
+			for _, je := range tt.journalEntries {
+				if err := builder.HandleJournalEntry(je, date1, date2); err != nil {
+					t.Errorf("HandleJournalEntry() failed on %+v with %#v", je, err)
 				}
 			}
 
 			// Assert
-			assertIntervalStatisticEqual(tt.expected, tt.fields.intervalStats, t)
+			actual := strings.Builder{}
+			DumpIntervalStatistics(builder.GetIntervalStatistics(), &actual, "", true)
+			fmt.Printf("---------\n%s\n---------\n", actual.String()) // TODO remove
+			assertStringEqual(t, actual.String(), tt.expected)
 		})
 	}
 }
 
-func assertIntervalStatisticEqual(expected, actual *IntervalStatistic, t *testing.T) {
-	if !expected.Start.Equal(actual.Start) {
-		t.Errorf("Start time does not match. Expected: %v, got: %v", expected.Start, actual.Start)
-		return
-	}
-	if !expected.End.Equal(actual.End) {
-		t.Errorf("End time does not match. Expected: %v, got: %v", expected.End, actual.End)
-		return
-	}
-	compareGroupMap("Income", expected.Income, actual.Income, t)
-	compareGroupMap("Expense", expected.Expense, actual.Expense, t)
-}
+func assertStringEqual(t *testing.T, actual, expected string) {
 
-func compareGroupMap(name string, expected, actual map[string]*Group, t *testing.T) {
-	if len(expected) != len(actual) {
-		t.Errorf("%s maps have different lengths - %d instead of %d. Expected keys: %v, Actual keys: %v",
-			name, len(actual), len(expected), getMapKeys(expected), getMapKeys(actual))
-		return
-	}
-	for k, v := range expected {
-		v2, ok := actual[k]
-		if !ok {
-			t.Errorf("%s map missing key: %s", name, k)
-			continue
-		}
-		if !equalGroup(v, v2) {
-			t.Errorf("%s group not equal for key %s. Expected:\n%+v\nActual:\n%+v", name, k, v, v2)
-		}
-	}
-	for k, group := range actual {
-		if _, ok := expected[k]; !ok {
-			t.Errorf("%s map has extra key '%s' with group %+v", name, k, group)
-		}
-	}
-}
+	// Compare actual vs expected strings line by line
+	actualLines := strings.Split(actual, "\n")
+	expectedLines := strings.Split(expected, "\n")
 
-func getMapKeys(m map[string]*Group) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+	if len(actualLines) != len(expectedLines) {
+		t.Errorf("Output has different number of lines - got %d, expected %d\n",
+			len(actualLines), len(expectedLines))
 	}
-	return keys
-}
-
-func equalGroup(a, b *Group) bool {
-	if a.Name != b.Name {
-		return false
+	linesCount := len(actualLines)
+	if len(expectedLines) < linesCount {
+		linesCount = len(expectedLines)
 	}
 
-	// Compare totals
-	if a.Total.int != b.Total.int {
-		return false
-	}
+	for i := 0; i < linesCount; i++ {
+		if actualLines[i] != expectedLines[i] {
+			// Find first differing character
+			minLen := len(actualLines[i])
+			if len(expectedLines[i]) < minLen {
+				minLen = len(expectedLines[i])
+			}
 
-	// Compare transactions slice lengths
-	if len(a.Transactions) != len(b.Transactions) {
-		return false
-	}
+			diffPos := 0
+			for diffPos < minLen && actualLines[i][diffPos] == expectedLines[i][diffPos] {
+				diffPos++
+			}
 
-	// Compare each transaction
-	for i, transA := range a.Transactions {
-		transB := b.Transactions[i]
-		if !equalTransaction(transA, transB) {
-			return false
+			t.Errorf("Line %d differs at position %d:\nExpected: %s\n  Actual: %s\n",
+				i+1, diffPos,
+				expectedLines[i],
+				actualLines[i])
 		}
 	}
-
-	return true
 }
 
-func equalTransaction(a, b Transaction) bool {
-	return a.Date == b.Date &&
-		a.Details == b.Details &&
-		a.Amount.int == b.Amount.int
-}
-
-var (
-	now          = time.Now()
-	nowPlusMonth = now.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
-	groups1      = map[string][]string{
-		"g1": {"a"},
-		"g2": {"b", "c"},
-		"g3": {"d"},
-	}
-)
-
-func newIntervalStatistic() *IntervalStatistic {
-	return &IntervalStatistic{
-		Start:   now,
-		End:     nowPlusMonth,
-		Income:  make(map[string]*Group),
-		Expense: make(map[string]*Group),
-	}
-}
-
-func newT(id int, isExpense bool, details string) Transaction {
+func newUsdJE(amount int, isExpense bool, category, from, to string) JournalEntry {
 	sign := "+"
 	if isExpense {
 		sign = "-"
 	}
-	return Transaction{
-		IsExpense: isExpense,
-		Date:      now,
-		Details:   fmt.Sprintf("%s%d%s", sign, id, details),
-		Amount:    MoneyWith2DecimalPlaces{id},
-	}
-}
-
-func groupFromITs(name string, its []Transaction) *Group {
-	sum := 0
-	for _, trans := range its {
-		sum += trans.Amount.int
-	}
-	return &Group{
-		Name:         name,
-		Total:        MoneyWith2DecimalPlaces{sum},
-		Transactions: its,
+	return JournalEntry{
+		IsExpense:             isExpense,
+		Date:                  date1,
+		Category:              category,
+		Details:               fmt.Sprintf("%s%d%s", sign, amount, category),
+		AccountCurrencyAmount: MoneyWith2DecimalPlaces{amount},
+		FromAccount:           from,
+		ToAccount:             to,
+		Amounts:               map[string]AmountInCurrency{"USD": {Currency: "USD", Amount: MoneyWith2DecimalPlaces{amount}}},
 	}
 }
