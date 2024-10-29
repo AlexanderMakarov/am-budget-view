@@ -17,8 +17,9 @@ var templateFS embed.FS
 
 var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
-func ListenAndServe(statistics []map[string]*IntervalStatistic) {
+func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) {
 	http.HandleFunc("/", handleIndex(statistics))
+	http.HandleFunc("/transactions", handleTransactions(statistics, accounts))
 
 	// Serve static files
 	http.Handle("/static/", http.FileServer(http.FS(static)))
@@ -70,6 +71,65 @@ func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.Respons
 		err = templates.ExecuteTemplate(w, "index.html", data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
+
+func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		month := r.URL.Query().Get("month")
+		group := r.URL.Query().Get("group")
+		txType := r.URL.Query().Get("type")
+		currency := r.URL.Query().Get("currency")
+
+		// Find the statistics for the selected month
+		var entries []JournalEntry
+		for _, stat := range statistics {
+			currStat := stat[currency]
+			if currStat == nil {
+				continue
+			}
+
+			if currStat.Start.Format("2006-01") == month {
+				if txType == "income" {
+					if groupData, ok := currStat.Income[group]; ok {
+						entries = groupData.JournalEntries
+					}
+				} else {
+					if groupData, ok := currStat.Expense[group]; ok {
+						entries = groupData.JournalEntries
+					}
+				}
+				break
+			}
+		}
+		// JSON encode the accounts
+		jsonAccounts, err := json.Marshal(accounts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		data := struct {
+			Month    string
+			Group    string
+			Type     string
+			Currency string
+			Entries  []JournalEntry
+			Accounts template.JS
+		}{
+			Month:    month,
+			Group:    group,
+			Type:     txType,
+			Currency: currency,
+			Entries:  entries,
+			Accounts: template.JS(jsonAccounts),
+		}
+
+		err = templates.ExecuteTemplate(w, "transactions.html", data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 }

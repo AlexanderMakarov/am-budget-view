@@ -250,7 +250,7 @@ func main() {
 				log.Printf("Failed to open browser: %v", err)
 			}
 		}()
-		ListenAndServe(monthlyStatistics)
+		ListenAndServe(monthlyStatistics, accounts)
 	}
 }
 

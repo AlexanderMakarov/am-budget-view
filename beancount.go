@@ -379,6 +379,7 @@ func buildJournalEntries(
 				accounts[t.ToAccount] = &AccountFromTransactions{
 					IsTransactionAccount: !t.IsExpense,
 					SourceType:           sourceType,
+					Source:               t.Source,
 					From:                 t.Date,
 					To:                   t.Date,
 					Number:               t.ToAccount,
@@ -388,6 +389,7 @@ func buildJournalEntries(
 				account.To = t.Date
 				if !t.IsExpense && len(t.SourceType) > 0 {
 					account.SourceType = t.SourceType
+					account.Source = t.Source
 				}
 				if !t.IsExpense {
 					account.IsTransactionAccount = true
@@ -405,6 +407,7 @@ func buildJournalEntries(
 				accounts[t.FromAccount] = &AccountFromTransactions{
 					IsTransactionAccount: t.IsExpense,
 					SourceType:           sourceType,
+					Source:               t.Source,
 					From:                 t.Date,
 					To:                   t.Date,
 					Number:               t.FromAccount,
@@ -414,6 +417,7 @@ func buildJournalEntries(
 				account.To = t.Date
 				if t.IsExpense && len(t.SourceType) > 0 {
 					account.SourceType = t.SourceType
+					account.Source = t.Source
 				}
 				if t.IsExpense {
 					account.IsTransactionAccount = true

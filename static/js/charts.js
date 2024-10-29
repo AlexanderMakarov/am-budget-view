@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Parse the JSON data
     const data = JSON.parse(document.getElementById('interval-statistics').textContent);
 
     console.log(data);
@@ -203,16 +202,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 top: '10px'
             },
             tooltip: {
-                trigger: 'axis',
+                trigger: 'item',
                 axisPointer: { type: 'shadow' },
                 formatter: function(params) {
-                    const monthLabel = params[0].axisValue;
+                    const monthLabel = params.name;
                     let result = `${monthLabel}<br>`;
-                    params.forEach(param => {
-                        if (param.value > 0) {
-                            result += `${param.marker} ${param.seriesName}: ${param.value.toFixed(2)}%<br>`;
-                        }
-                    });
+                    
+                    // Get the month data to calculate absolute values
+                    const monthData = currencyData[labels.length - 1 - labels.indexOf(monthLabel)];
+                    const totals = monthData.Expense || monthData.Income;
+                    const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
+
+                    if (params.value > 0) {
+                        const absoluteValue = (params.value * monthTotal / 100).toFixed(2);
+                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${absoluteValue})<br>`;
+                    }
+                    
                     return result;
                 }
             },
@@ -272,7 +277,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }).reverse()
             }))
         };
+
+        function addChartClickHandler(chart, type) {
+            chart.on('click', function(params) {
+                if (params.seriesName && params.name) {
+                    const month = params.name;  // Format: YYYY-MM
+                    const group = params.seriesName;
+                    window.location.href = `/transactions?month=${month}&group=${encodeURIComponent(group)}&type=${type}&currency=${currentCurrency}`;
+                }
+            });
+        }
+
         monthlyExpenses.setOption(monthlyExpensesOption);
+        addChartClickHandler(monthlyExpenses, 'expense');
 
         // Monthly Income Horizontal Stacked Bar Chart (Percentage)
         const monthlyIncome = echarts.init(document.getElementById('monthlyIncome'));
@@ -283,16 +300,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 top: '10px'
             },
             tooltip: {
-                trigger: 'axis',
+                trigger: 'item',
                 axisPointer: { type: 'shadow' },
                 formatter: function(params) {
-                    const monthLabel = params[0].axisValue;
+                    const monthLabel = params.name;
                     let result = `${monthLabel}<br>`;
-                    params.forEach(param => {
-                        if (param.value > 0) {
-                            result += `${param.marker} ${param.seriesName}: ${param.value.toFixed(2)}%<br>`;
-                        }
-                    });
+                    
+                    // Get the month data to calculate absolute values
+                    const monthData = currencyData[labels.length - 1 - labels.indexOf(monthLabel)];
+                    const totals = monthData.Expense || monthData.Income;
+                    const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
+
+                    if (params.value > 0) {
+                        const absoluteValue = (params.value * monthTotal / 100).toFixed(2);
+                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${absoluteValue})<br>`;
+                    }
+                    
                     return result;
                 }
             },
@@ -352,7 +375,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }).reverse()
             }))
         };
+
         monthlyIncome.setOption(monthlyIncomeOption);
+        addChartClickHandler(monthlyIncome, 'income');
+
+        // Resize charts when window size changes
+        window.addEventListener('resize', function() {
+            expensesVsIncome.resize();
+            totalExpenses.resize();
+            totalIncome.resize();
+            monthlyExpenses.resize();
+            monthlyIncome.resize();
+        });
     }
 
     // Initialize charts with default currency
@@ -362,14 +396,5 @@ document.addEventListener('DOMContentLoaded', function() {
     currencySelector.addEventListener('change', function(e) {
         currentCurrency = e.target.value;
         updateCharts(currentCurrency);
-    });
-
-    // Resize charts when window size changes
-    window.addEventListener('resize', function() {
-        expensesVsIncome.resize();
-        totalExpenses.resize();
-        totalIncome.resize();
-        monthlyExpenses.resize();
-        monthlyIncome.resize();
     });
 });

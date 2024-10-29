@@ -96,6 +96,8 @@ type AccountFromTransactions struct {
 	IsTransactionAccount bool
 	// SourceType is copied from Transaction.SourceType.
 	SourceType string
+	// Source is copied from Transaction.Source.
+	Source string
 	// From is a first transaction date.
 	From time.Time
 	// To is a last transaction date.

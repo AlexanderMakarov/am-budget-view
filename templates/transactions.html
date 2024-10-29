@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transactions - {{.Group}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{if eq .Type "income"}}Income{{else}}Expense{{end}} transactions for "{{.Group}}" category</h1>
+            <div class="header-right">
+                <span>{{.Month}} ({{.Currency}})</span>
+                <a href="/" class="back-button">Back to Dashboard</a>
+            </div>
+        </header>
+
+        <table class="transactions-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>From Account</th>
+                    <th>To Account</th>
+                    <th>Amount ({{.Currency}})</th>
+                    <th>Details</th>
+                    <th>Account Currency</th>
+                    <th>{{.Currency}} Conversion Precision (days)</th>
+                    <th>Source Type</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Entries}}
+                <tr>
+                    <td>{{.Date.Format "2006-01-02"}}</td>
+                    <td class="account" data-account="{{.FromAccount}}">{{.FromAccount}}</td>
+                    <td class="account" data-account="{{.ToAccount}}">{{.ToAccount}}</td>
+                    <td class="amount">{{with .Amounts}}{{(index . $.Currency).Amount}}{{end}}</td>
+                    <td>{{.Details}}</td>
+                    <td>{{.AccountCurrency}}</td>
+                    <td>{{with .Amounts}}{{(index . $.Currency).ConversionPrecision}}{{end}}</td>
+                    <td>{{.SourceType}}</td>
+                    <td>{{.Source}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const accounts = {{.Accounts}};
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            document.body.appendChild(tooltip);
+
+            document.querySelectorAll('.account').forEach(cell => {
+                cell.addEventListener('mouseenter', function() {
+                    const accountNumber = this.getAttribute('data-account');
+                    const accountInfo = accounts[accountNumber];
+                    let tooltipContent = '<table>';
+
+                    if (accountInfo) {
+                        if (accountInfo.IsTransactionAccount) {
+                            tooltipContent += `
+                                <tr><td>Source Type:</td><td>${accountInfo.SourceType}</td></tr>
+                                <tr><td>Source:</td><td>${accountInfo.Source}</td></tr>
+                                <tr><td>From:</td><td>${new Date(accountInfo.From).toLocaleDateString()}</td></tr>
+                                <tr><td>To:</td><td>${new Date(accountInfo.To).toLocaleDateString()}</td></tr>
+                            `;
+                        } else {
+                            tooltipContent += `
+                                <tr><td>Unknown Account</td></tr>
+                                <tr><td>From:</td><td>${new Date(accountInfo.From).toLocaleDateString()}</td></tr>
+                                <tr><td>To:</td><td>${new Date(accountInfo.To).toLocaleDateString()}</td></tr>
+                            `;
+                        }
+                    } else {
+                        tooltipContent += '<tr><td>Unknown Account</td></tr>';
+                    }
+
+                    tooltipContent += '</table>';
+                    tooltip.innerHTML = tooltipContent;
+                    tooltip.style.display = 'block';
+                });
+
+                cell.addEventListener('mousemove', function(e) {
+                    tooltip.style.left = e.pageX + 10 + 'px';
+                    tooltip.style.top = e.pageY + 10 + 'px';
+                });
+
+                cell.addEventListener('mouseleave', function() {
+                    tooltip.style.display = 'none';
+                });
+            });
+        });
+    </script>
+</body>
+</html> 
