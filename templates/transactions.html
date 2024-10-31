@@ -10,7 +10,7 @@
             <h1>{{if eq .Type "income"}}Income{{else}}Expense{{end}} transactions for "{{.Group}}" category</h1>
             <div class="header-right">
                 <span>{{.Month}} ({{.Currency}})</span>
-                <a href="/" class="back-button">Back to Dashboard</a>
+                <button onclick="window.history.back()" class="back-button">Back to Dashboard</button>
             </div>
         </header>
 
@@ -44,11 +44,17 @@
                 {{end}}
             </tbody>
         </table>
+        <div class="explanation-text">
+            This is list of all transactions marked for "{{.Group}}" category.
+            Note that not all of them are included in the statistics, only transactions with unknown account are.
+            Those are marked with "Unknown Account" in the "From" and "To" columns - you may check account details by hovering mouse over account number.
+            Transactions with known accounts are not included in the statistics because they represent transfers between your own accounts, therefore are not "Income" or "Expense".
+        </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const accounts = {{.Accounts}};
+            const accounts = JSON.parse('{{.Accounts}}');
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             document.body.appendChild(tooltip);
@@ -64,14 +70,14 @@
                             tooltipContent += `
                                 <tr><td>Source Type:</td><td>${accountInfo.SourceType}</td></tr>
                                 <tr><td>Source:</td><td>${accountInfo.Source}</td></tr>
-                                <tr><td>From:</td><td>${new Date(accountInfo.From).toLocaleDateString()}</td></tr>
-                                <tr><td>To:</td><td>${new Date(accountInfo.To).toLocaleDateString()}</td></tr>
+                                <tr><td>From:</td><td>${new Date(accountInfo.From).toISOString().split('T')[0]}</td></tr>
+                                <tr><td>To:</td><td>${new Date(accountInfo.To).toISOString().split('T')[0]}</td></tr>
                             `;
                         } else {
                             tooltipContent += `
                                 <tr><td>Unknown Account</td></tr>
-                                <tr><td>From:</td><td>${new Date(accountInfo.From).toLocaleDateString()}</td></tr>
-                                <tr><td>To:</td><td>${new Date(accountInfo.To).toLocaleDateString()}</td></tr>
+                                <tr><td>From:</td><td>${new Date(accountInfo.From).toISOString().split('T')[0]}</td></tr>
+                                <tr><td>To:</td><td>${new Date(accountInfo.To).toISOString().split('T')[0]}</td></tr>
                             `;
                         }
                     } else {

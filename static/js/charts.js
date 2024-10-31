@@ -1,25 +1,26 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const data = JSON.parse(document.getElementById('interval-statistics').textContent);
+document.addEventListener("DOMContentLoaded", function () {
+    const data = JSON.parse(document.getElementById("interval-statistics").textContent);
 
     console.log(data);
 
-    const currencySelector = document.getElementById('currencySelector');
+    const currencySelector = document.getElementById("currencySelector");
     let currentCurrency = currencySelector.value;
-    
+
     function updateCharts(currency) {
-        const currencyData = data.map(stat => stat[currency]);
-        
-        const labels = currencyData.map(stat => stat.Start.substring(0, 7)); // Format: YYYY-MM
+        const currencyData = data.map((stat) => stat[currency]);
+
+        const labels = currencyData.map((stat) => stat.Start.substring(0, 7)); // Format: YYYY-MM
         const incomeData = [];
         const expenseData = [];
         const incomeGroups = new Set();
         const expenseGroups = new Set();
 
         function parseMoneyString(str) {
-            return parseFloat(str.replace(/\s/g, ''));
+            return parseFloat(str.replace(/\s/g, ""));
         }
 
-        currencyData.forEach(stat => {
+        // Calculate totals for income and expense per interval.
+        currencyData.forEach((stat) => {
             let totalIncome = 0;
             let totalExpense = 0;
 
@@ -38,349 +39,404 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Expenses vs Income Chart
-        const expensesVsIncome = echarts.init(document.getElementById('expensesVsIncome'));
+        const expensesVsIncome = echarts.init(document.getElementById("expensesVsIncome"));
         const expensesVsIncomeOption = {
-            title: { text: 'Expenses vs Income' },
+            title: { text: "Expenses vs Income" },
             tooltip: {
-                trigger: 'axis',
+                trigger: "axis",
                 axisPointer: {
-                    type: 'cross',
+                    type: "cross",
                     label: {
-                        backgroundColor: '#6a7985'
-                    }
-                }
+                        backgroundColor: "#6a7985",
+                    },
+                },
             },
             legend: {
-                data: ['Expenses', 'Income']
+                data: ["Expenses", "Income"],
             },
             toolbox: {
                 feature: {
                     saveAsImage: {},
                     magicType: {
-                        type: ['line', 'bar']
+                        type: ["line", "bar"],
                     },
-                    dataView: {}
-                }
+                    dataView: {},
+                },
             },
             xAxis: {
-                type: 'category',
-                data: labels
+                type: "category",
+                data: labels,
             },
             yAxis: {
-                type: 'value'
+                type: "value",
             },
             series: [
-                { 
-                    name: 'Expenses', 
-                    color: 'red',
-                    type: 'line', 
+                {
+                    name: "Expenses",
+                    color: "red",
+                    type: "line",
                     data: expenseData,
                 },
-                { 
-                    name: 'Income', 
-                    color: 'darkgreen',
-                    type: 'line', 
-                    data: incomeData 
-                }
-            ]
+                {
+                    name: "Income",
+                    color: "blue",
+                    type: "line",
+                    data: incomeData,
+                },
+            ],
         };
         expensesVsIncome.setOption(expensesVsIncomeOption);
 
         // Total Expenses Bar Chart
-        const totalExpenses = echarts.init(document.getElementById('totalExpenses'));
+        const totalExpenses = echarts.init(document.getElementById("totalExpenses"));
         const totalExpensesOption = {
-            title: { text: 'Total Expenses per Category' },
+            title: { text: "Total Expenses per Category" },
             tooltip: {
-                trigger: 'axis',
+                trigger: "axis",
                 axisPointer: {
-                    type: 'shadow'
-                }
+                    type: "shadow",
+                },
             },
             legend: {
-                show: false // Hide legend as category names are on y-axis
+                show: false, // Hide legend as category names are on y-axis
             },
             toolbox: {
                 show: true,
                 feature: {
                     saveAsImage: {},
                     dataView: {},
-                    restore: {}
-                }
+                    restore: {},
+                },
             },
             grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '10%', // Increase bottom margin to accommodate axis name
+                left: "3%",
+                right: "4%",
+                bottom: "10%",
+                top: "40px",
                 containLabel: true
             },
             xAxis: {
-                type: 'value',
-                name: 'Amount',
-                nameLocation: 'middle',
+                type: "value",
+                name: "Amount",
+                nameLocation: "middle",
                 nameGap: 30,
                 nameRotate: 0, // Keep it horizontal
                 nameTextStyle: {
-                    padding: [10, 0, 0, 0] // Add some padding to move it down
-                }
+                    padding: [10, 0, 0, 0], // Add some padding to move it down
+                },
             },
             yAxis: {
-                type: 'category',
-                data: Array.from(expenseGroups)
+                type: "category",
+                data: Array.from(expenseGroups),
+                interval: 0, // Show all labels.
             },
-            series: [{
-                name: 'Expenses',
-                type: 'bar',
-                data: Array.from(expenseGroups).map(group => ({
-                    value: currencyData.reduce((sum, stat) => Number((sum + parseMoneyString(stat.Expense[group]?.Total || '0')).toFixed(2)), 0),
-                    name: group
-                }))
-            }]
+            series: [
+                {
+                    name: "Expenses",
+                    color: "red",
+                    type: "bar",
+                    data: Array.from(expenseGroups).map((group) => ({
+                        value: currencyData.reduce(
+                            (sum, stat) =>
+                                Number((sum + parseMoneyString(stat.Expense[group]?.Total || "0")).toFixed(2)),
+                            0
+                        ),
+                        name: group,
+                    })),
+                },
+            ],
         };
+
+        // Set height for parent element based on number of categories.
+        const chartHeight = Math.max(400, Math.max(expenseGroups.size, incomeGroups.size) * 20 + 100);
+        const totalExpensesEl = document.getElementById("totalExpenses");
+        totalExpensesEl.style.height = chartHeight + 'px';
+
+        // Set options and force resize
         totalExpenses.setOption(totalExpensesOption);
+        totalExpenses.resize();
 
         // Total Income Bar Chart
-        const totalIncome = echarts.init(document.getElementById('totalIncome'));
+        const totalIncome = echarts.init(document.getElementById("totalIncome"));
         const totalIncomeOption = {
-            title: { text: 'Total Income per Category' },
+            title: { text: "Total Income per Category" },
             tooltip: {
-                trigger: 'axis',
+                trigger: "axis",
                 axisPointer: {
-                    type: 'shadow'
-                }
+                    type: "shadow",
+                },
             },
             legend: {
-                show: false // Hide legend as category names are on y-axis
+                show: false, // Hide legend as category names are on y-axis
             },
             toolbox: {
                 show: true,
                 feature: {
                     saveAsImage: {},
                     dataView: {},
-                    restore: {}
-                }
+                    restore: {},
+                },
             },
             grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '10%', // Increase bottom margin to accommodate axis name
+                left: "3%",
+                right: "4%",
+                bottom: "10%",
+                top: "40px",
                 containLabel: true
             },
             xAxis: {
-                type: 'value',
-                name: 'Amount',
-                nameLocation: 'middle',
+                type: "value",
+                name: "Amount",
+                nameLocation: "middle",
                 nameGap: 30,
                 nameRotate: 0, // Keep it horizontal
                 nameTextStyle: {
-                    padding: [10, 0, 0, 0] // Add some padding to move it down
-                }
+                    padding: [10, 0, 0, 0], // Add some padding to move it down
+                },
             },
             yAxis: {
-                type: 'category',
-                data: Array.from(incomeGroups)
+                type: "category",
+                data: Array.from(incomeGroups),
+                interval: 0, // Show all labels.
             },
-            series: [{
-                name: 'Income',
-                type: 'bar',
-                data: Array.from(incomeGroups).map(group => ({
-                    value: currencyData.reduce((sum, stat) => Number((sum + parseMoneyString(stat.Income[group]?.Total || '0')).toFixed(2)), 0),
-                    name: group
-                }))
-            }]
+            series: [
+                {
+                    name: "Income",
+                    color: "blue",
+                    type: "bar",
+                    data: Array.from(incomeGroups).map((group) => ({
+                        value: currencyData.reduce(
+                            (sum, stat) =>
+                                Number((sum + parseMoneyString(stat.Income[group]?.Total || "0")).toFixed(2)),
+                            0
+                        ),
+                        name: group,
+                    })),
+                },
+            ],
         };
+
+        // Set height for parent element based on number of categories.
+        const totalIncomeEl = document.getElementById("totalIncome");
+        totalIncomeEl.style.height = chartHeight + 'px';
+
+        // Set options and force resize
         totalIncome.setOption(totalIncomeOption);
+        totalIncome.resize();
 
         // Store reversed labels once
         const reversedLabels = labels.slice().reverse();
 
         // Monthly Expenses Horizontal Stacked Bar Chart (Percentage)
-        const monthlyExpenses = echarts.init(document.getElementById('monthlyExpenses'));
+        const monthlyExpenses = echarts.init(document.getElementById("monthlyExpenses"));
         const monthlyExpensesOption = {
             title: {
-                text: 'Monthly Expenses per Category (%)',
-                left: 'center',
-                top: '10px'
+                text: "Monthly Expenses per Category (%)",
+                left: "center",
+                top: "10px",
             },
             tooltip: {
-                trigger: 'item',
-                axisPointer: { type: 'shadow' },
-                formatter: function(params) {
+                trigger: "item",
+                axisPointer: { type: "shadow" },
+                formatter: function (params) {
                     const monthLabel = params.name;
                     let result = `${monthLabel}<br>`;
-                    
+
                     // Get the month data to calculate absolute values
-                    const monthData = currencyData[labels.length - 1 - labels.indexOf(monthLabel)];
-                    const totals = monthData.Expense || monthData.Income;
-                    const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
+                    const monthData = currencyData[labels.indexOf(monthLabel)];
+                    const totals = monthData.Expense;
+                    const monthTotal = Object.values(totals).reduce(
+                        (sum, data) => sum + parseMoneyString(data.Total),
+                        0
+                    );
 
                     if (params.value > 0) {
-                        const absoluteValue = (params.value * monthTotal / 100).toFixed(2);
-                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${absoluteValue})<br>`;
+                        const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
+                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(
+                            2
+                        )}% (${absoluteValue})<br>`;
                     }
-                    
+
                     return result;
-                }
+                },
             },
             legend: {
-                type: 'scroll',
-                orient: 'horizontal',
-                top: '40px',
-                left: 'center',
-                right: '10%',
+                type: "scroll",
+                orient: "horizontal",
+                top: "40px",
+                left: "center",
+                right: "10%",
             },
             toolbox: {
                 feature: {
                     saveAsImage: {},
-                    dataView: {}
-                }
+                    dataView: {},
+                },
             },
             grid: {
-                left: '3%',
-                right: '5%',
-                bottom: '5%',
-                top: '100px',
-                containLabel: true
+                left: "3%",
+                right: "5%",
+                bottom: "5%",
+                top: "100px",
+                containLabel: true,
             },
             xAxis: {
-                type: 'value',
-                name: 'Percentage',
-                nameLocation: 'middle',
+                type: "value",
+                name: "Percentage",
+                nameLocation: "middle",
                 nameGap: 30,
                 max: 100,
                 axisLabel: {
-                    formatter: '{value}%'
-                }
+                    formatter: "{value}%",
+                },
             },
             yAxis: {
-                type: 'category',
+                type: "category",
                 data: reversedLabels,
                 axisLabel: {
                     interval: 0,
-                    rotate: 0
+                    rotate: 0,
                 },
                 axisTick: {
-                    alignWithLabel: true
-                }
-            },
-            series: Array.from(expenseGroups).map(group => ({
-                name: group,
-                type: 'bar',
-                stack: 'total',
-                emphasis: {
-                    focus: 'series'
+                    alignWithLabel: true,
                 },
-                barCategoryGap: '30%',
-                data: currencyData.map(stat => {
-                    let monthTotal = Object.values(stat.Expense).reduce((sum, expense) => sum + parseMoneyString(expense.Total), 0);
-                    let groupValue = parseMoneyString(stat.Expense[group]?.Total || '0');
-                    return (groupValue / monthTotal) * 100;
-                }).reverse()
-            }))
+            },
+            series: Array.from(expenseGroups).map((group) => ({
+                name: group,
+                type: "bar",
+                stack: "total",
+                emphasis: {
+                    focus: "series",
+                },
+                barCategoryGap: "30%",
+                data: currencyData
+                    .map((stat) => {
+                        let monthTotal = Object.values(stat.Expense).reduce(
+                            (sum, expense) => sum + parseMoneyString(expense.Total),
+                            0
+                        );
+                        let groupValue = parseMoneyString(stat.Expense[group]?.Total || "0");
+                        return (groupValue / monthTotal) * 100;
+                    })
+                    .reverse(),
+            })),
         };
 
         function addChartClickHandler(chart, type) {
-            chart.on('click', function(params) {
+            chart.on("click", function (params) {
                 if (params.seriesName && params.name) {
-                    const month = params.name;  // Format: YYYY-MM
+                    const month = params.name; // Format: YYYY-MM
                     const group = params.seriesName;
-                    window.location.href = `/transactions?month=${month}&group=${encodeURIComponent(group)}&type=${type}&currency=${currentCurrency}`;
+                    window.location.href = `/transactions?month=${month}&group=${encodeURIComponent(
+                        group
+                    )}&type=${type}&currency=${currentCurrency}`;
                 }
             });
         }
 
         monthlyExpenses.setOption(monthlyExpensesOption);
-        addChartClickHandler(monthlyExpenses, 'expense');
+        addChartClickHandler(monthlyExpenses, "expense");
 
         // Monthly Income Horizontal Stacked Bar Chart (Percentage)
-        const monthlyIncome = echarts.init(document.getElementById('monthlyIncome'));
+        const monthlyIncome = echarts.init(document.getElementById("monthlyIncome"));
         const monthlyIncomeOption = {
             title: {
-                text: 'Monthly Income per Category (%)',
-                left: 'center',
-                top: '10px'
+                text: "Monthly Income per Category (%)",
+                left: "center",
+                top: "10px",
             },
             tooltip: {
-                trigger: 'item',
-                axisPointer: { type: 'shadow' },
-                formatter: function(params) {
+                trigger: "item",
+                axisPointer: { type: "shadow" },
+                formatter: function (params) {
                     const monthLabel = params.name;
                     let result = `${monthLabel}<br>`;
-                    
+
                     // Get the month data to calculate absolute values
-                    const monthData = currencyData[labels.length - 1 - labels.indexOf(monthLabel)];
-                    const totals = monthData.Expense || monthData.Income;
-                    const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
+                    const monthData = currencyData[labels.indexOf(monthLabel)];
+                    const totals = monthData.Income;
+                    const monthTotal = Object.values(totals).reduce(
+                        (sum, data) => sum + parseMoneyString(data.Total),
+                        0
+                    );
 
                     if (params.value > 0) {
-                        const absoluteValue = (params.value * monthTotal / 100).toFixed(2);
-                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${absoluteValue})<br>`;
+                        const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
+                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(
+                            2
+                        )}% (${absoluteValue})<br>`;
                     }
-                    
+
                     return result;
-                }
+                },
             },
             legend: {
-                type: 'scroll',
-                orient: 'horizontal',
-                top: '40px',
-                left: 'center',
-                right: '10%',
+                type: "scroll",
+                orient: "horizontal",
+                top: "40px",
+                left: "center",
+                right: "10%",
             },
             toolbox: {
                 feature: {
                     saveAsImage: {},
-                    dataView: {}
-                }
+                    dataView: {},
+                },
             },
             grid: {
-                left: '3%',
-                right: '5%',
-                bottom: '5%',
-                top: '100px',
-                containLabel: true
+                left: "3%",
+                right: "5%",
+                bottom: "5%",
+                top: "100px",
+                containLabel: true,
             },
             xAxis: {
-                type: 'value',
-                name: 'Percentage',
-                nameLocation: 'middle',
+                type: "value",
+                name: "Percentage",
+                nameLocation: "middle",
                 nameGap: 30,
                 max: 100,
                 axisLabel: {
-                    formatter: '{value}%'
-                }
+                    formatter: "{value}%",
+                },
             },
             yAxis: {
-                type: 'category',
+                type: "category",
                 data: reversedLabels,
                 axisLabel: {
                     interval: 0,
-                    rotate: 0
+                    rotate: 0,
                 },
                 axisTick: {
-                    alignWithLabel: true
-                }
-            },
-            series: Array.from(incomeGroups).map(group => ({
-                name: group,
-                type: 'bar',
-                stack: 'total',
-                emphasis: {
-                    focus: 'series'
+                    alignWithLabel: true,
                 },
-                barCategoryGap: '30%',
-                data: currencyData.map(stat => {
-                    let monthTotal = Object.values(stat.Income).reduce((sum, income) => sum + parseMoneyString(income.Total), 0);
-                    let groupValue = parseMoneyString(stat.Income[group]?.Total || '0');
-                    return (groupValue / monthTotal) * 100;
-                }).reverse()
-            }))
+            },
+            series: Array.from(incomeGroups).map((group) => ({
+                name: group,
+                type: "bar",
+                stack: "total",
+                emphasis: {
+                    focus: "series",
+                },
+                barCategoryGap: "30%",
+                data: currencyData
+                    .map((stat) => {
+                        let monthTotal = Object.values(stat.Income).reduce(
+                            (sum, income) => sum + parseMoneyString(income.Total),
+                            0
+                        );
+                        let groupValue = parseMoneyString(stat.Income[group]?.Total || "0");
+                        return (groupValue / monthTotal) * 100;
+                    })
+                    .reverse(),
+            })),
         };
 
         monthlyIncome.setOption(monthlyIncomeOption);
-        addChartClickHandler(monthlyIncome, 'income');
+        addChartClickHandler(monthlyIncome, "income");
 
         // Resize charts when window size changes
-        window.addEventListener('resize', function() {
+        window.addEventListener("resize", function () {
             expensesVsIncome.resize();
             totalExpenses.resize();
             totalIncome.resize();
@@ -393,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCharts(currentCurrency);
 
     // Add currency selector change handler
-    currencySelector.addEventListener('change', function(e) {
+    currencySelector.addEventListener("change", function (e) {
         currentCurrency = e.target.value;
         updateCharts(currentCurrency);
     });

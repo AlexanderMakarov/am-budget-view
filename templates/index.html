@@ -28,6 +28,20 @@
         </div>
         <div id="monthlyExpenses" class="chart"></div>
         <div id="monthlyIncome" class="chart"></div>
+        <div class="explanation-text">
+            Notes:
+            <ul>
+                <li>
+                    Currencies from transactions files are converted to the selected currency
+                    using exchange rates from the same files.
+                    So if exchange rate are not available between files/currencies, then totals would be incorrect!
+                </li>
+                <li>
+                    "Monthly Expenses per Category" and "Monthly Income per Category" charts are clickable.
+                    Clicking on a category bar will show category transactions for the selected month.
+                </li>
+            </ul>
+        </div>
     </div>
     <script id="interval-statistics" type="application/json">
         {{.Statistics}}

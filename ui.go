@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"sort"
 	"time"
 )
 
@@ -15,29 +17,37 @@ var static embed.FS
 //go:embed templates
 var templateFS embed.FS
 
+var devMode bool = os.Getenv("DEV_MODE") != ""
 var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
 func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) {
 	http.HandleFunc("/", handleIndex(statistics))
 	http.HandleFunc("/transactions", handleTransactions(statistics, accounts))
 
-	// Serve static files
-	http.Handle("/static/", http.FileServer(http.FS(static)))
+	// Serve static files based on DEV_MODE
+	if devMode {
+		// In development mode, serve from filesystem
+		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	} else {
+		// In production mode, serve from embedded FS
+		http.Handle("/static/", http.FileServer(http.FS(static)))
+	}
 
 	// Wrap the entire http.ServeMux with a logging handler
 	loggedMux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Create a custom ResponseWriter to capture the status code
 		lw := &logWriter{ResponseWriter: w}
-		
 		http.DefaultServeMux.ServeHTTP(lw, r)
-		
 		duration := time.Since(start)
 		log.Printf("%s %s %d %dms", r.Method, r.URL.Path, lw.statusCode, duration.Milliseconds())
 	})
 
 	log.Println("Server starting on http://localhost:8080")
+	if devMode {
+		log.Println("Running in development mode - serving static files from filesystem")
+	}
 	err := http.ListenAndServe(":8080", loggedMux)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
@@ -57,6 +67,7 @@ func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.Respons
 		for _, stat := range statistics[0] {
 			currencies = append(currencies, stat.Currency)
 		}
+		sort.Strings(currencies)
 
 		data := struct {
 			Title      string
@@ -68,7 +79,16 @@ func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.Respons
 			Statistics: template.JS(jsonData),
 		}
 
-		err = templates.ExecuteTemplate(w, "index.html", data)
+		if devMode {
+			tmpl, err := template.ParseFiles("templates/index.html")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, data)
+		} else {
+			err = templates.ExecuteTemplate(w, "index.html", data)
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -123,10 +143,19 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 			Type:     txType,
 			Currency: currency,
 			Entries:  entries,
-			Accounts: template.JS(jsonAccounts),
+			Accounts: template.JS(string(jsonAccounts)),
 		}
 
-		err = templates.ExecuteTemplate(w, "transactions.html", data)
+		if devMode {
+			tmpl, err := template.ParseFiles("templates/transactions.html")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			err = tmpl.Execute(w, data)
+		} else {
+			err = templates.ExecuteTemplate(w, "transactions.html", data)
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

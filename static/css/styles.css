@@ -22,13 +22,17 @@ body {
 .chart-row {
     display: flex;
     justify-content: space-between;
-    gap: 20px; /* Add this line to create horizontal gap */
+    gap: 20px;
     margin-bottom: 20px;
+    align-items: stretch;
+    min-height: fit-content;
 }
 
 .chart-row .chart {
-    width: calc(50% - 10px); /* Adjust width to account for the gap */
-    margin-bottom: 0; /* Remove bottom margin for charts in the row */
+    width: calc(50% - 10px);
+    margin-bottom: 0;
+    overflow: visible;
+    flex: 1;
 }
 
 #expensesVsIncome, #monthlyExpenses {
@@ -36,7 +40,9 @@ body {
 }
 
 #totalExpenses, #totalIncome {
-    height: 400px;
+    width: 100%;
+    height: auto;
+    min-height: 400px;
 }
 
 #monthlyExpenses, #monthlyIncome {
@@ -149,4 +155,10 @@ h1 {
     display: none;
     z-index: 1000;
     pointer-events: none;
+}
+
+.explanation-text {
+    margin-top: 20px;
+    font-size: 16px;
+    line-height: 1.5;
 }
