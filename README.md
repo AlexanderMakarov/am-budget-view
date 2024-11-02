@@ -24,9 +24,9 @@ Results are:
 
 Automatically opens browser with local UI:
 
-<img src="docsdata/UI 1 1.png" alt="Main charts" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/UI 1 2.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/UI 1 4.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/main page.png" alt="main page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/montly expenses per category percent.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/transactions.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
 
 ### 2. Text report with most important and structured insights into your budget.
 
@@ -151,10 +151,10 @@ and instructions how you got this file.
    Run it with `-h` for details.
    It would explain how to work with multiple configuration files and see information directly in terminal.
 4. Application automatically starts in "local HTTP server mode" and opens in a default browser.
-5. Application supports 3 "reporting" mode: 'web' - default, 'file' - to open text report in default TXT files veiwer,
+5. Application supports 3 "reporting" modes: 'web' - default, 'file' - to open text report in default TXT files veiwer,
    'none' - only STDOUT.
 6. Application supports one more "categorization" mode - need to set `categorizeMode: true` in configuration file.
-   This mode is useful to configure categorization.
+   This mode is useful to find transactions without categories.
 
 # Use with Beancount and Fava UI
 
@@ -178,9 +178,9 @@ Fava UI would catch up changes without restart (need press button on page).
 
 - Application does not have currencies exchange rates source other than transactions files you provide to it.
   But it allows to perform conversions even using those scarse information from transaction files.
-  It converts currencies with direct exchange rates first, next with best multi-conversion option
+  It converts currencies with direct exchange rates first, next with best multi-hop conversion option
   found by Dijkstra algorithm. Precision is measured as a number of days between current day and each
-  exchange rate date used for conversion tip, with one exception - even if target date is the same date
+  exchange rate date used for conversion hop, with one exception - even if target date is the same date
   where we have direct exchange rate then precision would be 1, because precision 0 means "no conversion",
   i.e. transaction currency is a target currency.
 - Application does not support a way to categorize transactions in a different way for different accounts.
