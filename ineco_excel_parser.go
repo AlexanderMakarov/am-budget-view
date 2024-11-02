@@ -240,19 +240,23 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 			from = "UnknownAccount" // Ineco XLSX doesn't have payer information.
 			to = accountNumber
 		}
-		transactions = append(transactions, Transaction{
+		transaction := Transaction{
 			IsExpense:            isExpense,
 			Date:                 t.Date,
 			Details:              t.Details,
 			Amount:               MoneyWith2DecimalPlaces{accountAmount},
-			OriginCurrency:       t.Currency,
 			OriginCurrencyAmount: MoneyWith2DecimalPlaces{t.AmountOrigCur.int},
 			SourceType:           sourceType,
 			Source:               filePath,
 			AccountCurrency:      accountCurrency,
 			FromAccount:          from,
 			ToAccount:            to,
-		})
+		}
+		// Add "origin" currency only if it is different from account currency.
+		if t.Currency != "" && t.Currency != accountCurrency {
+			transaction.OriginCurrency = t.Currency
+		}
+		transactions = append(transactions, transaction)
 	}
 	return transactions, nil
 }

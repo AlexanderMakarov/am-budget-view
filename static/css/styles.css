@@ -162,3 +162,8 @@ h1 {
     font-size: 16px;
     line-height: 1.5;
 }
+
+.transactions-table tr.non-statistical {
+    color: #888;
+    background-color: #f5f5f5;
+}

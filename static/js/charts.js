@@ -227,6 +227,10 @@ document.addEventListener("DOMContentLoaded", function () {
         // Store reversed labels once
         const reversedLabels = labels.slice().reverse();
 
+        function formatCurrency(value) {
+            return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
         // Monthly Expenses Horizontal Stacked Bar Chart (Percentage)
         const monthlyExpenses = echarts.init(document.getElementById("monthlyExpenses"));
         const monthlyExpensesOption = {
@@ -254,7 +258,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
                         result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(
                             2
-                        )}% (${absoluteValue})<br>`;
+                        )}% (${formatCurrency(absoluteValue)})<br>`;
                     }
 
                     return result;
@@ -364,7 +368,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
                         result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(
                             2
-                        )}% (${absoluteValue})<br>`;
+                        )}% (${formatCurrency(absoluteValue)})<br>`;
                     }
 
                     return result;

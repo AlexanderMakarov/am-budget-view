@@ -26,7 +26,6 @@ type Config struct {
 	MonthStartDayNumber                  uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
 	TimeZoneLocation                     string              `yaml:"timeZoneLocation,omitempty" validate:"timezone"`
 	GroupAllUnknownTransactions          bool                `yaml:"groupAllUnknownTransactions"`
-	IgnoreSubstrings                     []string            `yaml:"ignoreSubstrings,omitempty"`
 	GroupNamesToSubstrings               map[string][]string `yaml:"groupNamesToSubstrings"`
 }
 

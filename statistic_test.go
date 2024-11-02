@@ -48,8 +48,8 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Act
-			builder, err := NewStatisticBuilderByCategories()
-			actualGE := builder(date1, date2, tt.accounts)
+			builder, err := NewStatisticBuilderByCategories(tt.accounts)
+			actualGE := builder(date1, date2)
 
 			// Assert
 			if err != nil {
@@ -283,12 +283,12 @@ Statistics for 2024-10-27..2024-10-28:
 			expected: expectedVariousCurrenciesFull,
 		},
 	}
-	factoryMethod, _ := NewStatisticBuilderByCategories()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Arrange
-			builder := factoryMethod(date1, date2, tt.accounts)
+			factoryMethod, _ := NewStatisticBuilderByCategories(tt.accounts)
+			builder := factoryMethod(date1, date2)
 
 			// Act
 			for _, je := range tt.journalEntries {
@@ -300,7 +300,6 @@ Statistics for 2024-10-27..2024-10-28:
 			// Assert
 			actual := strings.Builder{}
 			DumpIntervalStatistics(builder.GetIntervalStatistics(), &actual, "", true)
-			fmt.Printf("---------\n%s\n---------\n", actual.String()) // TODO remove
 			assertStringEqual(t, actual.String(), tt.expected)
 		})
 	}

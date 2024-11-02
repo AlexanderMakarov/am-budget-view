@@ -220,7 +220,7 @@ type IntervalStatisticsBuilder interface {
 	GetIntervalStatistics() map[string]*IntervalStatistic
 }
 
-const UnknownGroupName = "unknown"
+const UnknownGroupName = "Unknown"
 
 // GroupExtractorByCategories is [main.IntervalStatisticsBuilder] which
 // converts JournalEntry-s into groups by category and ignores transactions to my accounts in "Total".
@@ -281,20 +281,25 @@ func (s GroupExtractorByCategories) GetIntervalStatistics() map[string]*Interval
 	return s.intervalStats
 }
 
-type StatisticBuilderFactory func(start, end time.Time, accounts map[string]*AccountFromTransactions) IntervalStatisticsBuilder
+type StatisticBuilderFactory func(start, end time.Time) IntervalStatisticsBuilder
 
 // NewStatisticBuilderByCategories returns
 // [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
 // [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByCategories] in a safe way.
-func NewStatisticBuilderByCategories() (StatisticBuilderFactory, error) {
-	return func(start, end time.Time, accounts map[string]*AccountFromTransactions) IntervalStatisticsBuilder {
-		myAccounts := make(map[string]struct{})
-		for _, account := range accounts {
-			if account.IsTransactionAccount {
-				myAccounts[account.Number] = struct{}{}
-			}
+func NewStatisticBuilderByCategories(accounts map[string]*AccountFromTransactions) (StatisticBuilderFactory, error) {
+	myAccounts := make(map[string]struct{})
+	for _, account := range accounts {
+		if account.IsTransactionAccount {
+			myAccounts[account.Number] = struct{}{}
 		}
-		fmt.Printf("My accounts (will be ignored for totals): %v\n", myAccounts)
+	}
+	keys := make([]string, 0, len(myAccounts))
+	for k := range myAccounts {
+		keys = append(keys, k)
+	}
+	fmt.Printf("My accounts (will be ignored for totals): %v\n", keys)
+
+	return func(start, end time.Time) IntervalStatisticsBuilder {
 		return GroupExtractorByCategories{
 			intervalStats: make(map[string]*IntervalStatistic),
 			myAccounts:    myAccounts,
@@ -307,7 +312,6 @@ func NewStatisticBuilderByCategories() (StatisticBuilderFactory, error) {
 // per each month from provided journal entries.
 func BuildMonthlyStatistics(
 	journalEntries []JournalEntry,
-	accounts map[string]*AccountFromTransactions,
 	statisticBuilderFactory StatisticBuilderFactory,
 	monthStart uint,
 	timeZone *time.Location,
@@ -320,7 +324,7 @@ func BuildMonthlyStatistics(
 	start := time.Date(journalEntries[0].Date.Year(), journalEntries[0].Date.Month(),
 		int(monthStart), 0, 0, 0, 0, timeZone)
 	end := start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
-	statBuilder = statisticBuilderFactory(start, end, accounts)
+	statBuilder = statisticBuilderFactory(start, end)
 
 	// Iterate through all the journal entries.
 	for _, je := range journalEntries {
@@ -334,7 +338,7 @@ func BuildMonthlyStatistics(
 			// Calculate start and end of the next month.
 			start = time.Date(je.Date.Year(), je.Date.Month(), int(monthStart), 0, 0, 0, 0, timeZone)
 			end = start.AddDate(0, 1, 0).Add(-1 * time.Nanosecond)
-			statBuilder = statisticBuilderFactory(start, end, accounts)
+			statBuilder = statisticBuilderFactory(start, end)
 		}
 
 		// Handle/append journal entry.

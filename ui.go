@@ -123,6 +123,7 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 				break
 			}
 		}
+
 		// JSON encode the accounts
 		jsonAccounts, err := json.Marshal(accounts)
 		if err != nil {
@@ -130,32 +131,69 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 			return
 		}
 
+		// Prepare data for the template
+		var templateEntries []struct {
+			JournalEntry
+			FromAccountInfo *AccountFromTransactions
+			ToAccountInfo   *AccountFromTransactions
+			IsCounted       bool
+		}
+
+		for _, entry := range entries {
+			fromAccount := accounts[entry.FromAccount]
+			toAccount := accounts[entry.ToAccount]
+			// Check if both accounts exist and are transaction accounts
+			isCounted := fromAccount != nil && 
+				        toAccount != nil && 
+				        fromAccount.IsTransactionAccount && 
+				        toAccount.IsTransactionAccount
+
+			templateEntries = append(templateEntries, struct {
+				JournalEntry
+				FromAccountInfo *AccountFromTransactions
+				ToAccountInfo   *AccountFromTransactions
+				IsCounted       bool
+			}{
+				JournalEntry:    entry,
+				FromAccountInfo: fromAccount,
+				ToAccountInfo:   toAccount,
+				IsCounted:       isCounted,
+			})
+		}
+
 		data := struct {
 			Month    string
 			Group    string
 			Type     string
 			Currency string
-			Entries  []JournalEntry
+			Entries  []struct {
+				JournalEntry
+				FromAccountInfo *AccountFromTransactions
+				ToAccountInfo   *AccountFromTransactions
+				IsCounted       bool
+			}
 			Accounts template.JS
 		}{
 			Month:    month,
 			Group:    group,
 			Type:     txType,
 			Currency: currency,
-			Entries:  entries,
+			Entries:  templateEntries,
 			Accounts: template.JS(string(jsonAccounts)),
 		}
 
+		var tmpl *template.Template
 		if devMode {
-			tmpl, err := template.ParseFiles("templates/transactions.html")
+			tmpl, err = template.ParseFiles("templates/transactions.html")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = tmpl.Execute(w, data)
 		} else {
-			err = templates.ExecuteTemplate(w, "transactions.html", data)
+			tmpl = templates.Lookup("transactions.html")
 		}
+
+		err = tmpl.Execute(w, data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

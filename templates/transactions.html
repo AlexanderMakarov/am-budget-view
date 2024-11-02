@@ -30,10 +30,26 @@
             </thead>
             <tbody>
                 {{range .Entries}}
-                <tr>
+                <tr {{if .IsCounted}}class="non-statistical"{{end}}>
                     <td>{{.Date.Format "2006-01-02"}}</td>
-                    <td class="account" data-account="{{.FromAccount}}">{{.FromAccount}}</td>
-                    <td class="account" data-account="{{.ToAccount}}">{{.ToAccount}}</td>
+                    <td class="account" 
+                        data-account="{{.FromAccount}}" 
+                        data-is-transaction="{{if .FromAccountInfo}}{{.FromAccountInfo.IsTransactionAccount}}{{end}}"
+                        data-from="{{if .FromAccountInfo}}{{.FromAccountInfo.From.Format "2006-01-02"}}{{end}}"
+                        data-to="{{if .FromAccountInfo}}{{.FromAccountInfo.To.Format "2006-01-02"}}{{end}}"
+                        data-source-type="{{if .FromAccountInfo}}{{.FromAccountInfo.SourceType}}{{end}}"
+                        data-source="{{if .FromAccountInfo}}{{.FromAccountInfo.Source}}{{end}}">
+                        {{.FromAccount}}
+                    </td>
+                    <td class="account" 
+                        data-account="{{.ToAccount}}" 
+                        data-is-transaction="{{if .ToAccountInfo}}{{.ToAccountInfo.IsTransactionAccount}}{{end}}"
+                        data-from="{{if .ToAccountInfo}}{{.ToAccountInfo.From.Format "2006-01-02"}}{{end}}"
+                        data-to="{{if .ToAccountInfo}}{{.ToAccountInfo.To.Format "2006-01-02"}}{{end}}"
+                        data-source-type="{{if .ToAccountInfo}}{{.ToAccountInfo.SourceType}}{{end}}"
+                        data-source="{{if .ToAccountInfo}}{{.ToAccountInfo.Source}}{{end}}">
+                        {{.ToAccount}}
+                    </td>
                     <td class="amount">{{with .Amounts}}{{(index . $.Currency).Amount}}{{end}}</td>
                     <td>{{.Details}}</td>
                     <td>{{.AccountCurrency}}</td>
@@ -46,44 +62,42 @@
         </table>
         <div class="explanation-text">
             This is list of all transactions marked for "{{.Group}}" category.
-            Note that not all of them are included in the statistics, only transactions with unknown account are.
-            Those are marked with "Unknown Account" in the "From" and "To" columns - you may check account details by hovering mouse over account number.
+            Grayed out rows are not included in the statistics, only transactions with unknown account are.
+            You may check account details by hovering mouse over account number.
             Transactions with known accounts are not included in the statistics because they represent transfers between your own accounts, therefore are not "Income" or "Expense".
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const accounts = JSON.parse('{{.Accounts}}');
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             document.body.appendChild(tooltip);
 
             document.querySelectorAll('.account').forEach(cell => {
                 cell.addEventListener('mouseenter', function() {
-                    const accountNumber = this.getAttribute('data-account');
-                    const accountInfo = accounts[accountNumber];
+                    const isTransaction = this.getAttribute('data-is-transaction') === 'true';
+                    const from = this.getAttribute('data-from');
+                    const to = this.getAttribute('data-to');
+                    const sourceType = this.getAttribute('data-source-type');
+                    const source = this.getAttribute('data-source');
+                    
                     let tooltipContent = '<table>';
-
-                    if (accountInfo) {
-                        if (accountInfo.IsTransactionAccount) {
-                            tooltipContent += `
-                                <tr><td>Source Type:</td><td>${accountInfo.SourceType}</td></tr>
-                                <tr><td>Source:</td><td>${accountInfo.Source}</td></tr>
-                                <tr><td>From:</td><td>${new Date(accountInfo.From).toISOString().split('T')[0]}</td></tr>
-                                <tr><td>To:</td><td>${new Date(accountInfo.To).toISOString().split('T')[0]}</td></tr>
-                            `;
-                        } else {
-                            tooltipContent += `
-                                <tr><td>Unknown Account</td></tr>
-                                <tr><td>From:</td><td>${new Date(accountInfo.From).toISOString().split('T')[0]}</td></tr>
-                                <tr><td>To:</td><td>${new Date(accountInfo.To).toISOString().split('T')[0]}</td></tr>
-                            `;
-                        }
+                    if (isTransaction) {
+                        tooltipContent += `
+                            <tr><td>Source Type:</td><td>${sourceType}</td></tr>
+                            <tr><td>Source:</td><td>${source}</td></tr>
+                            <tr><td>From:</td><td>${from}</td></tr>
+                            <tr><td>To:</td><td>${to}</td></tr>
+                            <tr><td>Transaction Account</td></tr>
+                        `;
                     } else {
-                        tooltipContent += '<tr><td>Unknown Account</td></tr>';
+                        tooltipContent += `
+                            <tr><td>Unknown Account</td></tr>
+                            <tr><td>From:</td><td>${from}</td></tr>
+                            <tr><td>To:</td><td>${to}</td></tr>
+                        `;
                     }
-
                     tooltipContent += '</table>';
                     tooltip.innerHTML = tooltipContent;
                     tooltip.style.display = 'block';

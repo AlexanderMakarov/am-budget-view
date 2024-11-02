@@ -25,9 +25,6 @@ categorizeMode: false
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
 groupAllUnknownTransactions: true
-ignoreSubstrings:
-  - Ignore1
-  - Ignore2
 groupNamesToSubstrings:
   g1:
     - Sub1
@@ -93,12 +90,6 @@ groupNamesToSubstrings:
 	if !cfg.GroupAllUnknownTransactions {
 		t.Error("Expected GroupAllUnknownTransactions to be true")
 	}
-	if len(cfg.IgnoreSubstrings) != 2 || cfg.IgnoreSubstrings[0] != "Ignore1" || cfg.IgnoreSubstrings[1] != "Ignore2" {
-		t.Errorf(
-			"Expected IgnoreSubstrings to be ['Ignore1', 'Ignore2'], got '%v'",
-			cfg.IgnoreSubstrings,
-		)
-	}
 	if len(cfg.GroupNamesToSubstrings) != 2 || len(cfg.GroupNamesToSubstrings["g1"]) != 2 || cfg.GroupNamesToSubstrings["g1"][0] != "Sub1" || cfg.GroupNamesToSubstrings["g1"][1] != "Sub2" || len(cfg.GroupNamesToSubstrings["g2"]) != 1 || cfg.GroupNamesToSubstrings["g2"][0] != "Sub3" {
 		t.Errorf(
 			"Expected GroupNamesToSubstrings to have correct mappings, got '%v'",
@@ -128,9 +119,6 @@ groupNamesToSubstrings:
     - Sub2
   g2:
     - Sub3
-ignoreSubstrings:
-  - Ignore1
-  - Ignore2
 `,
 	)
 	defer os.Remove(tempFile.Name())
@@ -166,9 +154,6 @@ groupsNamesToSubstrings:
     - Sub2
   g2:
     - Sub3
-ignoreSubstrings:
-  - Ignore1
-  - Ignore2
 `,
 	)
 	defer os.Remove(tempFile.Name())
@@ -289,12 +274,6 @@ groupNamesToSubstrings:
 		t.Errorf(
 			"Expected GroupNamesToSubstrings to have correct mappings, got '%v'",
 			cfg.GroupNamesToSubstrings,
-		)
-	}
-	if len(cfg.IgnoreSubstrings) != 0 {
-		t.Errorf(
-			"Expected IgnoreSubstrings to be empty, got '%v'",
-			cfg.IgnoreSubstrings,
 		)
 	}
 }

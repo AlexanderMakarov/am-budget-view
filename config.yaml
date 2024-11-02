@@ -19,6 +19,8 @@ myAmeriaHistoryXlsFilesGlob: "History *.xls"
 myAmeriaMyAccounts:
   - "1111111111111111"
 # List of currencies to unconditionally convert transactions into.
+# Note that if transactions files don't have enough information about exchange rates
+# totals would be incorrect!
 convertToCurrencies:
   - AMD
 # Flag to print details for all uncategorized transactions. Skips any other actions.
@@ -26,16 +28,12 @@ categorizeMode: false
 # Flag to output all information about the result.
 detailedOutput: true
 # Flag to aggregate all transactions with "Details" not matched with "substrings"
-# from 'groupNamesToSubstrings' below into single group with name "unknown".
+# from 'groupNamesToSubstrings' below into single group with name "Unknown".
+# Otherwise unknown transactions create new categories with "Details" value name.
 groupAllUnknownTransactions: true
 # Which day of month use as start of the month.
 # Sometimes it makes sense to analyze month from the "salary day. 
 monthStartDayNumber: 1
-# List of strings to ignore from list of transactions.
-# May be useful if your are transferring between your accounts and statement from this account is provided.
-# In this case extra incomes and expences won't appear.
-ignoreSubstrings:
-  - Փոխանցում իմ հաշիվների միջև, Account replenishment, InecoOnline
 # Dictionary of group names to list of substrings to search in transaction's "Details" field.
 # Note that order is not guaranteed.
 groupNamesToSubstrings:

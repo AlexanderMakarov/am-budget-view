@@ -61,6 +61,16 @@ func (m MoneyWith2DecimalPlaces) MarshalJSON() ([]byte, error) {
 	return json.Marshal(formattedValue)
 }
 
+func (m MoneyWith2DecimalPlaces) StringNoIndent() string {
+	dollars := m.int / 100
+	cents := m.int % 100
+	dollarString := strconv.Itoa(dollars)
+	for i := len(dollarString) - 3; i > 0; i -= 3 {
+		dollarString = dollarString[:i] + "," + dollarString[i:]
+	}
+	return fmt.Sprintf("%s.%02d", dollarString, cents)
+}
+
 // OutputDateFormat format for data in outputs.
 const OutputDateFormat = "2006-01-02"
 

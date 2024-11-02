@@ -12,8 +12,8 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
-const resultFilePath = "Bank Aggregated Statement.txt"
-const resultBeancountFilePath = "Bank Aggregated Statement.beancount"
+const resultFilePath = "AM Budget View.txt"
+const resultBeancountFilePath = "AM Budget View.beancount"
 const OPEN_MODE_NONE = "none"
 const OPEN_MODE_WEB = "web"
 const OPEN_MODE_FILE = "file"
@@ -190,7 +190,7 @@ func main() {
 	}
 
 	// Build statistic.
-	groupExtractorFactory, err := NewStatisticBuilderByCategories()
+	groupExtractorFactory, err := NewStatisticBuilderByCategories(accounts)
 	if err != nil {
 		fatalError(
 			fmt.Errorf("can't create statistic builder: %w", err),
@@ -200,7 +200,6 @@ func main() {
 	}
 	monthlyStatistics, err := BuildMonthlyStatistics(
 		journalEntries,
-		accounts,
 		groupExtractorFactory,
 		config.MonthStartDayNumber,
 		timeZone,

@@ -1,57 +1,63 @@
 # AM BudgetView
-It is a local tool to investigate your expenses and incomes by bank transactions.
+Local tool to investigate your expenses and incomes by bank transactions.
 
 Was renamed from [aggregate-inecobank-statement](https://github.com/AlexanderMakarov/aggregate-inecobank-statement) after new features were added.
 
 ----
 
-To control your expenses you need to know them, right?
-But it is too boring to note all these details somewhere, each day.
-Fortunately banks do it for us.
-If you are using a bank plastic card or NFC application on the smartphone you probably have this listing already.
+To control your budget you need to know all expenses and incomes, right?
+But it is too time-intensive to note all expenses and incomes manually, each day.
+Fortunately banks do it for us already.
+If you are using a bank plastic card or NFC application on the smartphone you probably have all your transactions written somewhere already.
 
 For example Armenian's [Inecobank](https://online.inecobank.am)
-and [Ameria Bank](https://ameriabank.am)
-provide list of monthly transactions in downloadable files.
+and [Ameria Bank](https://ameriabank.am) allows to download list of all transactions in files.
+They even send them in monthly emails.
 
-This is a simple tool which allows to aggregate all transactions (hundreds of them) from
+So current application is a simple and completely local tool which allows to aggregate all transactions (hundreds of them) from
 multiple accounts and banks into customisable and personalizable groups.
+Next it allows to normilize them to one currency and explore on handy charts with ability to drill-down to details.
 
 Results are:
 
 ### 1. Browser page with aggregated information about your budget in intuitive charts:
 
-<img src="docsdata/UI 1 1.png" alt="UI 1 1" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/UI 1 2.png" alt="UI 1 2" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/UI 1 3.png" alt="UI 1 3" width="300" onclick="window.open(this.src)"/>
+Automatically opens browser with local UI:
+
+<img src="docsdata/UI 1 1.png" alt="Main charts" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/UI 1 2.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/UI 1 4.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
 
 ### 2. Text report with most important and structured insights into your budget.
+
 See example (numbers are made up, sum may not match):
 ```
-2023-08-01..2023-08-31:
-  Income (2, sum=1,493,878.00):
-    Main salary                        : 1,345,343.00
-  Expenses (13, sum= 920,636.38):
-    Rent                               :   300,000.00
-    Tom's health                       :   240,000.00
-    Cash withdrowal                    :   178,000.00
-    Groceries                          :   112,831.00
-    Kindergarten                       :    90,000.00
-    Kate's health                      :    61,000.00
-    Taxi                               :    17,600.00
-    Entertainment                      :    14,000.00
-    Subscriptions                      :     7,787.78
-    Pharmacies                         :     5,957.60
-    Online stores                      :     3,090.00
-2023-09-01..2023-09-30:
-  Income (2, sum=1,516,629.00):
+Statistics for 2023-06-01..2023-06-30 (in AMD):
+  Income  (total  2 groups, filtered sum 3,428,455.00):
+    Salary                             : 1,935,000.00
+    Unknown                            : 1,493,455.00
+  Expenses (total 10 groups, filt-ed sum 1,027,553.69):
+    To other account                   :   467,000.00
+    Cash                               :   150,000.00
+    Unknown                            :   136,575.00
+    Groceries                          :   111,542.50
+    Yandex Taxi                        :    59,600.00
+    Health                             :    55,000.00
+    Pharmacies                         :    31,684.39
+    Wildberries                        :    11,110.00
+    Entertainment                      :     4,800.00
+    Subscriptions                      :       241.80
+Statistics for 2023-07-01..2023-07-31 (in AMD):
 ...
 ```
 
-### 3. [Beancount](https://github.com/beancount/beancount) file with full accounting details for further exploration in [Fava UI](https://github.com/beancount/fava).
+### 3. [Beancount](https://github.com/beancount/beancount) file with app available accounting details for further exploration in [Fava UI](https://github.com/beancount/fava).
+
+<img src="docsdata/Beancount.png" alt="Beancount" width="300" onclick="window.open(this.src)"/>
+
 
 Some banks provide similar dashboards on their websites, but they can't assign good categories suitable for everyone.
-This application allows you to configure it for your personal set of groups and ways to assign transactions to the specific group.
+This application allows you to configure categorization for your personal set of groups and completely automatically.
 
 ## List of supported banks, file formats and relevant notes
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
@@ -123,53 +129,61 @@ and instructions how you got this file.
    as an example of configuration. Don't need to update it yet, see step 5.
 4. Run application ("aggregate-inecobank-statements-\*-\*" file).
    It would open a text file with the list of groups with a lot of transactions it consists of.
-   Most probably it would also have an "unknown" group with not yet categorized transactions.
+   Most probably it would also have an "Unknown" group with not yet categorized transactions.
 5. Investigate your personal transaction information and update configuration file groups with unique
    for specific transaction substrings to aggregate transactions into these groups.
-   "unknown" group is the first item to address.
+   "Unknown" group is the first item to address.
    See examples in configuration file - you may remove not needed and add your own groups.
    Be careful about syntax and indentations, but in case of any error the resulting file would contain
    an error description which may help to understand the reason.
 6. Run application again, and repeat configuration changes if needed.
    Next set `detailedOutput` to `false` in the configuration file to hide detalization by transactions.
-   If you still want to see all these "unknown" transactions then consider to set
+   If you still want to see all these "Unknown" transactions then consider to set
    `groupAllUnknownTransactions` to `false` - it will group these "I don't know group" transactions into
    individual groups with name equal to "Details" field value.
 7. Run application one more time to get a clean report for manual investigation, comparing months, etc.
 8. Next month it is enough to download "Statements" with new transactions and run application again.
 
 ### Notes:
-1. For remained formats and banks steps are near the same.
-Files may be even sent by emails.
-2. It is a command line application and may work completely in the terminal.
-Run in it terminal with `-h` for details.
-It would explain how to work with multiple configuration files and see information directly in terminal.
+1. For remained formats and banks steps are near the same as for Inecobank.
+2. Files which banks are sending in emails not always have all required information.
+3. It is a command line application and may work completely in the terminal.
+   Run it with `-h` for details.
+   It would explain how to work with multiple configuration files and see information directly in terminal.
+4. Application automatically starts in "local HTTP server mode" and opens in a default browser.
+5. Application supports 3 "reporting" mode: 'web' - default, 'file' - to open text report in default TXT files veiwer,
+   'none' - only STDOUT.
+6. Application supports one more "categorization" mode - need to set `categorizeMode: true` in configuration file.
+   This mode is useful to configure categorization.
 
 # Use with Beancount and Fava UI
 
-Application may generate [Beancount](https://github.com/beancount/beancount) file
+Application by-default generates [Beancount](https://github.com/beancount/beancount) file
 which then may be used with [Fava UI](https://github.com/beancount/fava).
 Beancount report contains more data than usual TXT report, it allows to do full double-entry accounting.
-But Fava UI is an accounting tool, therefore hard to understand for those who don't have
-solid accounting knowledge.
+Fava UI is local and free accounting tool which allow to see these reports.
+But it also hard to understand for those who don't have solid accounting knowledge,
+so consider to use built-in HTML UI instead.
 
-First of all need to install Fava UI (built in Python) with something like `pip3 install fava`.
+To install Fava UI (built with Python) run something like `pip3 install fava`.
 
-After getting log like `Built Beancount file 'Bank Aggregated Statement.beancount' with 1818 transactions.`
-run in console `fava Bank\ Aggregated\ Statement.beancount` which should print
-`Starting Fava on http://127.0.0.1:5000` - open this link in browser and it would show
+After getting log like `Built Beancount file 'AM Budget View.beancount' with 1818 transactions.`
+from am-budget-view run in the same folder `fava AM\ Budget\ View.beancount` - it should print
+`Starting Fava on http://127.0.0.1:5000`. Open this link in browser and it would show
 graphs and other accounting visualization, financial statistic about your transactions.
 If run am-budget-view one more time (for example with corrected configuration) then
-Fava UI would catch up changes without restart.
+Fava UI would catch up changes without restart (need press button on page).
 
 # Limitations
 
-- Application does not support currencies handling in simple TXT report.
-  Therefore if you are handling transactions/statements from multiple accounts then make sure that they have the same currency. Or use Beancount report and Fava UI.
+- Application does not have currencies exchange rates source other than transactions files you provide to it.
+  But it allows to perform conversions even using those scarse information from transaction files.
+  It converts currencies with direct exchange rates first, next with best multi-conversion option
+  found by Dijkstra algorithm. Precision is measured as a number of days between current day and each
+  exchange rate date used for conversion tip, with one exception - even if target date is the same date
+  where we have direct exchange rate then precision would be 1, because precision 0 means "no conversion",
+  i.e. transaction currency is a target currency.
 - Application does not support a way to categorize transactions in a different way for different accounts.
-  So your configuration should handle both. Use `ignoreSubstrings` parameter to handle edge cases but
-  be aware that such "skipped" transactions affect output numbers!
-  Beancount report is not affected by `ignoreSubstrings` parameter.
 
 # Contributions
 
@@ -208,14 +222,14 @@ CI will do the rest.
 - [x] Add currencies support in UI.
 - [x] Provide rates conversion precision in UI and other reports.
 - [x] Add drill-down page to see individual journal entries.
-- [ ] Solve double counting of transactions between own accounts.
+- [x] Solve double counting of transactions between own accounts.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] Make default config.yml on first run and add UI page to change it.
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Manage all settings in web UI.
 - [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
-- [ ] (?) Higher tests coverage.
+- [ ] (?) Improve tests coverage.
 - [ ] ~~Build UI with Fyne and https://github.com/wcharczuk/go-chart
       (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).~~
       There are issue with [performance and charts flexibility](https://github.com/fyne-io/fyne/issues/2228) this way.
