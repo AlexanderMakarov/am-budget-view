@@ -47,8 +47,7 @@ type CurrencyStatistics struct {
 type currencyState struct {
 	currency          string
 	statistics        *CurrencyStatistics
-	lastExchangeRate  *ExchangeRate
-	exchangeRateIndex int
+	exchangeRateIndexesPerCurrency map[string]int
 }
 
 // findAmountNearCurrency searches a number before specified index in details.
@@ -145,47 +144,63 @@ func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency
 	}
 }
 
+// findClosestExchangeRate finds closest exchange rate to the given date.
+// Not uses `curState.exchangeRateIndexesPerCurrency`.
+// returns precision as number of days between dates.
 func findClosestExchangeRate(
 	date time.Time,
 	curState *currencyState,
-) (*ExchangeRate, int, int) {
-	exchangeRate := curState.lastExchangeRate
-	exchangeRateIndex := curState.exchangeRateIndex
-	dateDiff := date.Sub(exchangeRate.date)
-	for i := exchangeRateIndex + 1; i < len(curState.statistics.ExchangeRates); i++ {
+) (int) {
+	if len(curState.statistics.ExchangeRates) == 0 {
+		return math.MaxInt
+	}
+	var dateDiff time.Duration = math.MaxInt
+	// Find closest exchange rate after current one.
+	for i := 0; i < len(curState.statistics.ExchangeRates); i++ {
 		checkedEr := curState.statistics.ExchangeRates[i]
-		if date.Sub(checkedEr.date).Abs() < dateDiff.Abs() {
-			exchangeRate = checkedEr
-			dateDiff = date.Sub(checkedEr.date)
-			exchangeRateIndex = i
+		if date.Sub(checkedEr.date).Abs() < dateDiff {
+			dateDiff = date.Sub(checkedEr.date).Abs()
 		}
 	}
-	if dateDiff < 0 {
-		dateDiff = -dateDiff
-	}
-	return exchangeRate, exchangeRateIndex, int(dateDiff / (24 * time.Hour))
+	return int(dateDiff / (24 * time.Hour))
 }
 
+// findClosestExchangeRateToCurrency finds closest to date direct exchange rate to currency.
+// Advances `curState.exchangeRateIndexesPerCurrency` if exchange rate was found.
+// Returns exchange rate and number of days between dates.
 func findClosestExchangeRateToCurrency(
 	date time.Time,
-	currency string,
+	targetCurrency string,
 	curState *currencyState,
-) (*ExchangeRate, int, int) {
+) (*ExchangeRate, int) {
+	if len(curState.statistics.ExchangeRates) == 0 {
+		return nil, math.MaxInt
+	}
 	var exchangeRate *ExchangeRate = nil
-	exchangeRateIndex := curState.exchangeRateIndex
-	var dateDiff time.Duration = time.Duration(math.MaxInt64)
+	exchangeRateIndex, ok := curState.exchangeRateIndexesPerCurrency[targetCurrency]
+	if !ok {
+		return nil, math.MaxInt
+	}
+	dateDiff := date.Sub(exchangeRate.date).Abs()
+	// Find closest exchange rate after current one.
 	for i := exchangeRateIndex; i < len(curState.statistics.ExchangeRates); i++ {
 		checkedEr := curState.statistics.ExchangeRates[i]
-		if checkedEr.currencyTo != currency && checkedEr.currencyFrom != currency {
+		if checkedEr.currencyTo != targetCurrency && checkedEr.currencyFrom != targetCurrency {
+			// Skip not relevant exchange rates.
 			continue
 		}
-		if checkedEr.date.Sub(date).Abs() < dateDiff.Abs() {
+		checkedErDateDiff := checkedEr.date.Sub(date).Abs()
+		if checkedErDateDiff < dateDiff {
+			// If found something better then update exchange rate and date difference.
 			exchangeRate = checkedEr
-			dateDiff = date.Sub(checkedEr.date)
-			exchangeRateIndex = i
+			dateDiff = checkedErDateDiff
+		} else {
+			// If found something worse then stop searching.
+			break
 		}
 	}
-	return exchangeRate, exchangeRateIndex, int(dateDiff.Abs() / (24 * time.Hour))
+	curState.exchangeRateIndexesPerCurrency[targetCurrency] = exchangeRateIndex
+	return exchangeRate, int(dateDiff / (24 * time.Hour))
 }
 
 // convertToCurrency converts transaction amounts to convertable currencies.
@@ -208,16 +223,14 @@ func convertToCurrency(
 
 	// Try to find direct exchange rate.
 	curState := curStates[amountCurrency]
-	exchangeRateDirect, exchangeRateIndexDirect, daysDiffDirect := findClosestExchangeRateToCurrency(date, targetCurrency, &curState)
+	exchangeRateDirect, daysDiffDirect := findClosestExchangeRateToCurrency(date, targetCurrency, &curState)
 	if exchangeRateDirect != nil {
-		curState.lastExchangeRate = exchangeRateDirect
-		curState.exchangeRateIndex = exchangeRateIndexDirect
 		precision := daysDiffDirect
 		// If exchange rate is for the same date then set precision to 1, otherwise keep it as days difference.
 		if precision == 0 {
 			precision = 1
 		}
-		if exchangeRateDirect.currencyTo == amountCurrency {
+		if exchangeRateDirect.currencyTo == targetCurrency {
 			return MoneyWith2DecimalPlaces{int: int(float64(amount.int) * exchangeRateDirect.exchangeRate)}, precision
 		}
 		return MoneyWith2DecimalPlaces{int: int(float64(amount.int) / exchangeRateDirect.exchangeRate)}, precision
@@ -294,7 +307,7 @@ func convertToCurrency(
 				}
 
 				// Find closest exchange rate to date
-				_, _, daysDiff := findClosestExchangeRate(date, &fromCurState)
+				daysDiff := findClosestExchangeRate(date, &fromCurState)
 
 				// Calculate new precision
 				newPrecision := daysDiff
@@ -734,15 +747,10 @@ func buildJournalEntries(
 	curStates := make(map[string]currencyState, len(currencies))
 	for currency := range currencies {
 		statistics := currencies[currency]
-		exchangeRate := (*ExchangeRate)(nil)
-		if len(statistics.ExchangeRates) > 0 {
-			exchangeRate = statistics.ExchangeRates[0]
-		}
 		curStates[currency] = currencyState{
 			currency:          currency,
 			statistics:        statistics,
-			lastExchangeRate:  exchangeRate,
-			exchangeRateIndex: 0,
+			exchangeRateIndexesPerCurrency: make(map[string]int),
 		}
 	}
 	log.Printf("Building journal entries with conversions to %d currencies:\n", len(convertableCurrencies))

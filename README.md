@@ -15,8 +15,8 @@ and [Ameria Bank](https://ameriabank.am) allows to download list of all transact
 They even send them in monthly emails.
 
 So current application is a simple and completely local tool which allows to aggregate all transactions (hundreds of them) from
-multiple accounts and banks into customisable and personalizable groups.
-Next it allows to normilize them to one currency and explore on handy charts with ability to drill-down to details.
+multiple accounts and banks into customizable groups.
+Next it allows to normalize them to one currency and explore on handy charts with ability to drill-down to details.
 
 Results are:
 
@@ -85,17 +85,17 @@ This application allows you to configure categorization for your personal set of
 - [NONE] AmeriaBank for Businesses XML (.XML) files downloaded per-account from
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED
-  XML files from "Transactions" don't contain its own Reciever/Payer account number and currency.
+  XML files from "Transactions" tab - they don't contain own Reciever/Payer account number and currency.
 - [FULL] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
-  https://myameria.am/cards-and-accounts/account-statement/******
-  From the web site choose Cards and Accounts -> Current account -> Statement,
+  https://myameria.am/cards-and-accounts/account-statement/******.
+  On the web site choose Cards and Accounts -> Current account -> Statement,
   here select period (last option usually), if available the set "In AMD" (under "Show also"),
   choose "Excel" format, press "Download". Almost the same in mobile app.
   Default file name "<account_number> account statement.xls".
   Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
-- [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/events
+- [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/events.
   Page doesn't work on the bank's web site and mobile app for now (September 2024)
   but is supported for previously downloaded reports.
   In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
@@ -223,10 +223,12 @@ CI will do the rest.
 - [x] Provide rates conversion precision in UI and other reports.
 - [x] Add drill-down page to see individual journal entries.
 - [x] Solve double counting of transactions between own accounts.
-- [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
+- [ ] Translate to Russian.
 - [ ] Make default config.yml on first run and add UI page to change it.
 - [ ] Add "Categorization" page in UI and relevant functionality.
-- [ ] Manage all settings in web UI.
+- [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
+- [ ] Enable categorization by accounts, like "expense to this account is a rent".
+- [ ] Manage all settings (config.yaml) in web UI.
 - [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) Improve tests coverage.
