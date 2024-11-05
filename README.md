@@ -247,12 +247,14 @@ CI will do the rest.
 - [x] Provide rates conversion precision in UI and other reports.
 - [x] Add drill-down page to see individual journal entries.
 - [x] Solve double counting of transactions between own accounts.
+- [x] Enhance errors when no transaction files found.
+- [ ] Make default config.yml on first run if not found.
 - [ ] Translate to Russian.
-- [ ] Make default config.yml on first run and add UI page to change it.
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".
 - [ ] Manage all settings (config.yaml) in web UI.
+- [ ] (?) Allow to choose "transactions" files in UI.
 - [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) Improve tests coverage.

@@ -100,55 +100,60 @@ func main() {
 	parsingWarnings := []string{}
 	inecoXmlTransactions, err := parseTransactionsOfOneType(
 		config.InecobankStatementXmlFilesGlob,
+		"Inecobank XML statements",
 		InecoXmlParser{},
 		&parsingWarnings,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't parse Inecobank XML statements: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, inecoXmlTransactions...)
 
 	// Ineco XLSX
 	inecoXlsxTransactions, err := parseTransactionsOfOneType(
 		config.InecobankStatementXlsxFilesGlob,
+		"Inecobank XLSX statements",
 		InecoExcelFileParser{},
 		&parsingWarnings,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't parse Inecobank XLSX statements: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, inecoXlsxTransactions...)
 
 	// MyAmeria Excel account statements and history.
 	myAmeriaStatementsXlsTransactions, err := parseTransactionsOfOneType(
 		config.MyAmeriaAccountStatementXlsFilesGlob,
+		"MyAmeria Account Statements Excel",
 		MyAmeriaExcelStmtFileParser{},
 		&parsingWarnings,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't parse MyAmeria Account Statements Excel: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, myAmeriaStatementsXlsTransactions...)
 	myAmeriaHistoryXlsTransactions, err := parseTransactionsOfOneType(
 		config.MyAmeriaHistoryXlsFilesGlob,
+		"MyAmeria History Excel",
 		MyAmeriaExcelFileParser{
 			MyAccounts: config.MyAmeriaMyAccounts,
 		},
 		&parsingWarnings,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't parse MyAmeria History Excel: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, myAmeriaHistoryXlsTransactions...)
 
 	// Ameria CSV
 	ameriaCsvTransactions, err := parseTransactionsOfOneType(
 		config.AmeriaCsvFilesGlob,
+		"Ameria CSV",
 		AmeriaCsvFileParser{},
 		&parsingWarnings,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't parse Ameria CSV: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, ameriaCsvTransactions...)
 
@@ -156,7 +161,7 @@ func main() {
 	if len(transactions) < 1 {
 		fatalError(
 			fmt.Errorf(
-				"can't find transactions, check that '*Glob' configuration parameters matches something and see parsing warnings:\n%s",
+				"can't find transactions, parsing warnings:\n%s",
 				strings.Join(parsingWarnings, "\n"),
 			),
 			isWriteToFile,
@@ -251,74 +256,6 @@ func main() {
 		}()
 		ListenAndServe(monthlyStatistics, accounts)
 	}
-}
-
-func fatalError(err error, inFile bool, openFile bool) {
-	if inFile {
-		writeAndOpenFile(resultFilePath, err.Error(), openFile)
-	}
-	log.Fatalf("%s", err)
-}
-
-func writeAndOpenFile(resultFilePath, content string, openFile bool) {
-	if err := os.WriteFile(resultFilePath, []byte(content), 0644); err != nil {
-		log.Fatalf("Can't write result file into %s: %#v", resultFilePath, err)
-	}
-	if openFile {
-		if err := openFileInOS(resultFilePath); err != nil {
-			log.Fatalf("Can't open result file %s: %#v", resultFilePath, err)
-		}
-	}
-}
-
-// parseTransactionsOfOneType parses transactions from files of one type by one glob pattern.
-// Updates parsingWarnings slice warnings were found.
-func parseTransactionsOfOneType(
-	glob string,
-	parser FileParser,
-	parsingWarnings *[]string,
-) ([]Transaction, error) {
-	transactions, warning, err := parseTransactionFiles(glob, parser)
-	if err != nil {
-		return nil, err
-	}
-	if warning != "" {
-		*parsingWarnings = append(*parsingWarnings, fmt.Sprintf("Parsing warning: %s", warning))
-	}
-	return transactions, nil
-}
-
-// parseTransactionFiles parses transactions from files by glob pattern.
-// Returns list of transactions, not fatal error message and error if it is fatal.
-func parseTransactionFiles(glog string, parser FileParser) ([]Transaction, string, error) {
-	files, err := getFilesByGlob(glog)
-	if err != nil {
-		return nil, "", err
-	}
-
-	result := make([]Transaction, 0)
-	notFatalError := ""
-	for _, file := range files {
-		log.Printf("Parsing '%s' with %T%+v parser.", file, parser, parser)
-		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
-		if err != nil {
-			notFatalError = fmt.Sprintf("Can't parse transactions from '%s' file: %#v", file, err)
-			if len(rawTransactions) < 1 {
-				// If both error and no transactions then treat error as fatal.
-				return result, "", fmt.Errorf("can't parse transactions from '%s' file: %w", file, err)
-			} else {
-				// Otherwise just log.
-				log.Println(notFatalError)
-			}
-		}
-		if len(rawTransactions) < 1 {
-			notFatalError = fmt.Sprintf("Can't find transactions in '%s' file.", file)
-			log.Println(notFatalError)
-		}
-		log.Printf("Found %d transactions in '%s' file.", len(rawTransactions), file)
-		result = append(result, rawTransactions...)
-	}
-	return result, notFatalError, nil
 }
 
 func openBrowser(url string) error {
