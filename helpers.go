@@ -12,14 +12,14 @@ import (
 func getAbsolutePath(filename string) (string, error) {
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
-		return "", fmt.Errorf("error getting absolute path: %v", err)
+		return filename, fmt.Errorf("error getting absolute path: %v", err)
 	}
 
 	_, err = os.Stat(absPath)
 	if os.IsNotExist(err) {
-		return "", fmt.Errorf("file does not exist: %v", absPath)
+		return absPath, fmt.Errorf("file does not exist: %v", absPath)
 	} else if err != nil {
-		return "", fmt.Errorf("error checking file: %v", err)
+		return absPath, fmt.Errorf("error checking file: %v", err)
 	}
 
 	return absPath, nil

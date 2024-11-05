@@ -66,7 +66,7 @@ func main() {
 
 	configPath, err := getAbsolutePath(args.ConfigPath)
 	if err != nil {
-		fatalError(fmt.Errorf("can't find configuration file '%s': %w", configPath, err), true, true)
+		fatalError(fmt.Errorf("can't find configuration file '%s': %v", args.ConfigPath, err), true, true)
 	}
 	isWriteToFile := !args.DontBuildTextReport
 	isOpenFileWithResult := args.ResultMode == OPEN_MODE_FILE
