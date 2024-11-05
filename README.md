@@ -112,15 +112,15 @@ and instructions how you got this file.
 
 [![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
 
-1. Download the application executable file (name starts from "aggregate-inecobank-statements-")
+1. Download the application executable file (name starts from "am-budget-view-")
    compiled for your operating system from the
-   [Releases](https://github.com/AlexanderMakarov/aggregate-inecobank-statement/releases) page:
- 	- For Windows use "aggregate-inecobank-statements-windows-amd64.exe". Even if you have an Intel CPU.
- 	- For Mac OS X with M1+ CPU/core use "aggregate-inecobank-statements-darwin-arm64".
-   	For older Macbooks (before 2020) use "aggregate-inecobank-statements-darwin-amd64".
- 	- For Linux-es usually "aggregate-inecobank-statements-linux-amd64".
+   [Releases](https://github.com/AlexanderMakarov/am-budget-view/releases) page:
+ 	- For Windows use "am-budget-view-windows-amd64.exe". Even if you have an Intel CPU.
+ 	- For Mac OS X with M1+ CPU/core use "am-budget-view-darwin-arm64".
+   	For older Macbooks (before 2020) use "am-budget-view-darwin-amd64".
+ 	- For Linux-es usually "am-budget-view-linux-amd64".
 2. Download "Statement" files from bank sites for required period and
-   put them near the executable file ("aggregate-inecobank-statements-...").
+   put them near the executable file ("am-budget-view-...").
    See details on 
    [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
    For example for Inecobank XML, open [Ineco Online main page](https://online.inecobank.am)
@@ -128,13 +128,13 @@ and instructions how you got this file.
    press 'Search', scroll page to bottom and here at the right corner will be
    5 icons to download statements.
    Press XML icon and save file in the same folder where the executable file
-   ("aggregate-inecobank-statements-...") is placed.
+   ("am-budget-view-...") is placed.
 3. Download [config.yaml](https://raw.githubusercontent.com/AlexanderMakarov/aggregate-inecobank-statement/master/config.yaml)
    (click on link, browser would show text file, press Right Button on mouse and choose
    "Save Page as" option). It is a template of a configuration file.
    Note that it should have a name "config.yaml". This file may be opened with any text redactor.
    Don't need to update it yet, see step 5.
-4. Run application ("aggregate-inecobank-statements-\*-\*" file).
+4. Run application ("am-budget-view-\*-\*" file).
    If everything is OK then after a couple of seconds it would open a new tab in browser
    with aggregated details from bank transactions which where provided via "Statement" files.
    Otherwise it would open a text file with the error description.
