@@ -108,41 +108,65 @@ To add new bank support please provide file with transactions (in private or wit
 because it contains sensitive information) downloaded from bank application
 and instructions how you got this file.
 
-# JUST FOR INECOBANK XML - How to use
+# How to use
 
-[![Watch the video](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
+[![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
 
-1. Download application binary ("aggregate-inecobank-statements-\*-\*") file for your operating system from
-   [Releases](https://github.com/AlexanderMakarov/aggregate-inecobank-statement/releases) page.
-   About what to choose:
+1. Download the application executable file (name starts from "aggregate-inecobank-statements-")
+   compiled for your operating system from the
+   [Releases](https://github.com/AlexanderMakarov/aggregate-inecobank-statement/releases) page:
  	- For Windows use "aggregate-inecobank-statements-windows-amd64.exe". Even if you have an Intel CPU.
  	- For Mac OS X with M1+ CPU/core use "aggregate-inecobank-statements-darwin-arm64".
-   	For older Macbooks use "aggregate-inecobank-statements-darwin-amd64".
- 	- For Linux-es usually "aggregate-inecobank-statements-windows-amd64".
-2. Download "Statement ....xml" files from https://online.inecobank.am for interesting period and
-   put them near the "aggregate-inecobank-statements-\*-\*" file.
-   Namely, on [main page](https://online.inecobank.am) click on the chosen account,
-   specify into 'From' and 'To' fields dates you want to analyze,
-   press 'Search', scroll page to bottom and here at the right corner will be 5 icons to download statements.
-   Press XML button and save file near "aggregate-inecobank-statements-\*-\*" file.
-3. Save [config.yaml](https://raw.githubusercontent.com/AlexanderMakarov/aggregate-inecobank-statement/master/config.yaml)
-   as an example of configuration. Don't need to update it yet, see step 5.
+   	For older Macbooks (before 2020) use "aggregate-inecobank-statements-darwin-amd64".
+ 	- For Linux-es usually "aggregate-inecobank-statements-linux-amd64".
+2. Download "Statement" files from bank sites for required period and
+   put them near the executable file ("aggregate-inecobank-statements-...").
+   See details on 
+   [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
+   For example for Inecobank XML, open [Ineco Online main page](https://online.inecobank.am)
+   click on the chosen account, specify into 'From' and 'To' fields dates you want to analyze,
+   press 'Search', scroll page to bottom and here at the right corner will be
+   5 icons to download statements.
+   Press XML icon and save file in the same folder where the executable file
+   ("aggregate-inecobank-statements-...") is placed.
+3. Download [config.yaml](https://raw.githubusercontent.com/AlexanderMakarov/aggregate-inecobank-statement/master/config.yaml)
+   (click on link, browser would show text file, press Right Button on mouse and choose
+   "Save Page as" option). It is a template of a configuration file.
+   Note that it should have a name "config.yaml". This file may be opened with any text redactor.
+   Don't need to update it yet, see step 5.
 4. Run application ("aggregate-inecobank-statements-\*-\*" file).
-   It would open a text file with the list of groups with a lot of transactions it consists of.
-   Most probably it would also have an "Unknown" group with not yet categorized transactions.
-5. Investigate your personal transaction information and update configuration file groups with unique
-   for specific transaction substrings to aggregate transactions into these groups.
-   "Unknown" group is the first item to address.
+   If everything is OK then after a couple of seconds it would open a new tab in browser
+   with aggregated details from bank transactions which where provided via "Statement" files.
+   Otherwise it would open a text file with the error description.
+   In case of an error it is required to fix it to proceed.
+   Most common error is when bank transactions files downloaded on #2 step
+   doesn't match `inecobankStatementXmlFilesGlob`, `inecobankStatementXlsxFilesGlob`,
+   `myAmeriaAccountStatementXlsxFilesGlob`, `ameriaCsvFilesGlob`,
+   `myAmeriaHistoryXlsFilesGlob`
+   [glob file patterns](https://en.wikipedia.org/wiki/Glob_(programming)).
+   But in a successful case browser page most probably would contain some pre-defined groups
+   and one big "Unknown" group made from all uncategorized yet transactions.
+5. To categorize transactions need to edit "config.yaml" file.
+   So open it in any text redactor ('Notepad' in Windows, 'TextEditor' on Mac, various on Linux-es)
+   and scroll to `groupNamesToSubstrings` section - here would be list of pre-defined categories.
+   Edit these categories to fit your needs.
    See examples in configuration file - you may remove not needed and add your own groups.
-   Be careful about syntax and indentations, but in case of any error the resulting file would contain
-   an error description which may help to understand the reason.
-6. Run application again, and repeat configuration changes if needed.
-   Next set `detailedOutput` to `false` in the configuration file to hide detalization by transactions.
-   If you still want to see all these "Unknown" transactions then consider to set
-   `groupAllUnknownTransactions` to `false` - it will group these "I don't know group" transactions into
-   individual groups with name equal to "Details" field value.
-7. Run application one more time to get a clean report for manual investigation, comparing months, etc.
-8. Next month it is enough to download "Statements" with new transactions and run application again.
+   Be careful about syntax and indentations. Re-run application periodically to highlight
+   possible erorrs and check result - one new string added to "config.yaml" may cover dozens
+   of uncategorized transactions and drastically reduce number of items to categorize.
+   To find uncategorized transactions there are 2 ways:
+   1. In browser page scroll down to "Monthly Expenses per Category (%)" or
+      "Monthly Incomes per Category (%)" and press on "Unknown" bar in the first month.
+      It would open "Transactions" page where substrings from "Details" column
+      may be used for assigning category.
+   2. In "config.yaml" file set `categorizeMode: true` and re-run application in terminal.
+      It would print into terminal all uncategorized transactions with "Details" value
+      and some statistic at the end.
+6. Once you categorized all transactions you will get a clean report for manual investigation,
+   comparing months, making fincancial decisions. etc.
+   Note that more accounts are provided to the application, the more full financial
+   picture would be.
+7. Next time it is enough to download "Statements" with new transactions and run application again.
 
 ### Notes:
 1. For remained formats and banks steps are near the same as for Inecobank.

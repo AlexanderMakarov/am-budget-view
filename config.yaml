@@ -17,7 +17,6 @@ myAmeriaHistoryXlsFilesGlob: "History *.xls"
 # need to specify your account(s) number (16 digits number) and all transactions
 # with "Beneficiary account" from this list would be treated as an income.
 myAmeriaMyAccounts:
-  - "1111111111111111"
 # List of currencies to unconditionally convert transactions into.
 # Note that if transactions files don't have enough information about exchange rates
 # totals would be incorrect!
