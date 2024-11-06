@@ -1,22 +1,25 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/alexflint/go-arg"
 )
 
-const resultFilePath = "AM Budget View.txt"
-const resultBeancountFilePath = "AM Budget View.beancount"
+const DEFAULT_CONFIG_FILE_PATH = "config.yaml"
+const RESULT_FILE_PATH = "AM Budget View.txt"
+const RESULT_BEANCOUNT_FILE_PATH = "AM Budget View.beancount"
 const OPEN_MODE_NONE = "none"
 const OPEN_MODE_WEB = "web"
 const OPEN_MODE_FILE = "file"
+
+//go:embed config.yaml
+var defaultConfig []byte
 
 type Args struct {
 	ConfigPath           string `arg:"positional" default:"config.yaml" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
@@ -56,6 +59,16 @@ func main() {
 		log.Fatalf("Error parsing arguments: %v", err)
 	}
 
+	// Check if the config file exists, if not create it with default path and content.
+	if _, err := os.Stat(args.ConfigPath); os.IsNotExist(err) {
+		args.ConfigPath = DEFAULT_CONFIG_FILE_PATH
+		err = os.WriteFile(args.ConfigPath, defaultConfig, 0644)
+		if err != nil {
+			log.Fatalf("Error creating default config file: %v", err)
+		}
+		log.Printf("Created default config file at '%s'", args.ConfigPath)
+	}
+
 	// Validate ResultMode
 	switch args.ResultMode {
 	case OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE:
@@ -63,19 +76,15 @@ func main() {
 	default:
 		log.Fatalf("Invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE)
 	}
-
-	configPath, err := getAbsolutePath(args.ConfigPath)
-	if err != nil {
-		fatalError(fmt.Errorf("can't find configuration file '%s': %v", args.ConfigPath, err), true, true)
-	}
+	// Prepare flags for writing to file and opening file with result.
 	isWriteToFile := !args.DontBuildTextReport
 	isOpenFileWithResult := args.ResultMode == OPEN_MODE_FILE
 
 	// Parse configuration.
-	config, err := readConfig(configPath)
+	config, err := readConfig(args.ConfigPath)
 	if err != nil {
 		fatalError(
-			fmt.Errorf("configuration file '%s' is wrong: %w", configPath, err),
+			fmt.Errorf("configuration file '%s' is wrong: %w", args.ConfigPath, err),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
@@ -187,11 +196,11 @@ func main() {
 
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
-		transLen, err := buildBeancountFile(journalEntries, currencies, accounts, resultBeancountFilePath)
+		transLen, err := buildBeancountFile(journalEntries, currencies, accounts, RESULT_BEANCOUNT_FILE_PATH)
 		if err != nil {
 			fatalError(fmt.Errorf("can't build Beancount report: %w", err), isWriteToFile, isOpenFileWithResult)
 		}
-		log.Printf("Built Beancount file '%s' with %d transactions.", resultBeancountFilePath, transLen)
+		log.Printf("Built Beancount file '%s' with %d transactions.", RESULT_BEANCOUNT_FILE_PATH, transLen)
 	}
 
 	// Build statistic.
@@ -241,7 +250,7 @@ func main() {
 		// Always print result into logs and conditionally into the file which open through the OS.
 		log.Print(result)
 		if !args.DontBuildTextReport {
-			writeAndOpenFile(resultFilePath, result, isOpenFileWithResult)
+			writeAndOpenFile(RESULT_FILE_PATH, result, isOpenFileWithResult)
 		}
 	}
 
@@ -256,19 +265,4 @@ func main() {
 		}()
 		ListenAndServe(monthlyStatistics, accounts)
 	}
-}
-
-func openBrowser(url string) error {
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	return err
 }

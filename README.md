@@ -248,7 +248,7 @@ CI will do the rest.
 - [x] Add drill-down page to see individual journal entries.
 - [x] Solve double counting of transactions between own accounts.
 - [x] Enhance errors when no transaction files found.
-- [ ] Make default config.yml on first run if not found.
+- [x] Make default config.yml on first run if not found.
 - [ ] Translate to Russian.
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
