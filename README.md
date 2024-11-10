@@ -110,7 +110,61 @@ and instructions how you got this file.
 
 # How to use
 
-[![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
+<details>
+<summary>Инструкция на русском:</summary>
+
+1. Загрузите исполняемый файл приложения (имя начинается с "am-budget-view-"), скомпилированный для вашей операционной системы со страницы
+[Releases](https://github.com/AlexanderMakarov/am-budget-view/releases):
+- Для Windows используйте "am-budget-view-windows-amd64.exe". Даже если у вас процессор Intel. Используйте версию "arm", только если у вас ARM процессор.
+- Для Mac OS X с процессором M1+ используйте "am-budget-view-darwin-arm64".
+  Для старых Macbook (до 2020 года) используйте "am-budget-view-darwin-amd64".
+- Для большинства Linux-es выберите "am-budget-view-linux-amd64".
+2. Загрузите "Statement" файлы с банковских сайтов за требуемый период и
+  поместите их рядом с исполняемым файлом ("am-budget-view-...").
+  Подробности см. на [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
+  Например для Inecobank XML откройте [главную страницу Ineco Online](https://online.inecobank.am)
+  кликните на выбранный счет, укажите в полях «From» и «To» даты, которые вы хотите проанализировать,
+  нажмите «Search», прокрутите страницу вниз, и здесь в правом углу будут
+  5 значков для загрузки выписок.
+  Нажмите значок XML и сохраните файл в той же папке, где находится исполняемый файл («am-budget-view-...»).
+3. Запустите приложение («am-budget-view-\*-\*»).
+  Если все в порядке, то через пару секунд откроется новая вкладка в браузере
+  с агрегированными данными из банковских транзакций, которые были предоставлены через «Statement» файлы.
+  В противном случае откроется текстовый файл с описанием ошибки.
+  В случае ошибки необходимо ее исправить чтобы продолжить работу.
+  Самая распространенная ошибка — это когда файлы банковских транзакций, загруженные на шаге № 2,
+  не соответствуют `inecobankStatementXmlFilesGlob`, `inecobankStatementXlsxFilesGlob`,
+  `myAmeriaAccountStatementXlsxFilesGlob`, `ameriaCsvFilesGlob`,
+  `myAmeriaHistoryXlsFilesGlob`
+  [шаблонам поиска glob](https://ru.wikipedia.org/wiki/%D0%A8%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D0%BE%D0%B8%D1%81%D0%BA%D0%B0)
+  объявленным в файле "config.yaml" (приложение создаст файл "config.yaml" по умолчанию рядом с ним).
+  Но в успешном случае страница браузера, скорее всего, будет содержать несколько предопределенных групп
+  и одну большую группу "Unknown" созданную из еще не категоризированных транзакций.
+4. Для категоризации транзакций необходимо отредактировать файл "config.yaml"
+  (будет создан рядом с приложением после первого запуска).
+  Откройте его в любом текстовом редакторе («Блокнот» в Windows, «TextEditor» на Mac, различные на Linux-es)
+  и прокрутите до раздела `groupNamesToSubstrings` - здесь будет список предопределенных категорий.
+  Измените эти категории в соответствии с вашими потребностями.
+  Смотрите примеры в файле конфигурации - вы можете удалить ненужные и добавить свои собственные группы.
+  Будьте внимательны с форматированием и отступами. Периодически перезапускайте приложение, чтобы выявить
+  возможные ошибки и проверить результат, так как одна новая строка, добавленная в «config.yaml», может охватывать десятки
+  некатегоризированных транзакций и радикально сократить количество элементов для категоризации.
+  Чтобы найти некатегоризированные транзакции, есть 2 способа:
+  1. На странице браузера прокрутите вниз до «Ежемесячные расходы по категориям (%)» или
+    «Ежемесячные доходы по категориям (%)» и нажмите на строку "Unknown" в первом месяце.
+    Это откроет страницу «Транзакции», где подстроки из столбца «Подметки»
+    могут использоваться для назначения категории.
+  2. В файле «config.yaml» установите `categorizeMode: true` и перезапустите приложение в терминале.
+    Приложение выведет в терминал все некатегоризированные транзакции со значением «Подметки»
+    и некоторой статистикой в ​​конце.
+5. После того, как вы классифицируете все транзакции, вы получите готовый отчет для ручного расследования,
+  сравнения месяцев, принятия финансовых решений и т.д.
+  Обратите внимание, что чем больше счетов будет предоставлено приложению, тем более полной будет финансовая картина.
+6. В следующий раз достаточно добавить новые или обновить старые «Statement» файлы с новыми транзакциями
+  и снова запустить приложение.
+</details>
+
+Script in English:
 
 1. Download the application executable file (name starts with "am-budget-view-")
    compiled for your operating system from the
@@ -142,7 +196,8 @@ and instructions how you got this file.
    declared in "config.yaml" file (app would create default "config.yaml" file near it).
    But in a successful case browser page most probably would contain some pre-defined groups
    and one big "Unknown" group made from all uncategorized yet transactions.
-4. To categorize transactions need to edit "config.yaml" file (placed near app).
+4. To categorize transactions need to edit "config.yaml" file
+   (will be created near the app after the first launch).
    So open it in any text redactor ('Notepad' in Windows, 'TextEditor' on Mac, various on Linux-es)
    and scroll to `groupNamesToSubstrings` section - here would be list of pre-defined categories.
    Edit these categories to fit your needs.
@@ -163,6 +218,8 @@ and instructions how you got this file.
    Note that more accounts are provided to the application, the more full financial
    picture would be.
 6. Next time it is enough to download "Statements" with new transactions and run application again.
+
+[![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
 
 ### Notes:
 1. For remained formats and banks steps are near the same as for Inecobank.
@@ -246,7 +303,6 @@ CI will do the rest.
 - [x] Enhance errors when no transaction files found.
 - [x] Make default config.yaml on first run if not found.
 - [x] Translate to Russian.
-- [ ] Translate to Russian README.
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".
