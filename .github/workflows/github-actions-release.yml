@@ -76,11 +76,13 @@ jobs:
           version=`date +'%Y/%m/%d_%H:%M:%S'`"_${GITHUB_REF_NAME}"
           curtag=${GITHUB_REF_NAME}
           prevtag=`git describe --tags --abbrev=0 HEAD^1`
-
+          # Get tag annotation/message.
+          tag_message=$(git tag -n9 ${curtag} | sed "s/^${curtag}[[:space:]]*//" || echo "")
           echo "Release: ${curtag}" > body.log
           echo "" >> body.log
-          # Extract and add the tag message/annotation.
-          git cat-file -p ${curtag} | tail -n 1 >> body.log
+          # Add the tag annotation/message.
+          echo "${tag_message}" >> body.log
+          echo "" >> body.log
           echo "Changes since previous release:" >> body.log
           if git tag | grep ${prevtag} ; then
             git log -q ${curtag}...${prevtag} --pretty="- %s" -q --no-color >> body.log
