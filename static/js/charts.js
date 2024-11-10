@@ -6,6 +6,27 @@ document.addEventListener("DOMContentLoaded", function () {
     const currencySelector = document.getElementById("currencySelector");
     let currentCurrency = currencySelector.value;
 
+    const localeSelector = document.getElementById("localeSelector");
+    if (!localeSelector) {
+        console.error("Locale selector not found!");
+        return;
+    }
+
+    // Don't set initial locale from URL - use the one that's already selected in HTML
+    console.log("Current locale from server:", localeSelector.value);
+
+    // Handle locale changes
+    localeSelector.addEventListener("change", function (event) {
+        const newLocale = this.value;
+        console.log("Locale changed to:", newLocale);
+        const url = new URL(window.location.href);
+        url.searchParams.set("locale", newLocale);
+        const newUrl = url.toString();
+        console.log("Redirecting to:", newUrl);
+        // Force a full page reload
+        window.location.replace(newUrl);
+    });
+
     function updateCharts(currency) {
         const currencyData = data.map((stat) => stat[currency]);
 
@@ -41,7 +62,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Expenses vs Income Chart
         const expensesVsIncome = echarts.init(document.getElementById("expensesVsIncome"));
         const expensesVsIncomeOption = {
-            title: { text: "Expenses vs Income" },
+            title: { text: window.localizedStrings.expensesVsIncome },
             tooltip: {
                 trigger: "axis",
                 axisPointer: {
@@ -52,7 +73,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 },
             },
             legend: {
-                data: ["Expenses", "Income"],
+                data: [window.localizedStrings.expenses, window.localizedStrings.incomes],
             },
             toolbox: {
                 feature: {
@@ -72,13 +93,13 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             series: [
                 {
-                    name: "Expenses",
+                    name: window.localizedStrings.expenses,
                     color: "red",
                     type: "line",
                     data: expenseData,
                 },
                 {
-                    name: "Income",
+                    name: window.localizedStrings.incomes,
                     color: "blue",
                     type: "line",
                     data: incomeData,
@@ -90,7 +111,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Total Expenses Bar Chart
         const totalExpenses = echarts.init(document.getElementById("totalExpenses"));
         const totalExpensesOption = {
-            title: { text: "Total Expenses per Category" },
+            title: { text: window.localizedStrings.totalExpensesPerCategory },
             tooltip: {
                 trigger: "axis",
                 axisPointer: {
@@ -113,11 +134,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 right: "4%",
                 bottom: "10%",
                 top: "40px",
-                containLabel: true
+                containLabel: true,
             },
             xAxis: {
                 type: "value",
-                name: "Amount",
+                name: window.localizedStrings.amount,
                 nameLocation: "middle",
                 nameGap: 30,
                 nameRotate: 0, // Keep it horizontal
@@ -132,7 +153,7 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             series: [
                 {
-                    name: "Expenses",
+                    name: window.localizedStrings.expenses,
                     color: "red",
                     type: "bar",
                     data: Array.from(expenseGroups).map((group) => ({
@@ -150,7 +171,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Set height for parent element based on number of categories.
         const chartHeight = Math.max(400, Math.max(expenseGroups.size, incomeGroups.size) * 20 + 100);
         const totalExpensesEl = document.getElementById("totalExpenses");
-        totalExpensesEl.style.height = chartHeight + 'px';
+        totalExpensesEl.style.height = chartHeight + "px";
 
         // Set options and force resize
         totalExpenses.setOption(totalExpensesOption);
@@ -159,7 +180,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Total Income Bar Chart
         const totalIncome = echarts.init(document.getElementById("totalIncome"));
         const totalIncomeOption = {
-            title: { text: "Total Income per Category" },
+            title: { text: window.localizedStrings.totalIncomePerCategory },
             tooltip: {
                 trigger: "axis",
                 axisPointer: {
@@ -182,11 +203,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 right: "4%",
                 bottom: "10%",
                 top: "40px",
-                containLabel: true
+                containLabel: true,
             },
             xAxis: {
                 type: "value",
-                name: "Amount",
+                name: window.localizedStrings.amount,
                 nameLocation: "middle",
                 nameGap: 30,
                 nameRotate: 0, // Keep it horizontal
@@ -201,7 +222,7 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             series: [
                 {
-                    name: "Income",
+                    name: window.localizedStrings.incomes,
                     color: "blue",
                     type: "bar",
                     data: Array.from(incomeGroups).map((group) => ({
@@ -218,7 +239,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Set height for parent element based on number of categories.
         const totalIncomeEl = document.getElementById("totalIncome");
-        totalIncomeEl.style.height = chartHeight + 'px';
+        totalIncomeEl.style.height = chartHeight + "px";
 
         // Set options and force resize
         totalIncome.setOption(totalIncomeOption);
@@ -235,7 +256,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const monthlyExpenses = echarts.init(document.getElementById("monthlyExpenses"));
         const monthlyExpensesOption = {
             title: {
-                text: "Monthly Expenses per Category (%)",
+                text: window.localizedStrings.monthlyExpensesPerCategory,
                 left: "center",
                 top: "10px",
             },
@@ -256,9 +277,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     if (params.value > 0) {
                         const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
-                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(
-                            2
-                        )}% (${formatCurrency(absoluteValue)})<br>`;
+                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(
+                            absoluteValue
+                        )})<br>`;
                     }
 
                     return result;
@@ -286,7 +307,7 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             xAxis: {
                 type: "value",
-                name: "Percentage",
+                name: window.localizedStrings.percentage,
                 nameLocation: "middle",
                 nameGap: 30,
                 max: 100,
@@ -345,7 +366,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const monthlyIncome = echarts.init(document.getElementById("monthlyIncome"));
         const monthlyIncomeOption = {
             title: {
-                text: "Monthly Income per Category (%)",
+                text: window.localizedStrings.monthlyIncomePerCategory,
                 left: "center",
                 top: "10px",
             },
@@ -366,9 +387,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     if (params.value > 0) {
                         const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
-                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(
-                            2
-                        )}% (${formatCurrency(absoluteValue)})<br>`;
+                        result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(
+                            absoluteValue
+                        )})<br>`;
                     }
 
                     return result;
@@ -396,7 +417,7 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             xAxis: {
                 type: "value",
-                name: "Percentage",
+                name: window.localizedStrings.percentage,
                 nameLocation: "middle",
                 nameGap: 30,
                 max: 100,

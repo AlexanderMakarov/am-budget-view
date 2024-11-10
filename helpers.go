@@ -9,12 +9,49 @@ import (
 	"runtime"
 )
 
+// getFilesByGlob retrieves files matching the glob pattern.
 func getFilesByGlob(glob string) ([]string, error) {
 	files, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, err
 	}
 	return files, nil
+}
+
+// openBrowser opens the specified URL in the default web browser.
+func openBrowser(url string) error {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
+}
+
+// fatalError handles fatal errors and logs them.
+func fatalError(err error, inFile bool, openFile bool) {
+	if inFile {
+		writeAndOpenFile(RESULT_FILE_PATH, err.Error(), openFile)
+	}
+	log.Fatalf("%s", err)
+}
+
+// writeAndOpenFile writes content to a file and optionally opens it.
+func writeAndOpenFile(resultFilePath, content string, openFile bool) {
+	if err := os.WriteFile(resultFilePath, []byte(content), 0644); err != nil {
+		log.Fatalf("Can't write result file into %s: %#v", resultFilePath, err)
+	}
+	if openFile {
+		if err := openFileInOS(resultFilePath); err != nil {
+			log.Fatalf("Can't open result file %s: %#v", resultFilePath, err)
+		}
+	}
 }
 
 // openFileInOS opens file in OS-specific viewer.
@@ -31,43 +68,7 @@ func openFileInOS(url string) error {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func openBrowser(url string) error {
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
 	return err
-}
-
-func fatalError(err error, inFile bool, openFile bool) {
-	if inFile {
-		writeAndOpenFile(RESULT_FILE_PATH, err.Error(), openFile)
-	}
-	log.Fatalf("%s", err)
-}
-
-func writeAndOpenFile(resultFilePath, content string, openFile bool) {
-	if err := os.WriteFile(resultFilePath, []byte(content), 0644); err != nil {
-		log.Fatalf("Can't write result file into %s: %#v", resultFilePath, err)
-	}
-	if openFile {
-		if err := openFileInOS(resultFilePath); err != nil {
-			log.Fatalf("Can't open result file %s: %#v", resultFilePath, err)
-		}
-	}
 }
 
 // parseTransactionsOfOneType parses transactions from files of one type by one glob pattern.
@@ -79,10 +80,10 @@ func parseTransactionsOfOneType(
 ) ([]Transaction, error) {
 	transactions, warning, err := parseTransactionFiles(glob, parser)
 	if err != nil {
-		return nil, fmt.Errorf("error on parsing transactions from %s files: %w", nameOfFilesUnderGlob, err)
+		return nil, fmt.Errorf(i18n.T("error on parsing transactions from n files", "n", nameOfFilesUnderGlob), "err", err)
 	}
 	if warning != "" {
-		*parsingWarnings = append(*parsingWarnings, fmt.Sprintf("Can't parse all %s files: %s", nameOfFilesUnderGlob, warning))
+		*parsingWarnings = append(*parsingWarnings, i18n.T("Can't parse all n files", "n", nameOfFilesUnderGlob, "warning", warning))
 	}
 	return transactions, nil
 }
@@ -105,23 +106,23 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 	result := make([]Transaction, 0)
 	notFatalError := ""
 	for _, file := range files {
-		log.Printf("Parsing '%s' with %T%+v parser.", file, parser, parser)
+		log.Println(i18n.T("Parsing file with parser", "file", file, "parser", parser))
 		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
 		if err != nil {
-			notFatalError = fmt.Sprintf("Can't parse transactions from '%s' file: %#v", file, err)
+			notFatalError = i18n.T("Can't parse transactions from file", "file", file, "err", err)
 			if len(rawTransactions) < 1 {
 				// If both error and no transactions then treat error as fatal.
-				return result, "", fmt.Errorf("can't parse transactions from '%s' file: %w", file, err)
+				return result, "", fmt.Errorf(i18n.T("Can't parse transactions from file", "file", file, "err", err))
 			} else {
 				// Otherwise just log.
 				log.Println(notFatalError)
 			}
 		}
 		if len(rawTransactions) < 1 {
-			notFatalError = fmt.Sprintf("Can't find transactions in '%s' file.", file)
+			notFatalError = i18n.T("Can't find transactions in f file", "f", file)
 			log.Println(notFatalError)
 		}
-		log.Printf("Found %d transactions in '%s' file.", len(rawTransactions), file)
+		log.Println(i18n.T("Found n transactions in f file", "n", len(rawTransactions), "f", file))
 		result = append(result, rawTransactions...)
 	}
 	return result, notFatalError, nil

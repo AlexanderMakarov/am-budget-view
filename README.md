@@ -112,13 +112,13 @@ and instructions how you got this file.
 
 [![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
 
-1. Download the application executable file (name starts from "am-budget-view-")
+1. Download the application executable file (name starts with "am-budget-view-")
    compiled for your operating system from the
    [Releases](https://github.com/AlexanderMakarov/am-budget-view/releases) page:
- 	- For Windows use "am-budget-view-windows-amd64.exe". Even if you have an Intel CPU.
+ 	- For Windows use "am-budget-view-windows-amd64.exe". Even if you have an Intel CPU. Use "arm" version only if your CPU is ARM-based.
  	- For Mac OS X with M1+ CPU/core use "am-budget-view-darwin-arm64".
    	For older Macbooks (before 2020) use "am-budget-view-darwin-amd64".
- 	- For Linux-es usually "am-budget-view-linux-amd64".
+ 	- For most of Linux-es choose "am-budget-view-linux-amd64".
 2. Download "Statement" files from bank sites for required period and
    put them near the executable file ("am-budget-view-...").
    See details on 
@@ -129,12 +129,7 @@ and instructions how you got this file.
    5 icons to download statements.
    Press XML icon and save file in the same folder where the executable file
    ("am-budget-view-...") is placed.
-3. Download [config.yaml](https://raw.githubusercontent.com/AlexanderMakarov/aggregate-inecobank-statement/master/config.yaml)
-   (click on link, browser would show text file, press Right Button on mouse and choose
-   "Save Page as" option). It is a template of a configuration file.
-   Note that it should have a name "config.yaml". This file may be opened with any text redactor.
-   Don't need to update it yet, see step 5.
-4. Run application ("am-budget-view-\*-\*" file).
+3. Run application ("am-budget-view-\*-\*" file).
    If everything is OK then after a couple of seconds it would open a new tab in browser
    with aggregated details from bank transactions which where provided via "Statement" files.
    Otherwise it would open a text file with the error description.
@@ -143,10 +138,11 @@ and instructions how you got this file.
    doesn't match `inecobankStatementXmlFilesGlob`, `inecobankStatementXlsxFilesGlob`,
    `myAmeriaAccountStatementXlsxFilesGlob`, `ameriaCsvFilesGlob`,
    `myAmeriaHistoryXlsFilesGlob`
-   [glob file patterns](https://en.wikipedia.org/wiki/Glob_(programming)).
+   [glob file patterns](https://en.wikipedia.org/wiki/Glob_(programming))
+   declared in "config.yaml" file (app would create default "config.yaml" file near it).
    But in a successful case browser page most probably would contain some pre-defined groups
    and one big "Unknown" group made from all uncategorized yet transactions.
-5. To categorize transactions need to edit "config.yaml" file.
+4. To categorize transactions need to edit "config.yaml" file (placed near app).
    So open it in any text redactor ('Notepad' in Windows, 'TextEditor' on Mac, various on Linux-es)
    and scroll to `groupNamesToSubstrings` section - here would be list of pre-defined categories.
    Edit these categories to fit your needs.
@@ -162,11 +158,11 @@ and instructions how you got this file.
    2. In "config.yaml" file set `categorizeMode: true` and re-run application in terminal.
       It would print into terminal all uncategorized transactions with "Details" value
       and some statistic at the end.
-6. Once you categorized all transactions you will get a clean report for manual investigation,
+5. Once you categorized all transactions you will get a clean report for manual investigation,
    comparing months, making fincancial decisions. etc.
    Note that more accounts are provided to the application, the more full financial
    picture would be.
-7. Next time it is enough to download "Statements" with new transactions and run application again.
+6. Next time it is enough to download "Statements" with new transactions and run application again.
 
 ### Notes:
 1. For remained formats and banks steps are near the same as for Inecobank.
@@ -248,13 +244,16 @@ CI will do the rest.
 - [x] Add drill-down page to see individual journal entries.
 - [x] Solve double counting of transactions between own accounts.
 - [x] Enhance errors when no transaction files found.
-- [x] Make default config.yml on first run if not found.
-- [ ] Translate to Russian.
+- [x] Make default config.yaml on first run if not found.
+- [x] Translate to Russian.
+- [ ] Translate to Russian README.
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".
 - [ ] Manage all settings (config.yaml) in web UI.
+- [ ] (?) Improve translation to Russian with correct declensions everywhere.
 - [ ] (?) Allow to choose "transactions" files in UI.
+- [ ] (?) Improve translation to Russian with correct declensions everywhere.
 - [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (?) Support different schema with parsing. Aka "parse anything".
 - [ ] (?) Improve tests coverage.

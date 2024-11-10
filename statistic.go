@@ -3,20 +3,20 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
 func (t *Transaction) String() string {
-	return fmt.Sprintf("Transaction %s %s %s", t.Date.Format(OutputDateFormat), t.Amount, t.Details)
+	return fmt.Sprint(i18n.T("Transaction date amount details", "date", t.Date, "amount", t.Amount, "details", t.Details))
 }
 
 func (je *JournalEntry) String() string {
-	direction := "Income "
+	direction := i18n.T("Income")
 	if je.IsExpense {
-		direction = "Expense"
+		direction = i18n.T("Expense")
 	}
 	amounts := ""
 	currencies := []string{}
@@ -108,28 +108,27 @@ func MapOfGroupsToStringFull(mapOfGroups map[string]*Group, withJournalEntries b
 				journalEntryStrings[j] = je.String()
 			}
 			groupStrings = append(groupStrings,
-				fmt.Sprintf(
-					"\n    %-35s: %s, from %d transaction(s):\n      %s",
-					group.Name,
-					group.Total,
-					len(journalEntryStrings),
-					strings.Join(journalEntryStrings, "\n      "),
+				i18n.T("groupName total nTransactions details",
+					"groupName", group.Name,
+					"total", group.Total,
+					"nTransactions", len(journalEntryStrings),
+					"details", journalEntryStrings,
 				),
 			)
 		} else {
 			groupStrings = append(groupStrings,
-				fmt.Sprintf(
-					"\n    %-35s: %s",
-					group.Name,
-					group.Total,
+				i18n.T("groupName total",
+					"groupName", group.Name,
+					"total", group.Total,
 				),
 			)
 		}
+		
 	}
 	return groupStrings
 }
 
-// MapOfGroupsToStringFull converts map of `Group`-s to human readable string.
+// MapOfGroupsToStringFull converts map of `Group`-s to list of human readable strings.
 func MapOfGroupsToString(mapOfGroups map[string]*Group) []string {
 	return MapOfGroupsToStringFull(mapOfGroups, false)
 }
@@ -137,16 +136,16 @@ func MapOfGroupsToString(mapOfGroups map[string]*Group) []string {
 func (s *IntervalStatistic) String() string {
 	income := MapOfGroupsToStringFull(s.Income, true)
 	expense := MapOfGroupsToStringFull(s.Expense, true)
-	return fmt.Sprintf(
-		"Statistics for %s..%s:\n  Income  (total %2d groups, filtered sum %s):%s\n  Expenses (total %2d groups, filt-ed sum %s):%s\n",
-		s.Start.Format(OutputDateFormat),
-		s.End.Format(OutputDateFormat),
-		len(income),
-		MapOfGroupsSum(s.Income),
-		strings.Join(income, ""),
-		len(s.Expense),
-		MapOfGroupsSum(s.Expense),
-		strings.Join(expense, ""),
+	return i18n.T("Statistics_format",
+		"start", s.Start,
+		"end", s.End,
+		"currency", s.Currency,
+		"nIncome", len(income),
+		"sumIncome", MapOfGroupsSum(s.Income),
+		"detailsIncome", income,
+		"nExpense", len(expense),
+		"sumExpense", MapOfGroupsSum(s.Expense),
+		"detailsExpense", expense,
 	)
 }
 
@@ -177,7 +176,7 @@ func DumpIntervalStatistics(intervalStatistics map[string]*IntervalStatistic, wr
 		if stat, ok := intervalStatistics[currency]; ok {
 			DumpIntervalStatistic(stat, writer, currency, isDetailed)
 		} else {
-			return fmt.Errorf("no statistics for currency %s", currency)
+			return fmt.Errorf(i18n.T("no statistics for c currency", "c", currency))
 		}
 	}
 	return nil
@@ -188,24 +187,24 @@ func DumpIntervalStatistics(intervalStatistics map[string]*IntervalStatistic, wr
 func DumpIntervalStatistic(intervalStatistic *IntervalStatistic, writer io.Writer, currency string, isDetailed bool) {
 	// If need detailed output then use `String()` method.
 	if isDetailed {
-		fmt.Fprintf(writer, "%s amounts:\n", currency)
-		fmt.Fprintf(writer, "%s\n", intervalStatistic)
+		fmt.Fprint(writer, i18n.T("c amounts\n stats\n", "c", currency, "stats", intervalStatistic))
 		return
 	}
 	// Otherwise use `MapOfGroupsToString` to dump income and expense.
 	income := MapOfGroupsToString(intervalStatistic.Income)
 	expense := MapOfGroupsToString(intervalStatistic.Expense)
-	fmt.Fprintf(writer,
-		"Statistics for %s..%s (in %s):\n  Income  (total %2d groups, filtered sum %s):%s\n  Expenses (total %2d groups, filt-ed sum %s):%s\n",
-		intervalStatistic.Start.Format(OutputDateFormat),
-		intervalStatistic.End.Format(OutputDateFormat),
-		currency,
-		len(income),
-		MapOfGroupsSum(intervalStatistic.Income),
-		strings.Join(income, ""),
-		len(expense),
-		MapOfGroupsSum(intervalStatistic.Expense),
-		strings.Join(expense, ""),
+	fmt.Fprintln(writer,
+		i18n.T("Statistics_format",
+			"start", intervalStatistic.Start,
+			"end", intervalStatistic.End,
+			"currency", currency,
+			"nIncome", len(income),
+			"sumIncome", MapOfGroupsSum(intervalStatistic.Income),
+			"detailsIncome", income,
+			"nExpense", len(expense),
+			"sumExpense", MapOfGroupsSum(intervalStatistic.Expense),
+			"detailsExpense", expense,
+		),
 	)
 }
 
@@ -297,7 +296,7 @@ func NewStatisticBuilderByCategories(accounts map[string]*AccountFromTransaction
 	for k := range myAccounts {
 		keys = append(keys, k)
 	}
-	fmt.Printf("My accounts (will be ignored for totals): %v\n", keys)
+	log.Println(i18n.T("My accounts (will be ignored for totals): accounts", "accounts", keys))
 
 	return func(start, end time.Time) IntervalStatisticsBuilder {
 		return GroupExtractorByCategories{

@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
+	"path/filepath"
 	"sort"
 	"time"
 )
@@ -17,10 +17,18 @@ var static embed.FS
 //go:embed templates
 var templateFS embed.FS
 
-var devMode bool = os.Getenv("DEV_MODE") != ""
-var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
+var templateFunctions template.FuncMap
+
+// initTemplateFunctions sets up template functions when i18n is initialized.
+func initTemplateFunctions() {
+	templateFunctions = template.FuncMap{
+		"localize": i18n.T,
+	}
+}
 
 func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) {
+	initTemplateFunctions()
+
 	http.HandleFunc("/", handleIndex(statistics))
 	http.HandleFunc("/transactions", handleTransactions(statistics, accounts))
 
@@ -56,7 +64,17 @@ func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[str
 
 func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// JSON encode the statistics
+		// Handle locale selection.
+		locale := r.URL.Query().Get("locale")
+		if locale != "" {
+			err := i18n.SetLocale(locale)
+			if err != nil {
+				log.Printf("Failed to set locale to %s: %v", locale, err)
+			}
+			log.Printf("Set locale to %s", i18n.locale)
+		}
+
+		// Prepare JSON with statistics.
 		jsonData, err := json.Marshal(statistics)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -70,27 +88,19 @@ func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.Respons
 		sort.Strings(currencies)
 
 		data := struct {
-			Title      string
 			Currencies []string
 			Statistics template.JS
+			Locale     string
 		}{
-			Title:      "Interval Statistics",
 			Currencies: currencies,
 			Statistics: template.JS(jsonData),
+			Locale:     i18n.locale,
 		}
 
-		if devMode {
-			tmpl, err := template.ParseFiles("templates/index.html")
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			err = tmpl.Execute(w, data)
-		} else {
-			err = templates.ExecuteTemplate(w, "index.html", data)
-		}
+		err = parseAndExecuteTemplate("templates/index.html", w, data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 }
@@ -143,10 +153,10 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 			fromAccount := accounts[entry.FromAccount]
 			toAccount := accounts[entry.ToAccount]
 			// Check if both accounts exist and are transaction accounts
-			isCounted := fromAccount != nil && 
-				        toAccount != nil && 
-				        fromAccount.IsTransactionAccount && 
-				        toAccount.IsTransactionAccount
+			isCounted := fromAccount != nil &&
+				toAccount != nil &&
+				fromAccount.IsTransactionAccount &&
+				toAccount.IsTransactionAccount
 
 			templateEntries = append(templateEntries, struct {
 				JournalEntry
@@ -182,18 +192,7 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 			Accounts: template.JS(string(jsonAccounts)),
 		}
 
-		var tmpl *template.Template
-		if devMode {
-			tmpl, err = template.ParseFiles("templates/transactions.html")
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			tmpl = templates.Lookup("transactions.html")
-		}
-
-		err = tmpl.Execute(w, data)
+		err = parseAndExecuteTemplate("templates/transactions.html", w, data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -217,4 +216,28 @@ func (lw *logWriter) Write(b []byte) (int, error) {
 		lw.statusCode = 200
 	}
 	return lw.ResponseWriter.Write(b)
+}
+
+func parseAndExecuteTemplate(templatePath string, w http.ResponseWriter, data interface{}) error {
+	var tmpl *template.Template
+	var err error
+	if devMode {
+		// In dev mode, load from filesystem with base name
+		tmpl, err = template.New(templatePath).Funcs(templateFunctions).ParseFiles(templatePath)
+	} else {
+		// For embedded files, we need to read the content first
+		content, err := templateFS.ReadFile(templatePath)
+		if err != nil {
+			return err
+		}
+		// Create template with the base name and parse the content
+		baseName := filepath.Base(templatePath)
+		tmpl, err = template.New(baseName).Funcs(templateFunctions).Parse(string(content))
+	}
+	if err != nil {
+		return err
+	}
+
+	// Execute using the base name of the template
+	return tmpl.ExecuteTemplate(w, filepath.Base(templatePath), data)
 }

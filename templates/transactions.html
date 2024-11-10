@@ -1,31 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Transactions - {{.Group}}</title>
+    <title>{{localize "Transactions"}} - {{.Group}}</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>{{if eq .Type "income"}}Income{{else}}Expense{{end}} transactions for "{{.Group}}" category</h1>
+            <h1>{{if eq .Type "income"}}{{localize "Income transactions for g category" .Group}}{{else}}{{localize "Expense transactions for g category" "g" .Group}}{{end}}</h1>
             <div class="header-right">
                 <span>{{.Month}} ({{.Currency}})</span>
-                <button onclick="window.history.back()" class="back-button">Back to Dashboard</button>
+                <button onclick="window.history.back()" class="back-button">{{localize "Back to Dashboard"}}</button>
             </div>
         </header>
 
         <table class="transactions-table">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>From Account</th>
-                    <th>To Account</th>
-                    <th>Amount ({{.Currency}})</th>
-                    <th>Details</th>
-                    <th>Account Currency</th>
-                    <th>{{.Currency}} Conversion Precision (days)</th>
-                    <th>Source Type</th>
-                    <th>Source</th>
+                    <th>{{localize "Date"}}</th>
+                    <th>{{localize "From Account"}}</th>
+                    <th>{{localize "To Account"}}</th>
+                    <th>{{localize "Amount"}} ({{.Currency}})</th>
+                    <th>{{localize "Details"}}</th>
+                    <th>{{localize "Account Currency"}}</th>
+                    <th>{{localize "с conversion precision (days)" "c" .Currency}}</th>
+                    <th>{{localize "Source Type"}}</th>
+                    <th>{{localize "Source"}}</th>
                 </tr>
             </thead>
             <tbody>
@@ -61,10 +61,7 @@
             </tbody>
         </table>
         <div class="explanation-text">
-            This is list of all transactions marked for "{{.Group}}" category.
-            Grayed out rows are not included in the statistics, only transactions with unknown account are.
-            You may check account details by hovering mouse over account number.
-            Transactions with known accounts are not included in the statistics because they represent transfers between your own accounts, therefore are not "Income" or "Expense".
+            {{localize "Transactions list note" "group" .Group}}
         </div>
     </div>
 
@@ -85,17 +82,17 @@
                     let tooltipContent = '<table>';
                     if (isTransaction) {
                         tooltipContent += `
-                            <tr><td>Source Type:</td><td>${sourceType}</td></tr>
-                            <tr><td>Source:</td><td>${source}</td></tr>
-                            <tr><td>From:</td><td>${from}</td></tr>
-                            <tr><td>To:</td><td>${to}</td></tr>
-                            <tr><td>Transaction Account</td></tr>
+                            <tr><td>{{localize "Source Type"}}:</td><td>${sourceType}</td></tr>
+                            <tr><td>{{localize "Source"}}:</td><td>${source}</td></tr>
+                            <tr><td>{{localize "From"}}:</td><td>${from}</td></tr>
+                            <tr><td>{{localize "To"}}:</td><td>${to}</td></tr>
+                            <tr><td>{{localize "Transaction Account"}}</td></tr>
                         `;
                     } else {
                         tooltipContent += `
-                            <tr><td>Unknown Account</td></tr>
-                            <tr><td>From:</td><td>${from}</td></tr>
-                            <tr><td>To:</td><td>${to}</td></tr>
+                            <tr><td>{{localize "Unknown Account"}}</td></tr>
+                            <tr><td>{{localize "From"}}:</td><td>${from}</td></tr>
+                            <tr><td>{{localize "To"}}:</td><td>${to}</td></tr>
                         `;
                     }
                     tooltipContent += '</table>';

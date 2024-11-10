@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -44,8 +45,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 
 	// Find first sheet.
 	firstSheet := f.Sheets[0]
-	fmt.Printf("%s: parsing first sheet '%s', total %d sheets.\n",
-		filePath, firstSheet.Name, len(f.Sheets))
+	log.Println(i18n.T("file parsing first sheet s from n sheets", "file", filePath, "s", firstSheet.Name, "n", len(f.Sheets)))
 
 	// Parse myAmeriaStmtTransactions.
 	var myAmeriaStmtTransactions []MyAmeriaStmtTransaction

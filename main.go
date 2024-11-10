@@ -1,7 +1,8 @@
 package main
 
 import (
-	_ "embed"
+	"embed"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -18,8 +19,26 @@ const OPEN_MODE_NONE = "none"
 const OPEN_MODE_WEB = "web"
 const OPEN_MODE_FILE = "file"
 
+var devMode bool = os.Getenv("DEV_MODE") != "" && os.Getenv("DEV_MODE") != "false"
+
 //go:embed config.yaml
 var defaultConfig []byte
+
+//go:embed locales
+var locales embed.FS
+var i18n *I18n
+var langToLocale = map[string]string{
+	"en": "en-US",
+	"ru": "ru-RU",
+}
+
+func init() {
+	i18n = &I18n{}
+	err := i18n.Init(I18nFsBackend{FS: locales}, "en-US", false)
+	if err != nil {
+		log.Fatalf("Error initializing i18n: %v", err)
+	}
+}
 
 type Args struct {
 	ConfigPath           string `arg:"positional" default:"config.yaml" help:"Path to the configuration YAML file. By default is used 'config.yaml' path."`
@@ -76,6 +95,7 @@ func main() {
 	default:
 		log.Fatalf("Invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE)
 	}
+
 	// Prepare flags for writing to file and opening file with result.
 	isWriteToFile := !args.DontBuildTextReport
 	isOpenFileWithResult := args.ResultMode == OPEN_MODE_FILE
@@ -100,8 +120,13 @@ func main() {
 		)
 	}
 
+	// Set language.
+	if config.Language != "" {
+		i18n.SetLocale(langToLocale[config.Language])
+	}
+
 	// Log settings.
-	log.Printf("Using configuration: %+v", config)
+	log.Println(i18n.T("Using configuration", "config", config))
 
 	// Parse files to unified Transaction-s.
 	// Ineco XML
@@ -169,21 +194,20 @@ func main() {
 	// Check we found something.
 	if len(transactions) < 1 {
 		fatalError(
-			fmt.Errorf(
-				"can't find transactions, parsing warnings:\n%s",
-				strings.Join(parsingWarnings, "\n"),
+			errors.New(
+				i18n.T("can't find transactions, parsing warnings w", "w", parsingWarnings),
 			),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
 	}
-	log.Printf("Total found %d transactions.", len(transactions))
+	log.Println(i18n.T("Total found n transactions", "n", len(transactions)))
 
 	// Show uncategorized transactions if in "CategorizeMode".
 	if config.CategorizeMode {
 		err := PrintUncategorizedTransactions(transactions, config)
 		if err != nil {
-			log.Fatalf("can't check for uncategorized transactions: %#v", err)
+			fatalError(errors.New(i18n.T("can't check for uncategorized transactions", "err", err)), isWriteToFile, isOpenFileWithResult)
 		}
 		return
 	}
@@ -191,23 +215,23 @@ func main() {
 	// Build journal entries.
 	journalEntries, accounts, currencies, err := buildJournalEntries(transactions, config)
 	if err != nil {
-		fatalError(fmt.Errorf("can't build journal entries: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(errors.New(i18n.T("can't build journal entries", "err", err)), isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
 		transLen, err := buildBeancountFile(journalEntries, currencies, accounts, RESULT_BEANCOUNT_FILE_PATH)
 		if err != nil {
-			fatalError(fmt.Errorf("can't build Beancount report: %w", err), isWriteToFile, isOpenFileWithResult)
+			fatalError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
 		}
-		log.Printf("Built Beancount file '%s' with %d transactions.", RESULT_BEANCOUNT_FILE_PATH, transLen)
+		log.Println(i18n.T("Built Beancount file f with n transactions", "file", RESULT_BEANCOUNT_FILE_PATH, "n", transLen))
 	}
 
 	// Build statistic.
 	groupExtractorFactory, err := NewStatisticBuilderByCategories(accounts)
 	if err != nil {
 		fatalError(
-			fmt.Errorf("can't create statistic builder: %w", err),
+			errors.New(i18n.T("can't create statistic builder", "err", err)),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
@@ -219,13 +243,17 @@ func main() {
 		timeZone,
 	)
 	if err != nil {
-		fatalError(fmt.Errorf("can't build statistics: %w", err), isWriteToFile, isOpenFileWithResult)
+		fatalError(errors.New(i18n.T("can't build statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Produce and show TXT report file if not disabled.
 	if !args.DontBuildTextReport {
 		var reportStringBuilder strings.Builder
-		reportStringBuilder.WriteString(strings.Join(parsingWarnings, "\n"))
+		if len(parsingWarnings) > 0 {
+			reportStringBuilder.WriteString("\n - ")
+			reportStringBuilder.WriteString(strings.Join(parsingWarnings, "\n - "))
+			reportStringBuilder.WriteString("\n\n")
+		}
 
 		currency := ""
 		if !config.DetailedOutput {
@@ -241,14 +269,14 @@ func main() {
 		}
 		for _, oneMonthStatistics := range monthlyStatistics {
 			if err := DumpIntervalStatistics(oneMonthStatistics, &reportStringBuilder, currency, config.DetailedOutput); err != nil {
-				log.Fatalf("can't dump interval statistics: %#v", err)
+				fatalError(fmt.Errorf(i18n.T("can't dump interval statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
 			}
 		}
-		fmt.Fprintf(&reportStringBuilder, "\nTotal %d months.", len(monthlyStatistics))
+		fmt.Fprintf(&reportStringBuilder, "\n%s", i18n.T("Total n months", "n", len(monthlyStatistics)))
 		result := reportStringBuilder.String()
 
 		// Always print result into logs and conditionally into the file which open through the OS.
-		log.Print(result)
+		log.Println(result)
 		if !args.DontBuildTextReport {
 			writeAndOpenFile(RESULT_FILE_PATH, result, isOpenFileWithResult)
 		}
@@ -257,10 +285,10 @@ func main() {
 	// Start web server if needed.
 	if args.ResultMode == OPEN_MODE_WEB {
 		go func() {
-			time.Sleep(100 * time.Millisecond) // Give the server a moment to start
+			time.Sleep(100 * time.Millisecond) // Give the server a moment to start.
 			err := openBrowser("http://localhost:8080")
 			if err != nil {
-				log.Printf("Failed to open browser: %v", err)
+				log.Println(i18n.T("Failed to open browser", "err", err))
 			}
 		}()
 		ListenAndServe(monthlyStatistics, accounts)

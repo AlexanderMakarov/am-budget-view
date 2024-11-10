@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -74,10 +75,18 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 	for _, je := range journalEntries {
 		// Validate currencies.
 		if je.AccountCurrency != "" && !checkCurrency(je.AccountCurrency) {
-			return 0, fmt.Errorf("invalid account currency '%s' in journal entry '%+v'", je.AccountCurrency, je)
+			return 0, errors.New(
+				i18n.T("invalid account currency c in journal entry t",
+					"c", je.AccountCurrency, "t", je,
+				),
+			)
 		}
 		if je.OriginCurrency != "" && !checkCurrency(je.OriginCurrency) {
-			return 0, fmt.Errorf("invalid origin currency '%s' in journal entry '%+v'", je.OriginCurrency, je)
+			return 0, errors.New(
+				i18n.T("invalid origin currency c in journal entry t",
+					"c", je.OriginCurrency, "t", je,
+				),
+			)
 		}
 		// Add journal entry to the file.
 		var sb strings.Builder
@@ -107,7 +116,11 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 				source = fmt.Sprintf("Assets:%s:%s", account.SourceType, account.Number)
 			} else {
 				// Expense from unknown account should not happen.
-				return 0, fmt.Errorf("source account '%s' not found", je.FromAccount)
+				return 0, errors.New(
+					i18n.T("source account a not found",
+						"a", je.FromAccount,
+					),
+				)
 			}
 			destination := ""
 			if account, ok := accounts[je.ToAccount]; ok && account.SourceType != "" {
@@ -168,9 +181,10 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 					),
 				)
 			} else {
-				return 0, fmt.Errorf(
-					"journal entry '%+v' has no amount in account or origin currency",
-					je,
+				return 0, errors.New(
+					i18n.T("journal entry t has no amount in account or origin currency",
+						"t", je,
+					),
 				)
 			}
 		} else { // Income
@@ -185,7 +199,11 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 				destination = fmt.Sprintf("Assets:%s:%s", account.SourceType, account.Number)
 			} else {
 				// Income to unknown account should not happen.
-				return 0, fmt.Errorf("destination account '%s' not found", je.ToAccount)
+				return 0, errors.New(
+					i18n.T("destination account a not found",
+						"a", je.ToAccount,
+					),
+				)
 			}
 			if isAccountAmount && isOriginCurAmount {
 				// SOURCE       -100 USD @@ 40000 AMD
@@ -240,9 +258,10 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 					),
 				)
 			} else {
-				return 0, fmt.Errorf(
-					"journal entry '%+v' has no amount in account or origin currency",
-					je,
+				return 0, errors.New(
+					i18n.T("journal entry t has no amount in account or origin currency",
+						"t", je,
+					),
 				)
 			}
 		}
@@ -272,10 +291,10 @@ func normalizeAccountName(account string) string {
 
 func printCurrencyStatisticsMap(convertableCurrencies map[string]*CurrencyStatistics) {
 	if len(convertableCurrencies) == 0 {
-		fmt.Println("No currencies found.")
+		fmt.Println(i18n.T("No currencies found"))
 		return
 	}
-	fmt.Println("Currency\tFrom\tTo\tNumber of Exchange Rates")
+	fmt.Println(i18n.T("Currency\tFrom\tTo\tNumber of Exchange Rates"))
 	for currency, stat := range convertableCurrencies {
 		fmt.Printf("  %s\t%s\t%s\t%d\n",
 			currency,

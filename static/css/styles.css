@@ -90,6 +90,14 @@ h1 {
     border-color: #666;
 }
 
+.locale-selector {
+    padding: 5px;
+    margin-right: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+}
+
 /* Add these styles at the end of the file */
 
 .transactions-table {

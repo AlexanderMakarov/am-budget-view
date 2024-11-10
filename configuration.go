@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	Language                             string              `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
 	InecobankStatementXmlFilesGlob       string              `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
 	InecobankStatementXlsxFilesGlob      string              `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
 	AmeriaCsvFilesGlob                   string              `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`

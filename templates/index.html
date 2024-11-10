@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{.Locale}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AM Budget View</title>
     <link rel="stylesheet" href="/static/css/styles.css">
-    <!-- https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js -->
     <script src="/static/outer/echarts@5.5.1.min.js"></script>
 </head>
 <body>
@@ -13,12 +12,16 @@
         <header>
             <h1>AM Budget View</h1>
             <div class="header-right">
+                <select id="localeSelector" class="locale-selector">
+                    <option value="en-US" {{if eq .Locale "en-US"}}selected="selected"{{end}}>English</option>
+                    <option value="ru-RU" {{if eq .Locale "ru-RU"}}selected="selected"{{end}}>Русский</option>
+                </select>
                 <select id="currencySelector" class="currency-selector">
                     {{range .Currencies}}
                         <option value="{{.}}">{{.}}</option>
                     {{end}}
                 </select>
-                <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">See on GitHub</a>
+                <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">{{localize "See on GitHub"}}</a>
             </div>
         </header>
         <div id="expensesVsIncome" class="chart"></div>
@@ -29,23 +32,29 @@
         <div id="monthlyExpenses" class="chart"></div>
         <div id="monthlyIncome" class="chart"></div>
         <div class="explanation-text">
-            Notes:
+            {{localize "Notes"}}
             <ul>
-                <li>
-                    Currencies from transactions files are converted to the selected currency
-                    using exchange rates from the same files as "best effort".
-                    So if direct exchange rate is not presented or presented long ago from date when needed to make conversion then value would be incorrect.
-                    To see precision of conversions please use "Transactions" page.
-                </li>
-                <li>
-                    "Monthly Expenses per Category" and "Monthly Income per Category" charts are clickable.
-                    Clicking on a category bar will open "Transactions" page for the selected month and category.
-                </li>
+                <li>{{localize "index_note_1"}}</li>
+                <li>{{localize "index_note_2"}}</li>
             </ul>
         </div>
     </div>
     <script id="interval-statistics" type="application/json">
         {{.Statistics}}
+    </script>
+    <script>
+        // Pass localized strings to JavaScript
+        window.localizedStrings = {
+            expensesVsIncome: "{{localize "Expenses vs Income"}}",
+            expenses: "{{localize "Expenses"}}",
+            incomes: "{{localize "Incomes"}}",
+            totalExpensesPerCategory: "{{localize "Total Expenses per Category"}}",
+            totalIncomePerCategory: "{{localize "Total Income per Category"}}",
+            amount: "{{localize "Amount"}}",
+            monthlyExpensesPerCategory: "{{localize "Monthly Expenses per Category (%)"}}",
+            monthlyIncomePerCategory: "{{localize "Monthly Income per Category (%)"}}",
+            percentage: "{{localize "Percentage"}}"
+        };
     </script>
     <script src="/static/js/charts.js"></script>
 </body>

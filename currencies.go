@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -393,14 +394,20 @@ func buildJournalEntries(
 	for name, substrings := range config.GroupNamesToSubstrings {
 		for _, substring := range substrings {
 			if group, exist := substringsToGroupName[substring]; exist {
-				return nil, nil, nil, fmt.Errorf("substring '%s' is duplicated in groups: '%s', '%s'",
-					substring, name, group)
+				return nil, nil, nil, fmt.Errorf(
+					i18n.T(
+						"substring s is duplicated in groups: group1, group2",
+						"s", substring, "group1", name, "group2", group,
+					),
+				)
 			}
 			substringsToGroupName[substring] = name
 		}
 	}
-	log.Printf("Going to categorize transactions by %d named groups from %d substrings",
-		len(config.GroupNamesToSubstrings), len(substringsToGroupName))
+	log.Println(i18n.T(
+		"Going to categorize transactions by n named groups from m substrings",
+		"n", len(config.GroupNamesToSubstrings), "m", len(substringsToGroupName),
+	))
 
 	// Sort transactions by date to simplify processing.
 	sort.Sort(TransactionList(transactions))
@@ -450,9 +457,10 @@ func buildJournalEntries(
 				accountCurrency.TotalAmount.int += t.Amount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, nil, nil, fmt.Errorf(
-					"invalid currency '%s' in file '%s' from transaction: %+v",
-					t.AccountCurrency, t.Source, t,
+				return nil, nil, nil, errors.New(
+					i18n.T("invalid currency c in file f from transaction t",
+						"c", t.AccountCurrency, "f", t.Source, "t", t,
+					),
 				)
 			}
 		}
@@ -461,9 +469,10 @@ func buildJournalEntries(
 			if validCurrencyRegex.MatchString(t.OriginCurrency) {
 				// If transaction has both currencies then they should be different.
 				if atLeastOneCurrency && t.OriginCurrency == t.AccountCurrency {
-					return nil, nil, nil, fmt.Errorf(
-						"transaction '%+v' has the same currency '%s' as 'account' and 'origin'",
-						t, t.AccountCurrency,
+					return nil, nil, nil, errors.New(
+						i18n.T("transaction t has the same currency c in 'account' and 'origin'",
+							"t", t, "c", t.AccountCurrency,
+						),
 					)
 				}
 				originCurrency, ok := currencies[t.OriginCurrency]
@@ -493,9 +502,10 @@ func buildJournalEntries(
 				originCurrency.TotalAmount.int += t.OriginCurrencyAmount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, nil, nil, fmt.Errorf(
-					"invalid origin currency '%s' in file '%s' from transaction: %+v",
-					t.OriginCurrency, t.Source, t,
+				return nil, nil, nil, errors.New(
+					i18n.T("invalid origin currency c in file f from transaction t",
+						"c", t.OriginCurrency, "f", t.Source, "t", t,
+					),
 				)
 			}
 		}
@@ -542,9 +552,10 @@ func buildJournalEntries(
 		}
 		// Check that transaction has at least one currency.
 		if !atLeastOneCurrency {
-			return nil, nil, nil, fmt.Errorf(
-				"no currency found in transaction '%+v' from file '%s'",
-				t, t.Source,
+			return nil, nil, nil, errors.New(
+				i18n.T("no currency found in transaction t from file f",
+					"t", t, "f", t.Source,
+				),
 			)
 		}
 		// Handle destination account.
@@ -605,12 +616,12 @@ func buildJournalEntries(
 		}
 	}
 	if len(accounts) == 0 {
-		return nil, nil, nil, fmt.Errorf("no accounts found")
+		return nil, nil, nil, errors.New(i18n.T("no accounts found"))
 	}
 	if len(currencies) == 0 {
-		return nil, nil, nil, fmt.Errorf("no currencies found")
+		return nil, nil, nil, errors.New(i18n.T("no currencies found"))
 	}
-	log.Printf("In %d transactions found %d currencies:\n", len(transactions), len(currencies))
+	log.Println(i18n.T("In n transactions found m currencies", "n", len(transactions), "m", len(currencies)))
 	printCurrencyStatisticsMap(currencies)
 
 	// Find total timespan of all currencies.
@@ -633,12 +644,13 @@ func buildJournalEntries(
 		}
 	}
 	totalTimespan := maxDate.Sub(minDate)
-	log.Printf(
-		"Transactions timespan: %s..%s (~%d months and %d days)\n",
-		minDate.Format(beancountOutputTimeFormat),
-		maxDate.Format(beancountOutputTimeFormat),
-		int(totalTimespan.Hours()/24/30),
-		int(totalTimespan.Hours()/24)%30,
+	log.Println(
+		i18n.T("All transactions timespan: start..end (~m months and d days)",
+			"start", minDate,
+			"end", maxDate,
+			"m", int(totalTimespan.Hours()/24/30),
+			"d", int(totalTimespan.Hours()/24)%30,
+		),
 	)
 
 	// Determine in which currencies it makes sense to convert amounts in journal entries.
@@ -662,7 +674,9 @@ func buildJournalEntries(
 	for _, stat := range currencies {
 		// Check timespan.
 		if stat.To.Sub(stat.From) < minTimespan {
-			log.Printf("Currency '%s' has timespan %s which is less than minTimespan %s\n", stat.Name, stat.To.Sub(stat.From), minTimespan)
+			log.Println(i18n.T("Currency c has timespan t which is less than minTimespan m",
+				"c", stat.Name, "t", stat.To.Sub(stat.From), "m", minTimespan,
+			))
 			continue
 		}
 		// Check that there are no gaps longer than maxGap for transactions with exchange rates.
@@ -676,7 +690,9 @@ func buildJournalEntries(
 			lastTransactionDate = er.date
 		}
 		if hasGapAtLeastDays > maxGap {
-			log.Printf("Currency '%s' has gap in 'any' exchange rates %s which is longer than maxGap %s\n", stat.Name, hasGapAtLeastDays, maxGap)
+			log.Println(i18n.T("Currency c has gap in 'any' exchange rates t which is longer than maxGap m",
+				"c", stat.Name, "t", hasGapAtLeastDays, "m", maxGap,
+			))
 			continue
 		}
 		convertableCurrencies[stat.Name] = stat
@@ -707,7 +723,9 @@ func buildJournalEntries(
 			}
 			// If there is a gap longer than maxGap then remove currency from the map.
 			if hasGapAtLeastDays >= maxGap {
-				log.Printf("Currency '%s' has gap in 'to convertible currencies' exchange rates %s which is longer than maxGap %s\n", stat.Name, hasGapAtLeastDays, maxGap)
+				log.Println(i18n.T("Currency c has gap in 'to convertible currencies' exchange rates t which is longer than maxGap m",
+					"c", stat.Name, "t", hasGapAtLeastDays, "m", maxGap,
+				))
 				delete(convertableCurrencies, stat.Name)
 				// Need to recheck all currencies all exchange rates one more time.
 				isRecheck = true
@@ -718,28 +736,33 @@ func buildJournalEntries(
 			}
 		}
 	}
-	log.Printf(
-		"With MinCurrencyTimespanPercent=%d, MaxCurrencyTimespanGapsDays=%d filtered out following currencies to convert all transactions amounts into:\n",
-		minTimespanPercent,
-		maxGapDays,
+	log.Println(
+		i18n.T("With MinCurrencyTimespanPercent=m1, MaxCurrencyTimespanGapsDays=m2 filtered out following currencies to convert all transactions amounts into",
+			"m1", minTimespanPercent, "m2", maxGapDays,
+		),
 	)
 	printCurrencyStatisticsMap(convertableCurrencies)
 
 	// Append ConvertToCurrencies without any checks.
 	for _, currency := range config.ConvertToCurrencies {
 		if _, ok := currencies[currency]; !ok {
-			return nil, nil, nil, fmt.Errorf("currency '%s' from ConvertToCurrencies not found in transactions", currency)
+			return nil, nil, nil, errors.New(
+				i18n.T("currency c from ConvertToCurrencies not found in transactions",
+					"c", currency,
+				),
+			)
 		}
 		convertableCurrencies[currency] = currencies[currency]
 	}
 
 	// Check that we end up with at least one convertable currency.
 	if len(convertableCurrencies) == 0 {
-		return nil, nil, nil, fmt.Errorf(
-			"'good' convertable currencies not found, consider change config file with %s, %s, %s",
-			"a) adding ConvertToCurrencies entry (i.e. try convert unconditionally to some currency)",
-			"b) decreasing MinCurrencyTimespanPercent",
-			"c) increasing MaxCurrencyTimespanGapsDays",
+		return nil, nil, nil, errors.New(
+			i18n.T("'good' convertable currencies not found, consider change config file with" +
+				"a) adding ConvertToCurrencies entry (i.e. try convert unconditionally to some currency)" +
+				"b) decreasing MinCurrencyTimespanPercent" +
+				"c) increasing MaxCurrencyTimespanGapsDays",
+			),
 		)
 	}
 
@@ -753,9 +776,17 @@ func buildJournalEntries(
 			exchangeRateIndexesPerCurrency: make(map[string]int),
 		}
 	}
-	log.Printf("Building journal entries with conversions to %d currencies:\n", len(convertableCurrencies))
+	log.Println(
+		i18n.T("Building journal entries with conversions to d currencies",
+			"d", len(convertableCurrencies),
+		),
+	)
 	printCurrencyStatisticsMap(convertableCurrencies)
-	log.Printf("All %d exchange rates will be used for conversions as a 'best effort'.\n", len(curStates))
+	log.Println(
+		i18n.T("All d exchange rates will be used for conversions as a 'best effort'",
+			"d", len(curStates),
+		),
+	)
 
 	// Build journal entries.
 	journalEntries := []JournalEntry{}
@@ -799,9 +830,10 @@ func buildJournalEntries(
 			// it may be converted to another currency as 0 but it is valid conversion.
 			// Such transactions are used to check that card can be charged in general.
 			if amount1.int == 0 && amount2.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
-				return nil, nil, nil, fmt.Errorf(
-					"transaction '%+v' can't be converted to %s currency, not enough exchange rates found to connect transaction currency with %s currency",
-					t, curStatistic.Name, curStatistic.Name,
+				return nil, nil, nil, errors.New(
+					i18n.T("transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
+						"t", t, "c", curStatistic.Name,
+					),
 				)
 			}
 
@@ -838,6 +870,10 @@ func buildJournalEntries(
 		journalEntries = append(journalEntries, entry)
 	}
 
-	log.Printf("Total assembled %d journal entries with amounts in %d currencies.\n", len(journalEntries), len(curStates))
+	log.Println(
+		i18n.T("Total assembled n journal entries with amounts in m currencies",
+			"n", len(journalEntries), "m", len(curStates),
+		),
+	)
 	return journalEntries, accounts, currencies, nil
 }
