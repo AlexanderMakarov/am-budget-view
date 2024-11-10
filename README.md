@@ -303,11 +303,11 @@ CI will do the rest.
 - [x] Enhance errors when no transaction files found.
 - [x] Make default config.yaml on first run if not found.
 - [x] Translate to Russian.
-- [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
+- [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".
 - [ ] Manage all settings (config.yaml) in web UI.
-- [ ] (?) Improve translation to Russian with correct declensions everywhere.
+- [ ] (?) Add translation for all parsers and set right Russian declensions.
 - [ ] (?) Allow to choose "transactions" files in UI.
 - [ ] (?) Improve translation to Russian with correct declensions everywhere.
 - [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD

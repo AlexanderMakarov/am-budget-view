@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -176,7 +177,7 @@ func DumpIntervalStatistics(intervalStatistics map[string]*IntervalStatistic, wr
 		if stat, ok := intervalStatistics[currency]; ok {
 			DumpIntervalStatistic(stat, writer, currency, isDetailed)
 		} else {
-			return fmt.Errorf(i18n.T("no statistics for c currency", "c", currency))
+			return errors.New(i18n.T("no statistics for c currency", "c", currency))
 		}
 	}
 	return nil

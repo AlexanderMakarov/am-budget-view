@@ -269,7 +269,7 @@ func main() {
 		}
 		for _, oneMonthStatistics := range monthlyStatistics {
 			if err := DumpIntervalStatistics(oneMonthStatistics, &reportStringBuilder, currency, config.DetailedOutput); err != nil {
-				fatalError(fmt.Errorf(i18n.T("can't dump interval statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
+				fatalError(errors.New(i18n.T("can't dump interval statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
 			}
 		}
 		fmt.Fprintf(&reportStringBuilder, "\n%s", i18n.T("Total n months", "n", len(monthlyStatistics)))

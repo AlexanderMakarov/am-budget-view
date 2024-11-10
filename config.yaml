@@ -27,7 +27,7 @@ convertToCurrencies:
 # Flag to print details for all uncategorized transactions. Skips any other actions.
 categorizeMode: false
 # Flag to output all information about the result.
-detailedOutput: true
+detailedOutput: false
 # Flag to aggregate all transactions with "Details" not matched with "substrings"
 # from 'groupNamesToSubstrings' below into single group with name "Unknown".
 # Otherwise unknown transactions create new categories with "Details" value name.

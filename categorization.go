@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"errors"
 	"log"
 )
 
@@ -15,7 +15,7 @@ func PrintUncategorizedTransactions(transactions []Transaction, config *Config) 
 	missedCnt := 0
 	for _, tr := range transactions {
 		if tr.Details == "" {
-			return fmt.Errorf("empty details for transaction from '%s': %+v", tr.Source, tr)
+			return errors.New(i18n.T("empty details for transaction from f t", "f", tr.Source, "t", tr))
 		}
 		details := tr.Details
 		if !trieRoot.searchSubstring(details) {

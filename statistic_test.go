@@ -90,24 +90,24 @@ func Test_groupExtractorByCategories_HandleJournalEntry(t *testing.T) {
 	expectedVariousCategoriesFull := `USD amounts:
 Statistics for        2024-10-27..2024-10-28 (in    USD):
   Income  (total  4 groups, filtered sum           0.48):
-    c                                  :         0.27, from 3 transaction(s):
+    c                                    :         0.27, from 3 transaction(s):
       2024-10-27	Income	        0.07 	c	a2->a3			'+7c'	0.07 USD (0)
       2024-10-27	Income	        0.09 	c	a3->a1			'+9c'	0.09 USD (0)
       2024-10-27	Income	        0.11 	c	a3->a1			'+11c'	0.11 USD (0)
-    e                                  :         0.12, from 1 transaction(s):
+    e                                    :         0.12, from 1 transaction(s):
       2024-10-27	Income	        0.12 	e	a2->a1			'+12e'	0.12 USD (0)
-    b                                  :         0.06, from 1 transaction(s):
+    b                                    :         0.06, from 1 transaction(s):
       2024-10-27	Income	        0.06 	b	a1->a2			'+6b'	0.06 USD (0)
-    a                                  :         0.03, from 2 transaction(s):
+    a                                    :         0.03, from 2 transaction(s):
       2024-10-27	Income	        0.01 	a	a1->a2			'+1a'	0.01 USD (0)
       2024-10-27	Income	        0.02 	a	a3->a1			'+2a'	0.02 USD (0)
   Expenses (total  3 groups, filt-ed sum           0.43):
-    c                                  :         0.18, from 2 transaction(s):
+    c                                    :         0.18, from 2 transaction(s):
       2024-10-27	Expense	        0.08 	c	a1->a3			'-8c'	0.08 USD (0)
       2024-10-27	Expense	        0.10 	c	a2->a1			'-10c'	0.10 USD (0)
-    e                                  :         0.13, from 1 transaction(s):
+    e                                    :         0.13, from 1 transaction(s):
       2024-10-27	Expense	        0.13 	e	a3->a2			'-13e'	0.13 USD (0)
-    b                                  :         0.12, from 3 transaction(s):
+    b                                    :         0.12, from 3 transaction(s):
       2024-10-27	Expense	        0.03 	b	a1->a3			'-3b'	0.03 USD (0)
       2024-10-27	Expense	        0.04 	b	a2->a3			'-4b'	0.04 USD (0)
       2024-10-27	Expense	        0.05 	b	a2->a3			'-5b'	0.05 USD (0)
@@ -115,23 +115,23 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 	expectedVariousCategoriesA1Mine := `USD amounts:
 Statistics for        2024-10-27..2024-10-28 (in    USD):
   Income  (total  3 groups, filtered sum           0.41):
-    c                                  :         0.27, from 3 transaction(s):
+    c                                    :         0.27, from 3 transaction(s):
       2024-10-27	Income	        0.07 	c	a2->a3			'+7c'	0.07 USD (0)
       2024-10-27	Income	        0.09 	c	a3->a1			'+9c'	0.09 USD (0)
       2024-10-27	Income	        0.11 	c	a3->a1			'+11c'	0.11 USD (0)
-    e                                  :         0.12, from 1 transaction(s):
+    e                                    :         0.12, from 1 transaction(s):
       2024-10-27	Income	        0.12 	e	a2->a1			'+12e'	0.12 USD (0)
-    a                                  :         0.02, from 2 transaction(s):
+    a                                    :         0.02, from 2 transaction(s):
       2024-10-27	Income	        0.01 	a	a1->a2			'+1a'	0.01 USD (0)
       2024-10-27	Income	        0.02 	a	a3->a1			'+2a'	0.02 USD (0)
   Expenses (total  3 groups, filt-ed sum           0.33):
-    e                                  :         0.13, from 1 transaction(s):
+    e                                    :         0.13, from 1 transaction(s):
       2024-10-27	Expense	        0.13 	e	a3->a2			'-13e'	0.13 USD (0)
-    b                                  :         0.12, from 3 transaction(s):
+    b                                    :         0.12, from 3 transaction(s):
       2024-10-27	Expense	        0.03 	b	a1->a3			'-3b'	0.03 USD (0)
       2024-10-27	Expense	        0.04 	b	a2->a3			'-4b'	0.04 USD (0)
       2024-10-27	Expense	        0.05 	b	a2->a3			'-5b'	0.05 USD (0)
-    c                                  :         0.08, from 2 transaction(s):
+    c                                    :         0.08, from 2 transaction(s):
       2024-10-27	Expense	        0.08 	c	a1->a3			'-8c'	0.08 USD (0)
       2024-10-27	Expense	        0.10 	c	a2->a1			'-10c'	0.10 USD (0)
 `
@@ -228,10 +228,10 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 	expectedVariousCurrenciesFull := `AMD amounts:
 Statistics for        2024-10-27..2024-10-28 (in    AMD):
   Income  (total  1 groups, filtered sum          20.00):
-    a                                  :        20.00, from 1 transaction(s):
+    a                                    :        20.00, from 1 transaction(s):
       2024-10-27	Income	       20.00 AMD	a	a1->a2	t1	s1	'income, account is AMD, paid in USD'	20.00 AMD (0)	0.05 USD (0)
   Expenses (total  1 groups, filt-ed sum          40.00):
-    a                                  :        40.00, from 4 transaction(s):
+    a                                    :        40.00, from 4 transaction(s):
       2024-10-27	Expense	        0.01 USD	a	a1->a2	t1	s1	'expense, all in USD'	4.00 AMD (0)	0.01 USD (0)
       2024-10-27	Expense	        0.02 USD	a	a1->a2	t1	s1	'expense, account USD, paid in AMD'	8.00 AMD (0)	0.02 USD (0)
       2024-10-27	Expense	       12.00 AMD	a	a1->a2	t1	s1	'expense, account AMD, paid in USD'	12.00 AMD (0)	0.03 USD (0)
@@ -239,10 +239,10 @@ Statistics for        2024-10-27..2024-10-28 (in    AMD):
 USD amounts:
 Statistics for        2024-10-27..2024-10-28 (in    USD):
   Income  (total  1 groups, filtered sum           0.05):
-    a                                  :         0.05, from 1 transaction(s):
+    a                                    :         0.05, from 1 transaction(s):
       2024-10-27	Income	       20.00 AMD	a	a1->a2	t1	s1	'income, account is AMD, paid in USD'	20.00 AMD (0)	0.05 USD (0)
   Expenses (total  1 groups, filt-ed sum           0.10):
-    a                                  :         0.10, from 4 transaction(s):
+    a                                    :         0.10, from 4 transaction(s):
       2024-10-27	Expense	        0.01 USD	a	a1->a2	t1	s1	'expense, all in USD'	4.00 AMD (0)	0.01 USD (0)
       2024-10-27	Expense	        0.02 USD	a	a1->a2	t1	s1	'expense, account USD, paid in AMD'	8.00 AMD (0)	0.02 USD (0)
       2024-10-27	Expense	       12.00 AMD	a	a1->a2	t1	s1	'expense, account AMD, paid in USD'	12.00 AMD (0)	0.03 USD (0)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"math"
 	"regexp"
@@ -394,7 +393,7 @@ func buildJournalEntries(
 	for name, substrings := range config.GroupNamesToSubstrings {
 		for _, substring := range substrings {
 			if group, exist := substringsToGroupName[substring]; exist {
-				return nil, nil, nil, fmt.Errorf(
+				return nil, nil, nil, errors.New(
 					i18n.T(
 						"substring s is duplicated in groups: group1, group2",
 						"s", substring, "group1", name, "group2", group,

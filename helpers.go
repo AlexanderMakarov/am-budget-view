@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -29,7 +30,7 @@ func openBrowser(url string) error {
 	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
-		err = fmt.Errorf("unsupported platform")
+		err = errors.New(i18n.T("unsupported platform"))
 	}
 	return err
 }
@@ -66,7 +67,7 @@ func openFileInOS(url string) error {
 	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
-		err = fmt.Errorf("unsupported platform")
+		err = errors.New(i18n.T("unsupported platform"))
 	}
 	return err
 }
@@ -80,7 +81,7 @@ func parseTransactionsOfOneType(
 ) ([]Transaction, error) {
 	transactions, warning, err := parseTransactionFiles(glob, parser)
 	if err != nil {
-		return nil, fmt.Errorf(i18n.T("error on parsing transactions from n files", "n", nameOfFilesUnderGlob), "err", err)
+		return nil, errors.New(i18n.T("error on parsing transactions from name files", "name", nameOfFilesUnderGlob, "err", err))
 	}
 	if warning != "" {
 		*parsingWarnings = append(*parsingWarnings, i18n.T("Can't parse all n files", "n", nameOfFilesUnderGlob, "warning", warning))
@@ -109,10 +110,10 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 		log.Println(i18n.T("Parsing file with parser", "file", file, "parser", parser))
 		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
 		if err != nil {
-			notFatalError = i18n.T("Can't parse transactions from file", "file", file, "err", err)
+			notFatalError = i18n.T("can't parse transactions from file f", "f", file, "err", err)
 			if len(rawTransactions) < 1 {
 				// If both error and no transactions then treat error as fatal.
-				return result, "", fmt.Errorf(i18n.T("Can't parse transactions from file", "file", file, "err", err))
+				return result, "", errors.New(i18n.T("can't parse transactions from file f", "f", file, "err", err))
 			} else {
 				// Otherwise just log.
 				log.Println(notFatalError)

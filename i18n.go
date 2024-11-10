@@ -229,6 +229,11 @@ func (i18n *I18n) buildDefaultFormatters() map[string]func(val interface{}, prop
 		}
 		return fmt.Sprintf("%+v", val)
 	}
+
+	// Error format - based on `%w`.
+	result["error"] = func(val interface{}, props map[string]interface{}) string {
+		return fmt.Sprintf("%v", val.(error))
+	}
 	return result
 }
 
