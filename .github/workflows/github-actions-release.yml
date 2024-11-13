@@ -76,8 +76,8 @@ jobs:
           version=`date +'%Y/%m/%d_%H:%M:%S'`"_${GITHUB_REF_NAME}"
           curtag=${GITHUB_REF_NAME}
           prevtag=`git describe --tags --abbrev=0 HEAD^1`
-          # Get tag annotation/message.
-          tag_message=$(git tag -n9 ${curtag} | sed "s/^${curtag}[[:space:]]*//" || echo "")
+          # Get tag annotation using git tag -l
+          tag_message=$(git tag -l --format='%(contents)' ${curtag} || echo "")
           echo "Release: ${curtag}" > body.log
           echo "" >> body.log
           # Add the tag annotation/message.
