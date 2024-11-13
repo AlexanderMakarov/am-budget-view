@@ -6,55 +6,54 @@ on:
   push:
     branches:
      - master
-     - fix_cicd
     tags:
       - '*'
 
 jobs:
 
   # Job to run always when CI is triggered.
-  # check_code:
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: write
+  check_code:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-  #   steps:
-  #     - name: Dump env
-  #       run: env | sort
+    steps:
+      - name: Dump env
+        run: env | sort
 
-  #     - name: Dump GitHub context
-  #       env:
-  #         GITHUB_CONTEXT: ${{ toJson(github) }}
-  #       run: echo "GITHUB_CONTEXT=$GITHUB_CONTEXT"
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "GITHUB_CONTEXT=$GITHUB_CONTEXT"
 
-  #     - name: Checkout repo
-  #       uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-  #     - name: Setup Go environment
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: '^1.22.6'
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '^1.22.6'
 
-  #     - name: Get dependencies
-  #       run: go get -v -t -d
+      - name: Get dependencies
+        run: go get -v -t -d
 
-  #     - name: Lint
-  #       run: go vet ./...
+      - name: Lint
+        run: go vet ./...
 
-  #     - name: Test
-  #       run: go test ./...
+      - name: Test
+        run: go test ./...
 
   # Job to build artifacts only if tag was pushed.
   build:
-    # needs: check_code
+    needs: check_code
     runs-on: ubuntu-latest
-    # if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/')
 
     # Run concurrently for all major OS-es and architectures.
-    # strategy:
-    #   matrix:
-    #     os: [windows, darwin, linux]
-    #     arch: [amd64, arm64]
+    strategy:
+      matrix:
+        os: [windows, darwin, linux]
+        arch: [amd64, arm64]
 
     steps:
       # 3 steps below are lazily copy-pasted from the job above. See https://stackoverflow.com/a/71570847/1535127.
@@ -74,11 +73,8 @@ jobs:
       - name: Assemble version and release notes from commit messages
         id: vars
         run: |
-          git --version
-          echo "GITHUB_REF_NAME=${GITHUB_REF_NAME}"
-
           version=`date +'%Y/%m/%d_%H:%M:%S'`"_${GITHUB_REF_NAME}"
-          curtag=release1.4.0
+          curtag=${GITHUB_REF_NAME}
           prevtag=`git describe --tags --abbrev=0 HEAD^1`
           # Get tag annotation using git tag -l
           tag_message=$(git tag -l --format='%(contents)' ${curtag} || echo "")
@@ -100,55 +96,55 @@ jobs:
           echo version is ${{ steps.vars.outputs.version }}
           cat body.log
 
-  #     - name: Build Binaries
-  #       run: |
-  #         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-  #           -o am-budget-view-${{ matrix.os }}-${{ matrix.arch }} \
-  #           -ldflags "-X main.Version=${{ steps.vars.outputs.version }}"
-  #         chmod a+x am-budget-view-*
+      - name: Build Binaries
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
+            -o am-budget-view-${{ matrix.os }}-${{ matrix.arch }} \
+            -ldflags "-X main.Version=${{ steps.vars.outputs.version }}"
+          chmod a+x am-budget-view-*
 
-  #     - name: Save Version and Binaries
-  #       id: save_info
-  #       run: |
-  #         echo "${{ steps.vars.outputs.version }}" > version.txt
-  #         # Idea here that the last `ls` would overwrite content with all files list.
-  #         ls am-budget-view-*  # For debugging.
-  #         echo "binaries=$(ls am-budget-view-*)" >> $GITHUB_OUTPUT
-  #         # For debugging.
-  #         echo "GITHUB_OUTPUT=$GITHUB_OUTPUT"
-  #         cat ${GITHUB_OUTPUT} || true
+      - name: Save Version and Binaries
+        id: save_info
+        run: |
+          echo "${{ steps.vars.outputs.version }}" > version.txt
+          # Idea here that the last `ls` would overwrite content with all files list.
+          ls am-budget-view-*  # For debugging.
+          echo "binaries=$(ls am-budget-view-*)" >> $GITHUB_OUTPUT
+          # For debugging.
+          echo "GITHUB_OUTPUT=$GITHUB_OUTPUT"
+          cat ${GITHUB_OUTPUT} || true
 
-  #     - name: Upload Binaries and Release data to artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: data-${{ matrix.os }}-${{ matrix.arch }}
-  #         path: |
-  #           version.txt
-  #           body.log
-  #           ${{ steps.save_info.outputs.binaries }}
+      - name: Upload Binaries and Release data to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            version.txt
+            body.log
+            ${{ steps.save_info.outputs.binaries }}
 
-  # # Job to prepare artifacts only if they were built.
-  # release:
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Download Info Artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         path: artifacts
+  # Job to prepare artifacts only if they were built.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Info Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-  #     - name: Read Version and Binaries
-  #       run: |
-  #         ls -R artifacts
-  #         echo "version=$(cat artifacts/*/version.txt | head -n 1)" >> $GITHUB_ENV
-  #         # Use only one body.log file (they should all be identical)
-  #         cp $(find artifacts -name body.log | head -n 1) body.log
-  #         find artifacts -name "am-budget-view-*" -exec cp {} . \;
+      - name: Read Version and Binaries
+        run: |
+          ls -R artifacts
+          echo "version=$(cat artifacts/*/version.txt | head -n 1)" >> $GITHUB_ENV
+          # Use only one body.log file (they should all be identical)
+          cp $(find artifacts -name body.log | head -n 1) body.log
+          find artifacts -name "am-budget-view-*" -exec cp {} . \;
 
-  #     - name: Make Release in repo
-  #       uses: ncipollo/release-action@v1
-  #       with:
-  #         name: ${{ env.version }}
-  #         bodyFile: "body.log"
-  #         token: ${{ secrets.GHACTIONS_PUBLIC_REPO_RW }} # Note that it is custom PAT which expires.
-  #         artifacts: "am-budget-view-*"
+      - name: Make Release in repo
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ env.version }}
+          bodyFile: "body.log"
+          token: ${{ secrets.GHACTIONS_PUBLIC_REPO_RW }} # Note that it is custom PAT which expires.
+          artifacts: "am-budget-view-*"
