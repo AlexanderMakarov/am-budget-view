@@ -220,6 +220,10 @@ Script in English:
 6. Next time it is enough to download "Statements" with new transactions and run application again.
 
 [![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
+Note that:
+- This video is for old application version, replace "aggregate-inecobank-statement" with "am-budget-view".
+  This app haven't had Web UI.
+- "config.yaml" would be created automatically, skip this step.
 
 ### Notes:
 1. For remained formats and banks steps are near the same as for Inecobank.
@@ -303,6 +307,7 @@ CI will do the rest.
 - [x] Enhance errors when no transaction files found.
 - [x] Make default config.yaml on first run if not found.
 - [x] Translate to Russian.
+- [x] Avoid situation when port is binded by previous app instance.
 - [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".

@@ -4,15 +4,33 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
-
 	"github.com/thlib/go-timezone-local/tzlocal"
 	"gopkg.in/yaml.v3"
+	_ "time/tzdata"
 )
+
+var validate *validator.Validate
+
+func init() {
+	validate = validator.New()
+	_ = validate.RegisterValidation("timezone", validateTimezone)
+}
+
+func validateTimezone(fl validator.FieldLevel) bool {
+	timezone := fl.Field().String()
+	if timezone == "" {
+		return true // Empty timezone is allowed, will be replaced with system default
+	}
+	_, err := time.LoadLocation(timezone)
+	return err == nil
+}
 
 type Config struct {
 	Language                             string              `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
+	EnsureTerminal                       bool                `yaml:"ensureTerminal,omitempty" default:"true"`
 	InecobankStatementXmlFilesGlob       string              `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
 	InecobankStatementXlsxFilesGlob      string              `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
 	AmeriaCsvFilesGlob                   string              `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
@@ -25,7 +43,7 @@ type Config struct {
 	DetailedOutput                       bool                `yaml:"detailedOutput"`
 	CategorizeMode                       bool                `yaml:"categorizeMode"`
 	MonthStartDayNumber                  uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
-	TimeZoneLocation                     string              `yaml:"timeZoneLocation,omitempty" validate:"timezone"`
+	TimeZoneLocation                     string              `yaml:"timeZoneLocation,omitempty"`
 	GroupAllUnknownTransactions          bool                `yaml:"groupAllUnknownTransactions"`
 	GroupNamesToSubstrings               map[string][]string `yaml:"groupNamesToSubstrings"`
 }
@@ -53,13 +71,20 @@ func readConfig(filename string) (*Config, error) {
 	if len(cfg.TimeZoneLocation) == 0 {
 		tzname, err := tzlocal.RuntimeTZ()
 		if err != nil {
-			return nil, err
+			// Fallback to UTC if system timezone cannot be determined
+			cfg.TimeZoneLocation = "UTC"
+		} else {
+			cfg.TimeZoneLocation = tzname
 		}
-		cfg.TimeZoneLocation = tzname
 	}
 
-	// Validate.
-	validate := validator.New()
+	// Verify timezone is valid
+	_, err = time.LoadLocation(cfg.TimeZoneLocation)
+	if err != nil {
+		return nil, fmt.Errorf("invalid timezone location '%s': %w", cfg.TimeZoneLocation, err)
+	}
+
+	// Validate other fields
 	if err = validate.Struct(cfg); err != nil {
 		return nil, err
 	}

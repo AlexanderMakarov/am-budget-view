@@ -1,5 +1,8 @@
 # Language of interface. Supported values: en, ru.
 language: en
+# Flag to ensure that application is started with dedicated terminal window.
+# Required to have "a window" for user to close app and don't duplicate processes.
+ensureTerminal: true
 # Write "glob" template to your Inecobank "Statement" XML files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 inecobankStatementXmlFilesGlob: "Statement*.xml"

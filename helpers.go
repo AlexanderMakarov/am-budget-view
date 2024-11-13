@@ -37,10 +37,11 @@ func openBrowser(url string) error {
 
 // fatalError handles fatal errors and logs them.
 func fatalError(err error, inFile bool, openFile bool) {
+	errMsg := fmt.Sprintf("ERROR: %s", err)
 	if inFile {
-		writeAndOpenFile(RESULT_FILE_PATH, err.Error(), openFile)
+		writeAndOpenFile(RESULT_FILE_PATH, errMsg, openFile)
 	}
-	log.Fatalf("%s", err)
+	log.Fatal(errMsg)
 }
 
 // writeAndOpenFile writes content to a file and optionally opens it.
@@ -99,9 +100,9 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 	if len(files) < 1 {
 		workingDir, err := os.Getwd()
 		if err != nil {
-			return nil, "", fmt.Errorf("can't get working directory: %w", err)
+			return nil, "", errors.New(i18n.T("can't get working directory", "err", err))
 		}
-		return nil, fmt.Sprintf("there are no files in '%s' matching '%s' pattern.", workingDir, glob), nil
+		return nil, i18n.T("there are no files in d matching p pattern", "d", workingDir, "p", glob), nil
 	}
 
 	result := make([]Transaction, 0)

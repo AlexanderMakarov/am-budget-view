@@ -26,7 +26,7 @@ func initTemplateFunctions() {
 	}
 }
 
-func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) {
+func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) error {
 	initTemplateFunctions()
 
 	http.HandleFunc("/", handleIndex(statistics))
@@ -52,14 +52,10 @@ func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[str
 		log.Printf("%s %s %d %dms", r.Method, r.URL.Path, lw.statusCode, duration.Milliseconds())
 	})
 
-	log.Println("Server starting on http://localhost:8080")
 	if devMode {
 		log.Println("Running in development mode - serving static files from filesystem")
 	}
-	err := http.ListenAndServe(":8080", loggedMux)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
+	return http.ListenAndServe(":8080", loggedMux)
 }
 
 func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.ResponseWriter, r *http.Request) {

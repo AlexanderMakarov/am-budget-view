@@ -7,7 +7,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>{{if eq .Type "income"}}{{localize "Income transactions for g category" .Group}}{{else}}{{localize "Expense transactions for g category" "g" .Group}}{{end}}</h1>
+            <h1>{{if eq .Type "income"}}{{localize "Income transactions for g category" "g" .Group}}{{else}}{{localize "Expense transactions for g category" "g" .Group}}{{end}}</h1>
             <div class="header-right">
                 <span>{{.Month}} ({{.Currency}})</span>
                 <button onclick="window.history.back()" class="back-button">{{localize "Back to Dashboard"}}</button>

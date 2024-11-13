@@ -175,3 +175,16 @@ h1 {
     color: #888;
     background-color: #f5f5f5;
 }
+
+.clickable-note {
+    text-align: center;
+    color: #666;
+    padding: 16px;
+    background-color: #f8f8f8;
+    border-radius: 6px;
+    font-weight: normal;
+}
+
+.clickable-note:hover {
+    background-color: #f0f0f0;
+}

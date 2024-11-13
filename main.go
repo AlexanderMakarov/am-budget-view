@@ -12,13 +12,6 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
-const DEFAULT_CONFIG_FILE_PATH = "config.yaml"
-const RESULT_FILE_PATH = "AM Budget View.txt"
-const RESULT_BEANCOUNT_FILE_PATH = "AM Budget View.beancount"
-const OPEN_MODE_NONE = "none"
-const OPEN_MODE_WEB = "web"
-const OPEN_MODE_FILE = "file"
-
 var devMode bool = os.Getenv("DEV_MODE") != "" && os.Getenv("DEV_MODE") != "false"
 
 //go:embed config.yaml
@@ -34,7 +27,7 @@ var langToLocale = map[string]string{
 
 func init() {
 	i18n = &I18n{}
-	err := i18n.Init(I18nFsBackend{FS: locales}, "en-US", false)
+	err := i18n.Init(I18nFsBackend{FS: locales}, "en-US", devMode)
 	if err != nil {
 		log.Fatalf("Error initializing i18n: %v", err)
 	}
@@ -55,7 +48,7 @@ func (Args) Version() string {
 }
 
 func (Args) Description() string {
-	return "AM-Budget-View is a local tool to investigate your expenses and incomes by bank transactions."
+	return i18n.T("AM-Budget-View is a local tool to investigate your expenses and incomes by bank transactions.")
 }
 
 func main() {
@@ -108,6 +101,11 @@ func main() {
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
+	}
+
+	// Ensure we're running in a terminal window before doing anything else.
+	if config.EnsureTerminal {
+		ensureTerminalWindow()
 	}
 
 	// Parse timezone or set system.
@@ -286,11 +284,20 @@ func main() {
 	if args.ResultMode == OPEN_MODE_WEB {
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Give the server a moment to start.
-			err := openBrowser("http://localhost:8080")
+			err := openBrowser("http://localhost:" + WEB_PORT)
 			if err != nil {
 				log.Println(i18n.T("Failed to open browser", "err", err))
 			}
 		}()
-		ListenAndServe(monthlyStatistics, accounts)
+
+		log.Println(i18n.T("Starting local web server on urlport", "port", WEB_PORT))
+		err := ListenAndServe(monthlyStatistics, accounts)
+		if err != nil {
+			fatalError(
+				errors.New(i18n.T("failed to start web server, probably app is already running", "err", err)),
+				isWriteToFile,
+				isOpenFileWithResult,
+			)
+		}
 	}
 }
