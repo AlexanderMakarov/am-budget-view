@@ -62,6 +62,9 @@ Some banks provide similar dashboards on their websites, but they can't assign g
 This application allows you to configure categorization for your personal set of groups and completely automatically.
 
 ## List of supported banks, file formats and relevant notes
+
+In short supported: Inecobank individual accounts, Ameriabank both individual and legal accounts.
+
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (click on account, choose dates range, icon to download in right bottom corner).
   Supports all features native to app and Beancount reports.
@@ -124,14 +127,25 @@ and instructions how you got this file.
 2. Загрузите "Statement" файлы с банковских сайтов за требуемый период и
   поместите их рядом с исполняемым файлом ("am-budget-view-...").
   Подробности см. на [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
-  Например для Inecobank XML откройте [главную страницу Ineco Online](https://online.inecobank.am)
-  кликните на выбранный счет, укажите в полях «From» и «To» даты, которые вы хотите проанализировать,
-  нажмите «Search», прокрутите страницу вниз, и здесь в правом углу будут
-  5 значков для загрузки выписок.
-  Нажмите значок XML и сохраните файл в той же папке, где находится исполняемый файл («am-budget-view-...»).
-3. Запустите приложение («am-budget-view-\*-\*»).
+  Все файлы необходимо поместить в ту же папку, где находится исполняемый файл
+  ("am-budget-view-..."). Детали по банкам:
+  - Для индивидуальных счетов Inecobank - откройте [Online Inecobank сайт](https://online.inecobank.am)
+    выберите нужный счет, укажите в полях "From" и "To" необходимый диапазон,
+    нажмите "Search", прокрутите страницу вниз, найдите в правом нижнем углу
+    5 значков, нажмите на значок "XML" чтобы загрузить файл.
+  - Для индивидуальных счетов Ameria откройте [My Ameria сайт](https://myameria.am/),
+    выберите нужный счет, выберите опцию "Statement" справа,
+    задайте необходимый диапазон, установите флажок "In AMD" (чтобы получить курсы обмена),
+    выберите "Excel", нажмите "Download", чтобы загрузить файл.
+  - Для юридических счетов Ameria откройте [Online Ameriabank сайт](https://online.ameriabank.am/),
+    выберите "Accounts" в левом меню, выберите нужный счет,
+    нажмите кнопку "Statement" вверху, в появившемся диалоговом окне задайте требуемый период,
+    установите флажок "Show equivalent in AMD" (чтобы получить курсы обмена),
+    нажмите "ОК", на новой вкладке "Account Statement" найдите 5 значков в правой средней части,
+    нажмите на значок "Export to CSV", чтобы загрузить файл.
+3. Запустите приложение ("am-budget-view-\*-\*").
   Если все в порядке, то через пару секунд откроется новая вкладка в браузере
-  с агрегированными данными из банковских транзакций, которые были предоставлены через «Statement» файлы.
+  с агрегированными данными из банковских транзакций, которые были предоставлены через "Statement" файлы.
   В противном случае откроется текстовый файл с описанием ошибки.
   В случае ошибки необходимо ее исправить чтобы продолжить работу.
   Самая распространенная ошибка — это когда файлы банковских транзакций, загруженные на шаге № 2,
@@ -139,30 +153,30 @@ and instructions how you got this file.
   `myAmeriaAccountStatementXlsxFilesGlob`, `ameriaCsvFilesGlob`,
   `myAmeriaHistoryXlsFilesGlob`
   [шаблонам поиска glob](https://ru.wikipedia.org/wiki/%D0%A8%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D0%BE%D0%B8%D1%81%D0%BA%D0%B0)
-  объявленным в файле "config.yaml" (приложение создаст файл "config.yaml" по умолчанию рядом с ним).
-  Но в успешном случае страница браузера, скорее всего, будет содержать несколько предопределенных групп
-  и одну большую группу "Unknown" созданную из еще не категоризированных транзакций.
+  объявленным в файле "config.yaml" (приложение создает файл "config.yaml" при первом запуске).
+  При успешном запуске страница браузера, скорее всего, будет содержать несколько
+  предопределенных групп и одну большую группу "Unknown" созданную из еще не категоризированных транзакций.
 4. Для категоризации транзакций необходимо отредактировать файл "config.yaml"
   (будет создан рядом с приложением после первого запуска).
-  Откройте его в любом текстовом редакторе («Блокнот» в Windows, «TextEditor» на Mac, различные на Linux-es)
+  Откройте его в любом текстовом редакторе ("Блокнот" в Windows, "TextEditor" на Mac, различные на Linux-es)
   и прокрутите до раздела `groupNamesToSubstrings` - здесь будет список предопределенных категорий.
   Измените эти категории в соответствии с вашими потребностями.
   Смотрите примеры в файле конфигурации - вы можете удалить ненужные и добавить свои собственные группы.
   Будьте внимательны с форматированием и отступами. Периодически перезапускайте приложение, чтобы выявить
-  возможные ошибки и проверить результат, так как одна новая строка, добавленная в «config.yaml», может охватывать десятки
-  некатегоризированных транзакций и радикально сократить количество элементов для категоризации.
+  возможные ошибки и проверить результат, так как одна новая строка, добавленная в "config.yaml",
+  может охватывать десятки некатегоризированных транзакций и радикально сократить количество элементов для категоризации.
   Чтобы найти некатегоризированные транзакции, есть 2 способа:
-  1. На странице браузера прокрутите вниз до «Ежемесячные расходы по категориям (%)» или
-    «Ежемесячные доходы по категориям (%)» и нажмите на строку "Unknown" в первом месяце.
-    Это откроет страницу «Транзакции», где подстроки из столбца «Подметки»
+  1. На странице браузера прокрутите вниз до "Ежемесячные расходы по категориям (%)" или
+    "Ежемесячные доходы по категориям (%)" и нажмите на строку "Unknown" в первом месяце.
+    Это откроет страницу "Транзакции", где подстроки из столбца "Подметки"
     могут использоваться для назначения категории.
-  2. В файле «config.yaml» установите `categorizeMode: true` и перезапустите приложение в терминале.
-    Приложение выведет в терминал все некатегоризированные транзакции со значением «Подметки»
+  2. В файле "config.yaml" установите `categorizeMode: true` и перезапустите приложение в терминале.
+    Приложение выведет в терминал все некатегоризированные транзакции со значением "Подметки"
     и некоторой статистикой в ​​конце.
 5. После того, как вы классифицируете все транзакции, вы получите готовый отчет для ручного расследования,
   сравнения месяцев, принятия финансовых решений и т.д.
   Обратите внимание, что чем больше счетов будет предоставлено приложению, тем более полной будет финансовая картина.
-6. В следующий раз достаточно добавить новые или обновить старые «Statement» файлы с новыми транзакциями
+6. В следующий раз достаточно добавить новые или обновить старые "Statement" файлы с новыми транзакциями
   и снова запустить приложение.
 </details>
 
@@ -179,12 +193,22 @@ Script in English:
    put them near the executable file ("am-budget-view-...").
    See details on 
    [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
-   For example for Inecobank XML, open [Ineco Online main page](https://online.inecobank.am)
-   click on the chosen account, specify into 'From' and 'To' fields dates you want to analyze,
-   press 'Search', scroll page to bottom and here at the right corner will be
-   5 icons to download statements.
-   Press XML icon and save file in the same folder where the executable file
-   ("am-budget-view-...") is placed.
+   All files need to place in the same folder where the executable file
+   ("am-budget-view-...") is placed. Details per bank:
+   - For Inecobank individual accounts - open [Ineco Online main page](https://online.inecobank.am),
+     click on the required account, set into 'From' and 'To' fields dates you want to analyze,
+     press 'Search', scroll page to bottom, at the right corner look for 5 icons,
+     press XML icon to download the file.
+   - For Ameria individual accounts open [My Ameria main page](https://myameria.am/),
+     click on the required account, choose "Statement" option at right,
+     set required period, set "In AMD" checkbox (to have exchange rates),
+     select "Excel", press "Download" to download the file.
+   - For Ameria legal accounts open [Ameriabank main page](https://online.ameriabank.am/),
+     select "Accounts" in left menu, select on the required account,
+     press "Statement" option at top, in appeared dialog set required period,
+     set "Show equivalent in AMD" checkbox (to have exchange rates), press "OK",
+     in new "Account Statement" tab look for 5 icons at the middle right,
+     press "Export to CSV" to download the file.
 3. Run application ("am-budget-view-\*-\*" file).
    If everything is OK then after a couple of seconds it would open a new tab in browser
    with aggregated details from bank transactions which where provided via "Statement" files.
@@ -219,7 +243,7 @@ Script in English:
    comparing months, making fincancial decisions. etc.
    Note that more accounts are provided to the application, the more full financial
    picture would be.
-6. Next time it is enough to download "Statements" with new transactions and run application again.
+4. Next time it is enough to download "Statements" with new transactions and run application again.
 
 [![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
 Note that:
@@ -310,16 +334,18 @@ CI will do the rest.
 - [x] Make default config.yaml on first run if not found.
 - [x] Translate to Russian.
 - [x] Avoid situation when port is binded by previous app instance.
-- [ ] Write instruction about both options for Ameriabank transactions. Record new video(s).
+- [x] Write instruction about both options for Ameriabank transactions.
 - [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".
 - [ ] Manage all settings (config.yaml) in web UI.
-- [ ] (?) Add translation for all parsers and set right Russian declensions.
-- [ ] (?) Allow to choose "transactions" files in UI.
-- [ ] (?) Improve translation to Russian with correct declensions everywhere.
-- [ ] (?) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
-- [ ] (?) Support different schema with parsing. Aka "parse anything".
-- [ ] (?) Improve tests coverage.
+- [ ] Record new video(s) with instructions.
+- [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
+- [ ] (? small value) Add translation for all parsers and set right Russian declensions.
+- [ ] (? value vs complexity) Allow to choose "transactions" files in UI.
+- [ ] (? small value) Improve translation to Russian with correct declensions everywhere.
+- [ ] (? unclear value) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
+- [ ] (? impossible) Support different schemas with parsing. Aka "parse anything".
+- [ ] (? not enough feedback) Improve tests coverage.
 - [ ] ~~Build UI with Fyne and https://github.com/wcharczuk/go-chart
       (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).~~
       There are issue with [performance and charts flexibility](https://github.com/fyne-io/fyne/issues/2228) this way.
