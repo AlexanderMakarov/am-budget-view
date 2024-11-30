@@ -340,6 +340,7 @@ CI will do the rest.
 - [ ] Manage all settings (config.yaml) in web UI.
 - [ ] Record new video(s) with instructions.
 - [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
+- [ ] Collect more details about accounts (distribution of usage).
 - [ ] (? small value) Add translation for all parsers and set right Russian declensions.
 - [ ] (? value vs complexity) Allow to choose "transactions" files in UI.
 - [ ] (? small value) Improve translation to Russian with correct declensions everywhere.

@@ -203,9 +203,13 @@ func main() {
 
 	// Show uncategorized transactions if in "CategorizeMode".
 	if config.CategorizeMode {
-		err := PrintUncategorizedTransactions(transactions, config)
+		categorization, err := NewCategorization(config)
 		if err != nil {
-			fatalError(errors.New(i18n.T("can't check for uncategorized transactions", "err", err)), isWriteToFile, isOpenFileWithResult)
+			fatalError(err, isWriteToFile, isOpenFileWithResult)
+		}
+		err = categorization.PrintUncategorizedTransactions(transactions)
+		if err != nil {
+			fatalError(err, isWriteToFile, isOpenFileWithResult)
 		}
 		return
 	}

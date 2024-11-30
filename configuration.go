@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	_ "time/tzdata"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/thlib/go-timezone-local/tzlocal"
 	"gopkg.in/yaml.v3"
-	_ "time/tzdata"
 )
 
 var validate *validator.Validate
@@ -28,24 +29,38 @@ func validateTimezone(fl validator.FieldLevel) bool {
 	return err == nil
 }
 
+type GroupConfig struct {
+	// Name of the group.
+	Name string `yaml:"name,omitempty"`
+	// Substrings to match in transaction description.
+	Substrings []string `yaml:"substrings,omitempty"`
+	// Accounts to match in "payee" field.
+	FromAccounts []string `yaml:"fromAccounts,omitempty"`
+	// Accounts to match in "receiver" field.
+	ToAccounts []string `yaml:"toAccounts,omitempty"`
+}
+
 type Config struct {
-	Language                             string              `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
-	EnsureTerminal                       bool                `yaml:"ensureTerminal,omitempty" default:"true"`
-	InecobankStatementXmlFilesGlob       string              `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
-	InecobankStatementXlsxFilesGlob      string              `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
-	AmeriaCsvFilesGlob                   string              `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaAccountStatementXlsFilesGlob string              `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaHistoryXlsFilesGlob          string              `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaMyAccounts                   []string            `yaml:"myAmeriaMyAccounts,omitempty"`
-	ConvertToCurrencies                  []string            `yaml:"convertToCurrencies,omitempty"`
-	MinCurrencyTimespanPercent           int                 `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
-	MaxCurrencyTimespanGapsDays          int                 `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
-	DetailedOutput                       bool                `yaml:"detailedOutput"`
-	CategorizeMode                       bool                `yaml:"categorizeMode"`
-	MonthStartDayNumber                  uint                `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
-	TimeZoneLocation                     string              `yaml:"timeZoneLocation,omitempty"`
-	GroupAllUnknownTransactions          bool                `yaml:"groupAllUnknownTransactions"`
-	GroupNamesToSubstrings               map[string][]string `yaml:"groupNamesToSubstrings"`
+	Language                             string   `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
+	EnsureTerminal                       bool     `yaml:"ensureTerminal,omitempty" default:"true"`
+	InecobankStatementXmlFilesGlob       string   `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
+	InecobankStatementXlsxFilesGlob      string   `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
+	AmeriaCsvFilesGlob                   string   `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaAccountStatementXlsFilesGlob string   `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaHistoryXlsFilesGlob          string   `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaMyAccounts                   []string `yaml:"myAmeriaMyAccounts,omitempty"`
+	ConvertToCurrencies                  []string `yaml:"convertToCurrencies,omitempty"`
+	MinCurrencyTimespanPercent           int      `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
+	MaxCurrencyTimespanGapsDays          int      `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
+	DetailedOutput                       bool     `yaml:"detailedOutput"`
+	CategorizeMode                       bool     `yaml:"categorizeMode"`
+	MonthStartDayNumber                  uint     `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
+	TimeZoneLocation                     string   `yaml:"timeZoneLocation,omitempty"`
+	GroupAllUnknownTransactions          bool     `yaml:"groupAllUnknownTransactions"`
+	// Leave here for backward compatibility
+	GroupNamesToSubstrings map[string][]string `yaml:"groupNamesToSubstrings,omitempty"`
+	// New groups format
+	Groups map[string]GroupConfig `yaml:"groups,omitempty"`
 }
 
 func readConfig(filename string) (*Config, error) {
@@ -82,6 +97,11 @@ func readConfig(filename string) (*Config, error) {
 	_, err = time.LoadLocation(cfg.TimeZoneLocation)
 	if err != nil {
 		return nil, fmt.Errorf("invalid timezone location '%s': %w", cfg.TimeZoneLocation, err)
+	}
+
+	// Check either Groups or GroupNamesToSubstrings is set
+	if len(cfg.Groups) == 0 && len(cfg.GroupNamesToSubstrings) == 0 {
+		return nil, fmt.Errorf("either 'groups' or 'groupNamesToSubstrings' must be set")
 	}
 
 	// Validate other fields

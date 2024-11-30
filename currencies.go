@@ -386,6 +386,11 @@ func buildJournalEntries(
 	map[string]*CurrencyStatistics,
 	error,
 ) {
+	// Create categorization handler
+	categorization, err := NewCategorization(config)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	// First check config
 	// Invert GroupNamesToSubstrings and check for duplicates.
@@ -790,23 +795,10 @@ func buildJournalEntries(
 	// Build journal entries.
 	journalEntries := []JournalEntry{}
 	for _, t := range transactions {
-		// Try to find category.
-		var category *string = nil
-		for substring, groupName := range substringsToGroupName {
-			if strings.Contains(t.Details, substring) {
-				category = &groupName
-				break
-			}
-		}
-		// Otherwise add transaction to either "Unknown" or personal group.
-		if category == nil {
-			// Choose name of group to add transaction into.
-			if config.GroupAllUnknownTransactions {
-				unknownCategory := UnknownGroupName
-				category = &unknownCategory
-			} else {
-				category = &t.Details
-			}
+		// Try to find category using pre-built categorization
+		category, err := categorization.CategorizeTransaction(&t)
+		if err != nil {
+			return nil, nil, nil, err
 		}
 		// Convert amounts to convertable currencies.
 		amounts := make(map[string]AmountInCurrency, len(convertableCurrencies))
@@ -857,7 +849,7 @@ func buildJournalEntries(
 			SourceType:            t.SourceType,
 			Source:                t.Source,
 			Details:               t.Details,
-			Category:              *category,
+			Category:              category.Name,
 			AccountCurrency:       t.AccountCurrency,
 			AccountCurrencyAmount: t.Amount,
 			OriginCurrency:        t.OriginCurrency,
