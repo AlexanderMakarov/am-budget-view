@@ -23,14 +23,18 @@ var templateFunctions template.FuncMap
 func initTemplateFunctions() {
 	templateFunctions = template.FuncMap{
 		"localize": i18n.T,
+		"formatDate": func(date time.Time) string {
+			return i18n.T("date_format", "val", date)
+		},
 	}
 }
 
-func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) error {
+func ListenAndServe(dataHandler *DataHandler) error {
 	initTemplateFunctions()
 
-	http.HandleFunc("/", handleIndex(statistics))
-	http.HandleFunc("/transactions", handleTransactions(statistics, accounts))
+	http.HandleFunc("/", handleIndex(dataHandler))
+	http.HandleFunc("/transactions", handleTransactions(dataHandler))
+	http.HandleFunc("/categorization", handleCategorization(dataHandler))
 
 	// Serve static files based on DEV_MODE
 	if devMode {
@@ -58,7 +62,7 @@ func ListenAndServe(statistics []map[string]*IntervalStatistic, accounts map[str
 	return http.ListenAndServe(":8080", loggedMux)
 }
 
-func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.ResponseWriter, r *http.Request) {
+func handleIndex(dataHandler *DataHandler) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Handle locale selection.
 		locale := r.URL.Query().Get("locale")
@@ -71,9 +75,14 @@ func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.Respons
 		}
 
 		// Prepare JSON with statistics.
+		statistics, err := dataHandler.GetMonthlyStatistics(true)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
 		jsonData, err := json.Marshal(statistics)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logAndReturnError(w, err)
 			return
 		}
 
@@ -95,18 +104,24 @@ func handleIndex(statistics []map[string]*IntervalStatistic) func(w http.Respons
 
 		err = parseAndExecuteTemplate("templates/index.html", w, data)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logAndReturnError(w, err)
 			return
 		}
 	}
 }
 
-func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map[string]*AccountFromTransactions) http.HandlerFunc {
+func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		month := r.URL.Query().Get("month")
 		group := r.URL.Query().Get("group")
 		txType := r.URL.Query().Get("type")
 		currency := r.URL.Query().Get("currency")
+
+		statistics, err := dataHandler.GetMonthlyStatistics(true)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
 
 		// Find the statistics for the selected month
 		var entries []JournalEntry
@@ -131,9 +146,9 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 		}
 
 		// JSON encode the accounts
-		jsonAccounts, err := json.Marshal(accounts)
+		jsonAccounts, err := json.Marshal(dataHandler.Accounts)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logAndReturnError(w, err)
 			return
 		}
 
@@ -146,8 +161,8 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 		}
 
 		for _, entry := range entries {
-			fromAccount := accounts[entry.FromAccount]
-			toAccount := accounts[entry.ToAccount]
+			fromAccount := dataHandler.Accounts[entry.FromAccount]
+			toAccount := dataHandler.Accounts[entry.ToAccount]
 			// Check if both accounts exist and are transaction accounts
 			isCounted := fromAccount != nil &&
 				toAccount != nil &&
@@ -190,10 +205,79 @@ func handleTransactions(statistics []map[string]*IntervalStatistic, accounts map
 
 		err = parseAndExecuteTemplate("templates/transactions.html", w, data)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logAndReturnError(w, err)
 			return
 		}
 	}
+}
+
+func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			// Handle POST requests for updating categorization
+			var request struct {
+				Action      string `json:"action"`
+				GroupName   string `json:"groupName"`
+				Substring   string `json:"substring,omitempty"`
+				FromAccount string `json:"fromAccount,omitempty"`
+				ToAccount   string `json:"toAccount,omitempty"`
+			}
+			
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				logAndReturnError(w, err)
+				return
+			}
+
+			// Update configuration based on the request
+			_, err := dataHandler.GetJournalEntries(false)
+			if err != nil {
+				logAndReturnError(w, err)
+				return
+			}
+
+			// Get updated list of uncategorized transactions
+			uncategorizedTransactions := dataHandler.GetUncategorizedTransactions()
+			
+			// Return the updated transactions list as JSON
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(uncategorizedTransactions); err != nil {
+				logAndReturnError(w, err)
+				return
+			}
+			return
+		}
+
+		// For GET requests, show the categorization page
+		data := struct {
+			Transactions []Transaction
+			Groups      map[string]*GroupConfig
+			Accounts    template.JS
+		}{
+			Transactions: dataHandler.GetUncategorizedTransactions(),
+			Groups:       dataHandler.Config.Groups,
+			Accounts:     template.JS(mustEncodeJSON(dataHandler.Accounts)),
+		}
+
+		err := parseAndExecuteTemplate("templates/categorization.html", w, data)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
+	}
+}
+
+// Helper function to encode JSON and panic on error (since this is server startup)
+func mustEncodeJSON(v interface{}) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
+func logAndReturnError(w http.ResponseWriter, err error) {
+	log.Printf("Error: %v", err)
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
 // logWriter is a custom ResponseWriter that captures the status code

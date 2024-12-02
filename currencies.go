@@ -377,28 +377,25 @@ func convertToCurrency(
 
 // buildJournalEntries builds journal entries from transactions.
 // It handles all currencies conversion basing on exchange rates found in transactions only.
+// Returns journal entries, accounts, currencies, uncategorized transactions and error.
 func buildJournalEntries(
 	transactions []Transaction,
+	categorization *Categorization,
 	config *Config,
 ) (
 	[]JournalEntry,
 	map[string]*AccountFromTransactions,
 	map[string]*CurrencyStatistics,
+	[]Transaction,
 	error,
 ) {
-	// Create categorization handler
-	categorization, err := NewCategorization(config)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	// First check config
 	// Invert GroupNamesToSubstrings and check for duplicates.
 	substringsToGroupName := map[string]string{}
 	for name, substrings := range config.GroupNamesToSubstrings {
 		for _, substring := range substrings {
 			if group, exist := substringsToGroupName[substring]; exist {
-				return nil, nil, nil, errors.New(
+				return nil, nil, nil, nil, errors.New(
 					i18n.T(
 						"substring s is duplicated in groups: group1, group2",
 						"s", substring, "group1", name, "group2", group,
@@ -461,7 +458,7 @@ func buildJournalEntries(
 				accountCurrency.TotalAmount.int += t.Amount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, nil, nil, errors.New(
+				return nil, nil, nil, nil, errors.New(
 					i18n.T("invalid currency c in file f from transaction t",
 						"c", t.AccountCurrency, "f", t.Source, "t", t,
 					),
@@ -473,7 +470,7 @@ func buildJournalEntries(
 			if validCurrencyRegex.MatchString(t.OriginCurrency) {
 				// If transaction has both currencies then they should be different.
 				if atLeastOneCurrency && t.OriginCurrency == t.AccountCurrency {
-					return nil, nil, nil, errors.New(
+					return nil, nil, nil, nil, errors.New(
 						i18n.T("transaction t has the same currency c in 'account' and 'origin'",
 							"t", t, "c", t.AccountCurrency,
 						),
@@ -506,7 +503,7 @@ func buildJournalEntries(
 				originCurrency.TotalAmount.int += t.OriginCurrencyAmount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, nil, nil, errors.New(
+				return nil, nil, nil, nil, errors.New(
 					i18n.T("invalid origin currency c in file f from transaction t",
 						"c", t.OriginCurrency, "f", t.Source, "t", t,
 					),
@@ -556,7 +553,7 @@ func buildJournalEntries(
 		}
 		// Check that transaction has at least one currency.
 		if !atLeastOneCurrency {
-			return nil, nil, nil, errors.New(
+			return nil, nil, nil, nil, errors.New(
 				i18n.T("no currency found in transaction t from file f",
 					"t", t, "f", t.Source,
 				),
@@ -571,21 +568,23 @@ func buildJournalEntries(
 					sourceType = t.SourceType
 				}
 				accounts[t.ToAccount] = &AccountFromTransactions{
+					Number:               t.ToAccount,
 					IsTransactionAccount: !t.IsExpense,
 					SourceType:           sourceType,
 					Source:               t.Source,
 					From:                 t.Date,
 					To:                   t.Date,
-					Number:               t.ToAccount,
+					OccurencesInTransactions: 1,
 				}
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
-				if !t.IsExpense && len(t.SourceType) > 0 {
-					account.SourceType = t.SourceType
-					account.Source = t.Source
-				}
+				account.OccurencesInTransactions++
 				if !t.IsExpense {
+					if len(t.SourceType) > 0 {
+						account.SourceType = t.SourceType
+						account.Source = t.Source
+					}
 					account.IsTransactionAccount = true
 				}
 			}
@@ -599,31 +598,33 @@ func buildJournalEntries(
 					sourceType = t.SourceType
 				}
 				accounts[t.FromAccount] = &AccountFromTransactions{
+					Number:               t.FromAccount,
 					IsTransactionAccount: t.IsExpense,
 					SourceType:           sourceType,
 					Source:               t.Source,
 					From:                 t.Date,
 					To:                   t.Date,
-					Number:               t.FromAccount,
+					OccurencesInTransactions: 1,
 				}
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
-				if t.IsExpense && len(t.SourceType) > 0 {
-					account.SourceType = t.SourceType
-					account.Source = t.Source
-				}
+				account.OccurencesInTransactions++
 				if t.IsExpense {
+					if len(t.SourceType) > 0 {
+						account.SourceType = t.SourceType
+						account.Source = t.Source
+					}
 					account.IsTransactionAccount = true
 				}
 			}
 		}
 	}
 	if len(accounts) == 0 {
-		return nil, nil, nil, errors.New(i18n.T("no accounts found"))
+		return nil, nil, nil, nil, errors.New(i18n.T("no accounts found"))
 	}
 	if len(currencies) == 0 {
-		return nil, nil, nil, errors.New(i18n.T("no currencies found"))
+		return nil, nil, nil, nil, errors.New(i18n.T("no currencies found"))
 	}
 	log.Println(i18n.T("In n transactions found m currencies", "n", len(transactions), "m", len(currencies)))
 	printCurrencyStatisticsMap(currencies)
@@ -750,7 +751,7 @@ func buildJournalEntries(
 	// Append ConvertToCurrencies without any checks.
 	for _, currency := range config.ConvertToCurrencies {
 		if _, ok := currencies[currency]; !ok {
-			return nil, nil, nil, errors.New(
+			return nil, nil, nil, nil, errors.New(
 				i18n.T("currency c from ConvertToCurrencies not found in transactions",
 					"c", currency,
 				),
@@ -761,7 +762,7 @@ func buildJournalEntries(
 
 	// Check that we end up with at least one convertable currency.
 	if len(convertableCurrencies) == 0 {
-		return nil, nil, nil, errors.New(
+		return nil, nil, nil, nil, errors.New(
 			i18n.T("'good' convertable currencies not found, consider change config file with" +
 				"a) adding ConvertToCurrencies entry (i.e. try convert unconditionally to some currency)" +
 				"b) decreasing MinCurrencyTimespanPercent" +
@@ -794,11 +795,14 @@ func buildJournalEntries(
 
 	// Build journal entries.
 	journalEntries := []JournalEntry{}
+	uncategorizedTransactions := []Transaction{}
 	for _, t := range transactions {
-		// Try to find category using pre-built categorization
-		category, err := categorization.CategorizeTransaction(&t)
+		// Try to find category using Categorization instance.
+		category, isUncategorized, err := categorization.CategorizeTransaction(&t)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
+		} else if isUncategorized {
+			uncategorizedTransactions = append(uncategorizedTransactions, t)
 		}
 		// Convert amounts to convertable currencies.
 		amounts := make(map[string]AmountInCurrency, len(convertableCurrencies))
@@ -821,7 +825,7 @@ func buildJournalEntries(
 			// it may be converted to another currency as 0 but it is valid conversion.
 			// Such transactions are used to check that card can be charged in general.
 			if amount1.int == 0 && amount2.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
-				return nil, nil, nil, errors.New(
+				return nil, nil, nil, nil, errors.New(
 					i18n.T("transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
 						"t", t, "c", curStatistic.Name,
 					),
@@ -862,9 +866,10 @@ func buildJournalEntries(
 	}
 
 	log.Println(
-		i18n.T("Total assembled n journal entries with amounts in m currencies",
-			"n", len(journalEntries), "m", len(curStates),
+		i18n.T(
+			"Total assembled n journal entries with amounts in m currencies, n2 uncategorized transactions",
+			"n", len(journalEntries), "m", len(curStates), "n2", len(uncategorizedTransactions),
 		),
 	)
-	return journalEntries, accounts, currencies, nil
+	return journalEntries, accounts, currencies, uncategorizedTransactions, nil
 }

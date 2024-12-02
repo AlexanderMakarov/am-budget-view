@@ -14,7 +14,7 @@ type CategoryMatch struct {
 }
 
 // Categorization handles efficient categorization of transactions using
-// pre-built trie and account mappings
+// pre-built trie and accounts mappings.
 type Categorization struct {
 	// Indicates if all unknown transactions should be grouped.
 	isGroupAllUnknownTransactions bool
@@ -35,6 +35,17 @@ func NewCategorization(config *Config) (*Categorization, error) {
 		toAccountToGroupConfig:        make(map[string]*GroupConfig),
 	}
 
+	// Fill up config.Groups with legacy GroupNamesToSubstrings.
+	for groupName, substrings := range config.GroupNamesToSubstrings {
+		groupConfig := config.Groups[groupName]
+		if groupConfig == nil {
+			groupConfig = &GroupConfig{
+				Name: groupName,
+			}
+		}
+		groupConfig.Substrings = append(groupConfig.Substrings, substrings...)
+	}
+
 	// Handle new Groups format.
 	for groupName, group := range config.Groups {
 		groupCopy := group
@@ -42,7 +53,7 @@ func NewCategorization(config *Config) (*Categorization, error) {
 
 		// Add substrings. Check for duplicates.
 		for _, substring := range group.Substrings {
-			if err := c.trie.insert(substring, groupName, &groupCopy); err != nil {
+			if err := c.trie.insert(substring, groupName, groupCopy); err != nil {
 				return nil, err
 			}
 		}
@@ -57,7 +68,7 @@ func NewCategorization(config *Config) (*Categorization, error) {
 					"group2", groupName,
 				))
 			}
-			c.fromAccountToGroupConfig[fromAccount] = &groupCopy
+			c.fromAccountToGroupConfig[fromAccount] = groupCopy
 		}
 
 		// Add "to" accounts. Check for duplicates.
@@ -70,32 +81,19 @@ func NewCategorization(config *Config) (*Categorization, error) {
 					"group2", groupName,
 				))
 			}
-			c.toAccountToGroupConfig[toAccount] = &groupCopy
+			c.toAccountToGroupConfig[toAccount] = groupCopy
 		}
 	}
-
-	// Handle legacy GroupNamesToSubstrings
-	for groupName, substrings := range config.GroupNamesToSubstrings {
-		for _, substring := range substrings {
-
-			groupConfig := &GroupConfig{
-				Name: groupName,
-			}
-			if err := c.trie.insert(substring, groupName, groupConfig); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	return c, nil
 }
 
 // CategorizeTransaction categorizes a single transaction using the pre-built trie
-// and account mappings
-func (c *Categorization) CategorizeTransaction(tr *Transaction) (*CategoryMatch, error) {
+// and accounts mapping.
+// Returns CategoryMatch, flag if transaction is uncategorized and error.
+func (c *Categorization) CategorizeTransaction(tr *Transaction) (*CategoryMatch, bool, error) {
 	// Validate transaction details.
 	if tr.Details == "" {
-		return nil, errors.New(i18n.T("empty details for transaction from f t", "f", tr.Source, "t", tr))
+		return nil, false, errors.New(i18n.T("empty details for transaction from f t", "f", tr.Source, "t", tr))
 	}
 
 	// First try to find matching group by accounts.
@@ -104,7 +102,7 @@ func (c *Categorization) CategorizeTransaction(tr *Transaction) (*CategoryMatch,
 			return &CategoryMatch{
 				Name:          groupConfig.Name,
 				ByFromAccount: true,
-			}, nil
+			}, false, nil
 		}
 	}
 	if tr.ToAccount != "" {
@@ -112,27 +110,28 @@ func (c *Categorization) CategorizeTransaction(tr *Transaction) (*CategoryMatch,
 			return &CategoryMatch{
 				Name:        groupConfig.Name,
 				ByToAccount: true,
-			}, nil
+			}, false, nil
 		}
 	}
 
-	// Try to find matching group in the trie
+	// Try to find matching group in the trie.
 	if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig != nil {
 		return &CategoryMatch{
 			Name:        groupConfig.Name,
 			BySubstring: true,
-		}, nil
+		}, false, nil
 	}
 
-	// Handle uncategorized case
+	// Handle uncategorized case.
 	if c.isGroupAllUnknownTransactions {
 		return &CategoryMatch{
 			Name: UnknownGroupName,
-		}, nil
+		}, true, nil
+	} else {
+		return &CategoryMatch{
+			Name: tr.Details,
+		}, true, nil
 	}
-	return &CategoryMatch{
-		Name: tr.Details,
-	}, nil
 }
 
 // PrintUncategorizedTransactions prints transactions that couldn't be categorized
@@ -151,6 +150,20 @@ func (c *Categorization) PrintUncategorizedTransactions(transactions []Transacti
 	lenTrans := len(transactions)
 	log.Printf("Total %d uncategorized transactions from %d (%.2f%%)", missedCnt, lenTrans, float64(missedCnt)/float64(lenTrans)*100.00)
 	return nil
+}
+
+// GetUncategorizedTransactions returns transactions that couldn't be categorized
+func (c *Categorization) GetUncategorizedTransactions(transactions []Transaction) []Transaction {
+	var uncategorized []Transaction
+	for _, tr := range transactions {
+		if tr.Details == "" {
+			continue // Skip invalid transactions
+		}
+		if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
+			uncategorized = append(uncategorized, tr)
+		}
+	}
+	return uncategorized
 }
 
 // Trie Node structure.

@@ -31,12 +31,12 @@
             <tbody>
                 {{range .Entries}}
                 <tr {{if .IsCounted}}class="non-statistical"{{end}}>
-                    <td>{{.Date.Format "2006-01-02"}}</td>
+                    <td>{{.Date | formatDate}}</td>
                     <td class="account" 
                         data-account="{{.FromAccount}}" 
                         data-is-transaction="{{if .FromAccountInfo}}{{.FromAccountInfo.IsTransactionAccount}}{{end}}"
-                        data-from="{{if .FromAccountInfo}}{{.FromAccountInfo.From.Format "2006-01-02"}}{{end}}"
-                        data-to="{{if .FromAccountInfo}}{{.FromAccountInfo.To.Format "2006-01-02"}}{{end}}"
+                        data-from="{{if .FromAccountInfo}}{{.FromAccountInfo.From | formatDate}}{{end}}"
+                        data-to="{{if .FromAccountInfo}}{{.FromAccountInfo.To | formatDate}}{{end}}"
                         data-source-type="{{if .FromAccountInfo}}{{.FromAccountInfo.SourceType}}{{end}}"
                         data-source="{{if .FromAccountInfo}}{{.FromAccountInfo.Source}}{{end}}">
                         {{.FromAccount}}
@@ -44,8 +44,8 @@
                     <td class="account" 
                         data-account="{{.ToAccount}}" 
                         data-is-transaction="{{if .ToAccountInfo}}{{.ToAccountInfo.IsTransactionAccount}}{{end}}"
-                        data-from="{{if .ToAccountInfo}}{{.ToAccountInfo.From.Format "2006-01-02"}}{{end}}"
-                        data-to="{{if .ToAccountInfo}}{{.ToAccountInfo.To.Format "2006-01-02"}}{{end}}"
+                        data-from="{{if .ToAccountInfo}}{{.ToAccountInfo.From | formatDate}}{{end}}"
+                        data-to="{{if .ToAccountInfo}}{{.ToAccountInfo.To | formatDate}}{{end}}"
                         data-source-type="{{if .ToAccountInfo}}{{.ToAccountInfo.SourceType}}{{end}}"
                         data-source="{{if .ToAccountInfo}}{{.ToAccountInfo.Source}}{{end}}">
                         {{.ToAccount}}

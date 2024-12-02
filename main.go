@@ -201,13 +201,16 @@ func main() {
 	}
 	log.Println(i18n.T("Total found n transactions", "n", len(transactions)))
 
-	// Show uncategorized transactions if in "CategorizeMode".
-	if config.CategorizeMode {
-		categorization, err := NewCategorization(config)
-		if err != nil {
-			fatalError(err, isWriteToFile, isOpenFileWithResult)
-		}
-		err = categorization.PrintUncategorizedTransactions(transactions)
+	// Create categorization and data handler.
+	categorization, err := NewCategorization(config)
+	if err != nil {
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
+	}
+	dataHandler := NewDataHandler(config, timeZone, categorization, transactions)
+
+	// Just show uncategorized transactions if in "CategorizeMode" and not WEB mode.
+	if config.CategorizeMode && args.ResultMode != OPEN_MODE_WEB {
+		err = dataHandler.Categorization.PrintUncategorizedTransactions(dataHandler.Transactions)
 		if err != nil {
 			fatalError(err, isWriteToFile, isOpenFileWithResult)
 		}
@@ -215,14 +218,14 @@ func main() {
 	}
 
 	// Build journal entries.
-	journalEntries, accounts, currencies, err := buildJournalEntries(transactions, config)
+	journalEntries, err := dataHandler.GetJournalEntries(false)
 	if err != nil {
 		fatalError(errors.New(i18n.T("can't build journal entries", "err", err)), isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
-		transLen, err := buildBeancountFile(journalEntries, currencies, accounts, RESULT_BEANCOUNT_FILE_PATH)
+		transLen, err := buildBeancountFile(journalEntries, dataHandler.Currencies, dataHandler.Accounts, RESULT_BEANCOUNT_FILE_PATH)
 		if err != nil {
 			fatalError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
 		}
@@ -230,22 +233,13 @@ func main() {
 	}
 
 	// Build statistic.
-	groupExtractorFactory, err := NewStatisticBuilderByCategories(accounts)
+	monthlyStatistics, err := dataHandler.GetMonthlyStatistics(false)
 	if err != nil {
 		fatalError(
-			errors.New(i18n.T("can't create statistic builder", "err", err)),
+			errors.New(i18n.T("can't build statistics", "err", err)),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
-	}
-	monthlyStatistics, err := BuildMonthlyStatistics(
-		journalEntries,
-		groupExtractorFactory,
-		config.MonthStartDayNumber,
-		timeZone,
-	)
-	if err != nil {
-		fatalError(errors.New(i18n.T("can't build statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Produce and show TXT report file if not disabled.
@@ -295,7 +289,7 @@ func main() {
 		}()
 
 		log.Println(i18n.T("Starting local web server on urlport", "port", WEB_PORT))
-		err := ListenAndServe(monthlyStatistics, accounts)
+		err := ListenAndServe(dataHandler)
 		if err != nil {
 			fatalError(
 				errors.New(i18n.T("failed to start web server, probably app is already running", "err", err)),
@@ -304,4 +298,79 @@ func main() {
 			)
 		}
 	}
+}
+
+type DataHandler struct {
+	Config                    *Config
+	TimeZone                  *time.Location
+	Categorization            *Categorization
+	Transactions              []Transaction
+	Accounts                  map[string]*AccountFromTransactions
+	Currencies                map[string]*CurrencyStatistics
+	journalEntries            []JournalEntry
+	uncategorizedTransactions []Transaction
+	groupExtractorFactory     StatisticBuilderFactory
+	monthlyStatistics         []map[string]*IntervalStatistic
+}
+
+func NewDataHandler(config *Config, timeZone *time.Location, categorization *Categorization, transactions []Transaction) *DataHandler {
+	return &DataHandler{
+		Config:         config,
+		TimeZone:       timeZone,
+		Categorization: categorization,
+		Transactions:   transactions,
+	}
+}
+
+// GetJournalEntries returns journal entries.
+// If isReadFromCache is true and journalEntries are already built, returns them from cache.
+// Otherwise builds journal entries and returns them.
+// Note that it also builds accounts, currencies and uncategorized transactions.
+func (dh *DataHandler) GetJournalEntries(isReadFromCache bool) ([]JournalEntry, error) {
+	if isReadFromCache && len(dh.journalEntries) > 0 {
+		return dh.journalEntries, nil
+	}
+
+	// Build journal entries.
+	err := error(nil)
+	dh.journalEntries, dh.Accounts, dh.Currencies, dh.uncategorizedTransactions, err = buildJournalEntries(dh.Transactions, dh.Categorization, dh.Config)
+	if err != nil {
+		return nil, err
+	}
+	return dh.journalEntries, nil
+}
+
+func (dh *DataHandler) GetMonthlyStatistics(isReadFromCache bool) ([]map[string]*IntervalStatistic, error) {
+	if isReadFromCache && len(dh.monthlyStatistics) > 0 {
+		return dh.monthlyStatistics, nil
+	}
+
+	// Create statistic builder factory.
+	err := error(nil)
+	dh.groupExtractorFactory, err = NewStatisticBuilderByCategories(dh.Accounts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get journal entries.
+	journalEntries, err := dh.GetJournalEntries(true)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build monthly statistics.
+	dh.monthlyStatistics, err = BuildMonthlyStatistics(
+		journalEntries,
+		dh.groupExtractorFactory,
+		dh.Config.MonthStartDayNumber,
+		dh.TimeZone,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return dh.monthlyStatistics, nil
+}
+
+func (dh *DataHandler) GetUncategorizedTransactions() []Transaction {
+	return dh.uncategorizedTransactions
 }

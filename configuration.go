@@ -60,7 +60,7 @@ type Config struct {
 	// Leave here for backward compatibility
 	GroupNamesToSubstrings map[string][]string `yaml:"groupNamesToSubstrings,omitempty"`
 	// New groups format
-	Groups map[string]GroupConfig `yaml:"groups,omitempty"`
+	Groups map[string]*GroupConfig `yaml:"groups,omitempty"`
 }
 
 func readConfig(filename string) (*Config, error) {
