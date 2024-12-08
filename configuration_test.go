@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/thlib/go-timezone-local/tzlocal"
@@ -278,6 +277,54 @@ groupNamesToSubstrings:
 	}
 }
 
+func TestWriteToFile_PreserveComments(t *testing.T) {
+	// Arrange
+	fileContent := `# Root comment
+inecobankStatementXmlFilesGlob: "*.xml"  # After line comment
+inecobankStatementXlsxFilesGlob: "*.xlsx"
+ameriaCsvFilesGlob: "*.csv"
+myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
+myAmeriaHistoryXlsFilesGlob: "History*.xls"
+# Before group comment
+myAmeriaMyAccounts:
+  - Account1  # List element comment
+  # Between list elements comment
+  - Account2
+detailedOutput: true
+monthStartDayNumber: 1
+timeZoneLocation: "America/New_York"
+groupAllUnknownTransactions: true
+groupNamesToSubstrings:
+  # Before group comment
+  g1:
+    - Sub1  # Group element comment
+    - Sub2
+`
+	tempFile := createTempFileWithContent(fileContent)
+	defer os.Remove(tempFile.Name())
+
+	// Act
+	cfg, err := readConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read config: %v", err)
+	}
+
+	err = cfg.writeToFile(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	// Read the file back to check for comments
+	buf, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read written config: %v", err)
+	}
+
+	// Assert
+	content := string(buf)
+	assertStringEqual(t, content, fileContent)
+}
+
 // createTempFileWithContent creates a temporary file with the given content.
 func createTempFileWithContent(content string) *os.File {
 	tempFile, err := os.CreateTemp("", "test_config_*.yaml")
@@ -288,14 +335,4 @@ func createTempFileWithContent(content string) *os.File {
 		panic(err)
 	}
 	return tempFile
-}
-
-func checkErrorContainsSubstring(t *testing.T, err error, substring string) {
-	if !strings.Contains(err.Error(), substring) {
-		t.Errorf(
-			"Expected error message to contain '%s', got '%s'",
-			substring,
-			err.Error(),
-		)
-	}
 }
