@@ -241,14 +241,12 @@ func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
 					group.ToAccounts = request.ToAccounts
 				} else {
 					group = &GroupConfig{
-						Name:         request.GroupName,
 						Substrings:   request.Substrings,
 						FromAccounts: request.FromAccounts,
 						ToAccounts:   request.ToAccounts,
 					}
 					dataHandler.Config.Groups[request.GroupName] = group
 				}
-				dataHandler.UpdateGroups(dataHandler.Config.Groups)
 
 			case "deleteGroup":
 				if request.GroupName == "" {
@@ -256,7 +254,6 @@ func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
 					return
 				}
 				delete(dataHandler.Config.Groups, request.GroupName)
-				dataHandler.UpdateGroups(dataHandler.Config.Groups)
 
 			default:
 				logAndReturnError(w, fmt.Errorf("unknown action: %s", request.Action))

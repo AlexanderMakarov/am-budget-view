@@ -5,19 +5,19 @@ language: en
 ensureTerminal: true
 # Write "glob" template to your Inecobank "Statement" XML files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-inecobankStatementXmlFilesGlob: "Statement*.xml"
+inecobankStatementXmlFilesGlob: Statement*.xml
 # Write "glob" template to your Inecobank "statement" XLSX (Excel) files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-inecobankStatementXlsxFilesGlob: "statement*.xlsx"
-# Write "glob" template to your MyAmeria "Statement" XLS files.
-# Glob supports wildcard "star" (*) which replaces any substring in the path.
-myAmeriaAccountStatementXlsxFilesGlob: "* account statement *.xls"
+inecobankStatementXlsxFilesGlob: statement*.xlsx
 # Write "glob" template to your Ameriabank Business "AccountStatement" CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-ameriaCsvFilesGlob: "AccountStatement*.csv"
+ameriaCsvFilesGlob: AccountStatement*.csv
+# Write "glob" template to your MyAmeria "Statement" XLS files.
+# Glob supports wildcard "star" (*) which replaces any substring in the path.
+myAmeriaAccountStatementXlsxFilesGlob: '* account statement *.xls'
 # Write "glob" template to your MyAmeria "History" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-myAmeriaHistoryXlsFilesGlob: "History *.xls"
+myAmeriaHistoryXlsFilesGlob: History *.xls
 # Due to MyAmeria "History" files doesn't provide "is expense or income" information
 # need to specify your account(s) number (16 digits number) and all transactions
 # with "Beneficiary account" from this list would be treated as an income.
@@ -27,62 +27,78 @@ myAmeriaMyAccounts:
 # totals would be incorrect!
 convertToCurrencies:
   - AMD
-# Flag to print details for all uncategorized transactions. Skips any other actions.
-categorizeMode: false
 # Flag to output all information about the result.
 detailedOutput: false
+# Flag to print details for all uncategorized transactions. Skips any other actions.
+categorizeMode: false
+# Which day of month use as start of the month.
+# Sometimes it makes sense to analyze month from the "salary day".
+monthStartDayNumber: 1
 # Flag to aggregate all transactions with "Details" not matched with "substrings"
 # from 'groupNamesToSubstrings' below into single group with name "Unknown".
 # Otherwise unknown transactions create new categories with "Details" value name.
 groupAllUnknownTransactions: true
-# Which day of month use as start of the month.
-# Sometimes it makes sense to analyze month from the "salary day. 
-monthStartDayNumber: 1
-# Dictionary of group names to list of substrings to search in transaction's "Details" field.
-# Note that order is not guaranteed.
-groupNamesToSubstrings:
-  Yandex Taxi:
-    - YANDEX
-  Health:
-    - ARABKIR JMC
-    - CRYSTAL DENTAL CLINIC
-    - GEGHAMA\ABOVYAN 34 A
-    - VARDANANTS
-  Pharmacies:
-    - PHARM
-    - DIALAB
-    - 36.6
-    - NATALI FARM
-    - THEOPHARMA
-    - GEDEON RICHTER
-  Groceries:
-    - CHEESE MARKET
-    - YEREVAN  CITY
-    - YEREVAN CITY
-    - EVRIKA
-    - MARKET
-    - FIESTA\19
-    - FIX PRICE
-    - MAQUR TUN
-    - GRAND CANDY
-  To other account:
-    - Account replenishment
-  Wildberries:
-    - WILDBERRIES
+# Groups of categories to match transactions by.
+# May contain following keys:
+# - substrings: List of substrings to search in transaction's "Details" field.
+# - fromAccounts: List of accounts to match in "From Account" field.
+# - toAccounts: List of accounts to match in "To Account" field.
+groups:
   Cash:
-    - INECO ATM
+    substrings:
+      - INECO ATM
   Entertainment:
-    - AQUATEK
-    - EATERY
-    - TASHIR PIZZA
-    - KARAS
-    - PLAY CITY
-    - INSTITUTE OF BOTANY
-  Subscriptions:
-    - GOOGLE
-    - SUBSCRIPTION
-    - AWS EMEA
-    - CLOUD
+    substrings:
+      - AQUATEK
+      - EATERY
+      - TASHIR PIZZA
+      - KARAS
+      - PLAY CITY
+      - INSTITUTE OF BOTANY
+  Groceries:
+    substrings:
+      - CHEESE MARKET
+      - YEREVAN  CITY
+      - YEREVAN CITY
+      - EVRIKA
+      - MARKET
+      - FIESTA\19
+      - FIX PRICE
+      - MAQUR TUN
+      - GRAND CANDY
+  Health:
+    substrings:
+      - ARABKIR JMC
+      - CRYSTAL DENTAL CLINIC
+      - GEGHAMA\ABOVYAN 34 A
+      - VARDANANTS
+  Pharmacies:
+    substrings:
+      - PHARM
+      - DIALAB
+      - "36.6"
+      - NATALI FARM
+      - THEOPHARMA
+      - GEDEON RICHTER
   Salary:
-    - ամսվա աշխատավարձ
-    - ԱՄՍՎԱ ԱՇԽԱՏԱՎԱՐՁ
+    substrings:
+      - ամսվա աշխատավարձ
+      - ԱՄՍՎԱ ԱՇԽԱՏԱՎԱՐՁ
+  Subscriptions:
+    substrings:
+      - GOOGLE
+      - SUBSCRIPTION
+      - AWS EMEA
+      - CLOUD
+  To other account:
+    substrings:
+      - Account replenishment
+  Wildberries:
+    substrings:
+      - WILDBERRIES
+  Yandex Taxi:
+    substrings:
+      - YANDEX
+  tmp:
+    substrings:
+      - Անկանխիկ գործարք

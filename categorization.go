@@ -13,6 +13,11 @@ type CategoryMatch struct {
 	ByToAccount   bool
 }
 
+type groupConfigWithName struct {
+	GroupConfig
+	Name string
+}
+
 // Categorization handles efficient categorization of transactions using
 // pre-built trie and accounts mappings.
 type Categorization struct {
@@ -21,9 +26,9 @@ type Categorization struct {
 	// Trie for efficient substring matching.
 	trie *TrieNode
 	// Mapping from 'from' accounts to group configurations.
-	fromAccountToGroupConfig map[string]*GroupConfig
+	fromAccountToGroupConfig map[string]*groupConfigWithName
 	// Mapping from 'to' accounts to group configurations.
-	toAccountToGroupConfig map[string]*GroupConfig
+	toAccountToGroupConfig map[string]*groupConfigWithName
 }
 
 // NewCategorization creates and initializes a new Categorization instance
@@ -31,25 +36,29 @@ func NewCategorization(config *Config) (*Categorization, error) {
 	c := &Categorization{
 		isGroupAllUnknownTransactions: config.GroupAllUnknownTransactions,
 		trie:                          newTrieNode(),
-		fromAccountToGroupConfig:      make(map[string]*GroupConfig),
-		toAccountToGroupConfig:        make(map[string]*GroupConfig),
+		fromAccountToGroupConfig:      make(map[string]*groupConfigWithName),
+		toAccountToGroupConfig:        make(map[string]*groupConfigWithName),
 	}
 
 	// Fill up config.Groups with legacy GroupNamesToSubstrings.
+	if config.Groups == nil {
+		config.Groups = make(map[string]*GroupConfig)
+	}
 	for groupName, substrings := range config.GroupNamesToSubstrings {
 		groupConfig := config.Groups[groupName]
 		if groupConfig == nil {
-			groupConfig = &GroupConfig{
-				Name: groupName,
-			}
+			groupConfig = &GroupConfig{}
+			config.Groups[groupName] = groupConfig
 		}
 		groupConfig.Substrings = append(groupConfig.Substrings, substrings...)
 	}
 
 	// Handle new Groups format.
 	for groupName, group := range config.Groups {
-		groupCopy := group
-		groupCopy.Name = groupName
+		groupCopy := &groupConfigWithName{
+			GroupConfig: *group,
+			Name:        groupName,
+		}
 
 		// Add substrings. Check for duplicates.
 		for _, substring := range group.Substrings {
@@ -84,6 +93,10 @@ func NewCategorization(config *Config) (*Categorization, error) {
 			c.toAccountToGroupConfig[toAccount] = groupCopy
 		}
 	}
+
+	// Remove old GroupNamesToSubstrings.
+	config.GroupNamesToSubstrings = nil
+
 	return c, nil
 }
 
@@ -170,8 +183,8 @@ func (c *Categorization) GetUncategorizedTransactions(transactions []Transaction
 type TrieNode struct {
 	children    map[rune]*TrieNode
 	isEnd       bool
-	groupName   *string      // Pointer to the group name this node ends with
-	groupConfig *GroupConfig // Store the group configuration
+	groupName   *string              // Pointer to the group name this node ends with
+	groupConfig *groupConfigWithName // Store the group configuration
 }
 
 // Create a new Trie Node.
@@ -183,7 +196,7 @@ func newTrieNode() *TrieNode {
 }
 
 // Insert a substring into the Trie with its group name. Returns error if duplicate exists.
-func (t *TrieNode) insert(substring string, groupName string, config *GroupConfig) error {
+func (t *TrieNode) insert(substring string, groupName string, config *groupConfigWithName) error {
 	node := t
 	for _, ch := range substring {
 		if _, ok := node.children[ch]; !ok {
@@ -209,9 +222,9 @@ func (t *TrieNode) insert(substring string, groupName string, config *GroupConfi
 }
 
 // findLongestMatchingGroup finds the group with the longest matching substring in the trie
-func (t *TrieNode) findLongestMatchingGroup(s string) *GroupConfig {
+func (t *TrieNode) findLongestMatchingGroup(s string) *groupConfigWithName {
 	runes := []rune(s)
-	var bestMatch *GroupConfig
+	var bestMatch *groupConfigWithName
 	var bestMatchLength int
 
 	for i := 0; i < len(runes); i++ {

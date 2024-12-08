@@ -413,7 +413,10 @@ func (dh *DataHandler) GetMonthlyStatistics() ([]map[string]*IntervalStatistic, 
 
 func (dh *DataHandler) UpdateGroups(groups map[string]*GroupConfig) error {
 	dh.Config.Groups = groups
-	// TODO: write config to file
+	err := dh.Config.writeToFile(dh.ConfigPath)
+	if err != nil {
+		return err
+	}
 	// Clear caches.
 	dh.categorization = nil
 	dh.journalEntries = nil

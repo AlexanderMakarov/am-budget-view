@@ -71,6 +71,7 @@
     "note_bars_clickable": "Monthly Expenses per Category and Monthly Income per Category charts are clickable. Clicking on a category bar will open 'Transactions' page for the selected month and category.",
     "Notes": "Notes:",
     "note_exchange_rates": "Currencies from transactions files are converted to the selected currency using exchange rates from the same files as 'best effort'. So if direct exchange rate is not presented or presented long ago from date when needed to make conversion then value would be incorrect. To see precision of conversions please use 'Transactions' page.",
+    "note_unknown_transactions": "'Unknown' group contains not categorized yet transactions. To categorize them use 'Transactions Categorization' page which may be opened by same name button at top.",
     "Transactions": "Transactions",
     "Income transactions for g category": "Income transactions for '{{g}}' category",
     "Expense transactions for g category": "Expense transactions for '{{g}}' category",
@@ -121,5 +122,6 @@
     "Name": "Name",
     "Details Substrings": "Details Substrings",
     "Are you sure you want to delete this group?": "Are you sure you want to delete this group?",
-    "Group with this name already exists": "Group with this name already exists"
+    "Group with this name already exists": "Group with this name already exists",
+    "note_categorization": "This page is used to categorize transactions.\nIf it is empty then all transactions are already categorized.\nTo categorize a transaction, click on the 'Categorize' button in the 'Actions' column. This will open a dialog where you can select the group for the transaction and the way how to change group to cover this transaction. Note that updating a group may affect other transactions.\nIf you need to add a new group then click 'Create New Group' button.\nIf you need to edit a group then open 'Groups' page via button at top."
 }

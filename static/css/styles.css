@@ -177,6 +177,10 @@ h1 {
     line-height: 1.5;
 }
 
+.preserve-line-breaks {
+    white-space: pre-line;
+}
+
 .transactions-table tr.non-statistical {
     color: #888;
     background-color: #f5f5f5;
