@@ -5,12 +5,13 @@ import (
 	"log"
 	"math"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
 
+// ExchangeRate is a struct representing an exchange rate.
 type ExchangeRate struct {
 	// Date is a date of the exchange rate.
 	date time.Time
@@ -22,6 +23,7 @@ type ExchangeRate struct {
 	exchangeRate float64
 }
 
+// CurrencyStatistics is a struct representing data about a currency found in transactions.
 type CurrencyStatistics struct {
 	// Name is a currency name (valid by beancount rules).
 	Name string
@@ -44,9 +46,23 @@ type CurrencyStatistics struct {
 	ExchangeRates []*ExchangeRate
 }
 
+// DataMart is a "ready to use" data parsed from transactions. Immutable.
+type DataMart struct {
+	// SortedTransactions is a sorted transactions list.
+	SortedTransactions []Transaction
+	// Accounts is a map of accounts statistics.
+	Accounts map[string]*AccountStatistics
+	// AllCurrencies is a map of all currencies statistics.
+	AllCurrencies map[string]*CurrencyStatistics
+	// ConvertibleCurrencies is a map of currencies for which conversion is possible.
+	ConvertibleCurrencies map[string]*CurrencyStatistics
+}
+
+// currencyState contains data about a currency during one pass over transactions.
+// Have to be recreated for each pass over transactions.
 type currencyState struct {
-	currency          string
-	statistics        *CurrencyStatistics
+	currency                       string
+	statistics                     *CurrencyStatistics
 	exchangeRateIndexesPerCurrency map[string]int
 }
 
@@ -150,7 +166,7 @@ func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency
 func findClosestExchangeRate(
 	date time.Time,
 	curState *currencyState,
-) (int) {
+) int {
 	if len(curState.statistics.ExchangeRates) == 0 {
 		return math.MaxInt
 	}
@@ -214,7 +230,7 @@ func convertToCurrency(
 	amountCurrency string,
 	targetCurrency string,
 	date time.Time,
-	curStates map[string]currencyState,
+	curStates map[string]*currencyState,
 ) (MoneyWith2DecimalPlaces, int) {
 	// If the same currency then no conversion, precision is 0.
 	if amountCurrency == targetCurrency {
@@ -223,7 +239,7 @@ func convertToCurrency(
 
 	// Try to find direct exchange rate.
 	curState := curStates[amountCurrency]
-	exchangeRateDirect, daysDiffDirect := findClosestExchangeRateToCurrency(date, targetCurrency, &curState)
+	exchangeRateDirect, daysDiffDirect := findClosestExchangeRateToCurrency(date, targetCurrency, curState)
 	if exchangeRateDirect != nil {
 		precision := daysDiffDirect
 		// If exchange rate is for the same date then set precision to 1, otherwise keep it as days difference.
@@ -307,7 +323,7 @@ func convertToCurrency(
 				}
 
 				// Find closest exchange rate to date
-				daysDiff := findClosestExchangeRate(date, &fromCurState)
+				daysDiff := findClosestExchangeRate(date, fromCurState)
 
 				// Calculate new precision
 				newPrecision := daysDiff
@@ -375,49 +391,21 @@ func convertToCurrency(
 	return amount, math.MaxInt
 }
 
-// buildJournalEntries builds journal entries from transactions.
-// It handles all currencies conversion basing on exchange rates found in transactions only.
-// Returns journal entries, accounts, currencies, uncategorized transactions and error.
-func buildJournalEntries(
+// BuildDataMart builds data required to build journal entries.
+func BuildDataMart(
 	transactions []Transaction,
-	categorization *Categorization,
 	config *Config,
-) (
-	[]JournalEntry,
-	map[string]*AccountFromTransactions,
-	map[string]*CurrencyStatistics,
-	[]Transaction,
-	error,
-) {
-	// First check config
-	// Invert GroupNamesToSubstrings and check for duplicates.
-	substringsToGroupName := map[string]string{}
-	for name, substrings := range config.GroupNamesToSubstrings {
-		for _, substring := range substrings {
-			if group, exist := substringsToGroupName[substring]; exist {
-				return nil, nil, nil, nil, errors.New(
-					i18n.T(
-						"substring s is duplicated in groups: group1, group2",
-						"s", substring, "group1", name, "group2", group,
-					),
-				)
-			}
-			substringsToGroupName[substring] = name
-		}
-	}
-	log.Println(i18n.T(
-		"Going to categorize transactions by n named groups from m substrings",
-		"n", len(config.GroupNamesToSubstrings), "m", len(substringsToGroupName),
-	))
-
+) (*DataMart, error) {
 	// Sort transactions by date to simplify processing.
-	sort.Sort(TransactionList(transactions))
+	slices.SortFunc(transactions, func(a, b Transaction) int {
+		return a.Date.Compare(b.Date)
+	})
 
 	// Iterate all transactions to:
 	// 1) validate and collect currencies (transaction may have 1 or 2 currencies), determine their timespan
 	// 2) find all accounts, detemine theirs type, timespan
 	// 3) make list of available exchange rates
-	accounts := make(map[string]*AccountFromTransactions)
+	accounts := make(map[string]*AccountStatistics)
 	currencies := make(map[string]*CurrencyStatistics)
 	for _, t := range transactions {
 		var exchangeRate *ExchangeRate = nil
@@ -458,7 +446,7 @@ func buildJournalEntries(
 				accountCurrency.TotalAmount.int += t.Amount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, nil, nil, nil, errors.New(
+				return nil, errors.New(
 					i18n.T("invalid currency c in file f from transaction t",
 						"c", t.AccountCurrency, "f", t.Source, "t", t,
 					),
@@ -470,7 +458,7 @@ func buildJournalEntries(
 			if validCurrencyRegex.MatchString(t.OriginCurrency) {
 				// If transaction has both currencies then they should be different.
 				if atLeastOneCurrency && t.OriginCurrency == t.AccountCurrency {
-					return nil, nil, nil, nil, errors.New(
+					return nil, errors.New(
 						i18n.T("transaction t has the same currency c in 'account' and 'origin'",
 							"t", t, "c", t.AccountCurrency,
 						),
@@ -503,7 +491,7 @@ func buildJournalEntries(
 				originCurrency.TotalAmount.int += t.OriginCurrencyAmount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, nil, nil, nil, errors.New(
+				return nil, errors.New(
 					i18n.T("invalid origin currency c in file f from transaction t",
 						"c", t.OriginCurrency, "f", t.Source, "t", t,
 					),
@@ -553,7 +541,7 @@ func buildJournalEntries(
 		}
 		// Check that transaction has at least one currency.
 		if !atLeastOneCurrency {
-			return nil, nil, nil, nil, errors.New(
+			return nil, errors.New(
 				i18n.T("no currency found in transaction t from file f",
 					"t", t, "f", t.Source,
 				),
@@ -567,13 +555,13 @@ func buildJournalEntries(
 				if !t.IsExpense && len(t.SourceType) > 0 {
 					sourceType = t.SourceType
 				}
-				accounts[t.ToAccount] = &AccountFromTransactions{
-					Number:               t.ToAccount,
-					IsTransactionAccount: !t.IsExpense,
-					SourceType:           sourceType,
-					Source:               t.Source,
-					From:                 t.Date,
-					To:                   t.Date,
+				accounts[t.ToAccount] = &AccountStatistics{
+					Number:                   t.ToAccount,
+					IsTransactionAccount:     !t.IsExpense,
+					SourceType:               sourceType,
+					Source:                   t.Source,
+					From:                     t.Date,
+					To:                       t.Date,
 					OccurencesInTransactions: 1,
 				}
 			} else {
@@ -597,13 +585,13 @@ func buildJournalEntries(
 				if t.IsExpense && len(t.SourceType) > 0 {
 					sourceType = t.SourceType
 				}
-				accounts[t.FromAccount] = &AccountFromTransactions{
-					Number:               t.FromAccount,
-					IsTransactionAccount: t.IsExpense,
-					SourceType:           sourceType,
-					Source:               t.Source,
-					From:                 t.Date,
-					To:                   t.Date,
+				accounts[t.FromAccount] = &AccountStatistics{
+					Number:                   t.FromAccount,
+					IsTransactionAccount:     t.IsExpense,
+					SourceType:               sourceType,
+					Source:                   t.Source,
+					From:                     t.Date,
+					To:                       t.Date,
 					OccurencesInTransactions: 1,
 				}
 			} else {
@@ -621,10 +609,10 @@ func buildJournalEntries(
 		}
 	}
 	if len(accounts) == 0 {
-		return nil, nil, nil, nil, errors.New(i18n.T("no accounts found"))
+		return nil, errors.New(i18n.T("no accounts found"))
 	}
 	if len(currencies) == 0 {
-		return nil, nil, nil, nil, errors.New(i18n.T("no currencies found"))
+		return nil, errors.New(i18n.T("no currencies found"))
 	}
 	log.Println(i18n.T("In n transactions found m currencies", "n", len(transactions), "m", len(currencies)))
 	printCurrencyStatisticsMap(currencies)
@@ -748,10 +736,10 @@ func buildJournalEntries(
 	)
 	printCurrencyStatisticsMap(convertableCurrencies)
 
-	// Append ConvertToCurrencies without any checks.
+	// Append ConvertToCurrencies from config inconditionally.
 	for _, currency := range config.ConvertToCurrencies {
 		if _, ok := currencies[currency]; !ok {
-			return nil, nil, nil, nil, errors.New(
+			return nil, errors.New(
 				i18n.T("currency c from ConvertToCurrencies not found in transactions",
 					"c", currency,
 				),
@@ -762,7 +750,7 @@ func buildJournalEntries(
 
 	// Check that we end up with at least one convertable currency.
 	if len(convertableCurrencies) == 0 {
-		return nil, nil, nil, nil, errors.New(
+		return nil, errors.New(
 			i18n.T("'good' convertable currencies not found, consider change config file with" +
 				"a) adding ConvertToCurrencies entry (i.e. try convert unconditionally to some currency)" +
 				"b) decreasing MinCurrencyTimespanPercent" +
@@ -770,43 +758,56 @@ func buildJournalEntries(
 			),
 		)
 	}
+	return &DataMart{
+		SortedTransactions:    transactions,
+		Accounts:              accounts,
+		AllCurrencies:         currencies,
+		ConvertibleCurrencies: convertableCurrencies,
+	}, nil
+}
 
-	// Make list of currency states to speed up conversions.
-	curStates := make(map[string]currencyState, len(currencies))
-	for currency := range currencies {
-		statistics := currencies[currency]
-		curStates[currency] = currencyState{
-			currency:          currency,
-			statistics:        statistics,
+// buildJournalEntries builds journal entries from transactions.
+// Returns journal entries, uncategorized transactions, error.
+func buildJournalEntries(
+	dataMart *DataMart,
+	categorization *Categorization,
+) ([]JournalEntry, []Transaction, error) {
+
+	// Make map of currencyState to speed up conversions.
+	curStates := make(map[string]*currencyState, len(dataMart.AllCurrencies))
+	for currency, statistics := range dataMart.AllCurrencies {
+		curStates[currency] = &currencyState{
+			currency:                       currency,
+			statistics:                     statistics,
 			exchangeRateIndexesPerCurrency: make(map[string]int),
 		}
 	}
-	log.Println(
-		i18n.T("Building journal entries with conversions to d currencies",
-			"d", len(convertableCurrencies),
-		),
-	)
-	printCurrencyStatisticsMap(convertableCurrencies)
 	log.Println(
 		i18n.T("All d exchange rates will be used for conversions as a 'best effort'",
 			"d", len(curStates),
 		),
 	)
+	log.Println(
+		i18n.T("Building journal entries with using exchange rates from alln currencies and converting to these n currencies",
+			"alln", len(curStates),
+			"n", len(dataMart.ConvertibleCurrencies),
+		),
+	)
+	printCurrencyStatisticsMap(dataMart.ConvertibleCurrencies)
 
-	// Build journal entries.
 	journalEntries := []JournalEntry{}
 	uncategorizedTransactions := []Transaction{}
-	for _, t := range transactions {
+	for _, t := range dataMart.SortedTransactions {
 		// Try to find category using Categorization instance.
 		category, isUncategorized, err := categorization.CategorizeTransaction(&t)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		} else if isUncategorized {
 			uncategorizedTransactions = append(uncategorizedTransactions, t)
 		}
 		// Convert amounts to convertable currencies.
-		amounts := make(map[string]AmountInCurrency, len(convertableCurrencies))
-		for _, curStatistic := range convertableCurrencies {
+		amounts := make(map[string]AmountInCurrency, len(dataMart.ConvertibleCurrencies))
+		for _, curStatistic := range dataMart.ConvertibleCurrencies {
 			var amount1, amount2 MoneyWith2DecimalPlaces
 			var precision1, precision2 int = math.MaxInt, math.MaxInt
 
@@ -825,7 +826,7 @@ func buildJournalEntries(
 			// it may be converted to another currency as 0 but it is valid conversion.
 			// Such transactions are used to check that card can be charged in general.
 			if amount1.int == 0 && amount2.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
-				return nil, nil, nil, nil, errors.New(
+				return nil, nil, errors.New(
 					i18n.T("transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
 						"t", t, "c", curStatistic.Name,
 					),
@@ -868,8 +869,8 @@ func buildJournalEntries(
 	log.Println(
 		i18n.T(
 			"Total assembled n journal entries with amounts in m currencies, n2 uncategorized transactions",
-			"n", len(journalEntries), "m", len(curStates), "n2", len(uncategorizedTransactions),
+			"n", len(journalEntries), "m", len(dataMart.ConvertibleCurrencies), "n2", len(uncategorizedTransactions),
 		),
 	)
-	return journalEntries, accounts, currencies, uncategorizedTransactions, nil
+	return journalEntries, uncategorizedTransactions, nil
 }

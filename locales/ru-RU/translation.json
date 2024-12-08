@@ -45,7 +45,7 @@
     "currency c from ConvertToCurrencies not found in transactions": "валюта '{{c}}' из ConvertToCurrency не найдена в транзакциях",
     "'good' convertable currencies not found, consider change config file with a) adding ConvertToCurrencies entry (i.e. try convert unconditionally to some currency); b) decreasing MinCurrencyTimespanPercent; c) increasing MaxCurrencyTimespanGapsDays": "«хорошие» конвертируемые валюты не найдены, попробуйте изменить файл конфигурации следующими способами: а) добавить ConvertToCurrencies (т.е. попробуйте безоговорочно конвертировать в какую-либо валюту); б) уменьшите MinCurrencyTimespanPercent; в) увеличьте MaxCurrencyTimespanGapsDays",
     "In n transactions found m currencies": "В {{n}} транзакциях найдено {{m}} валют:",
-    "Building journal entries with conversions to d currencies": "Собираю journal entries с преобразованием в {{d}} валюты:",
+    "Building journal entries with using exchange rates from alln currencies and converting to these n currencies": "Собираю journal entries используя курсы из {{alln}} валют с преобразованием в следующие {{n}} валюты:",
     "All d exchange rates will be used for conversions as a 'best effort'": "Все {{d}} обменных курса будут использоваться для конвертаций используя наиболее подходящие.",
     "transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency": "транзакция {{t, object}} не может быть преобразована в {{c}} валюту, поскольку обнаружено недостаточно обменных курсов чтобы связать валюту транзакции с {{c}} валютой",
     "Total assembled n journal entries with amounts in m currencies, n2 uncategorized transactions": "Всего собрано {{n}} journal entries с суммами сконвертированными в {{m}} валюты, {{n2}} транзакций без категории.",
@@ -110,9 +110,16 @@
     "Create": "Создать",
     "Add": "Добавить",
     "Cancel": "Отмена",
+    "Delete": "Удалить",
     "Categorize": "Категоризировать",
     "type": "Тип",
     "my": "Мой",
     "unknown": "Неизвестный",
-    "Occurences in transactions": "Встречается в транзакциях"
+    "Back to Categorization": "Назад к категоризации",
+    "Occurences in transactions": "Встречается в транзакциях",
+    "Groups": "Группы",
+    "Name": "Название",
+    "Details Substrings": "Подстроки деталей",
+    "Are you sure you want to delete this group?": "Вы уверены, что хотите удалить эту группу?",
+    "Group with this name already exists": "Группа с таким именем уже существует"
 }

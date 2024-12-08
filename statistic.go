@@ -124,7 +124,7 @@ func MapOfGroupsToStringFull(mapOfGroups map[string]*Group, withJournalEntries b
 				),
 			)
 		}
-		
+
 	}
 	return groupStrings
 }
@@ -286,7 +286,7 @@ type StatisticBuilderFactory func(start, end time.Time) IntervalStatisticsBuilde
 // NewStatisticBuilderByCategories returns
 // [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
 // [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByCategories] in a safe way.
-func NewStatisticBuilderByCategories(accounts map[string]*AccountFromTransactions) (StatisticBuilderFactory, error) {
+func NewStatisticBuilderByCategories(accounts map[string]*AccountStatistics) (StatisticBuilderFactory, error) {
 	myAccounts := make(map[string]struct{})
 	for _, account := range accounts {
 		if account.IsTransactionAccount {

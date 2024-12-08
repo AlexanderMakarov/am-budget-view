@@ -6,11 +6,13 @@
 </head>
 <body>
     <script id="accountsData" type="application/json">{{.Accounts}}</script>
+    <script id="groupsData" type="application/json">{{.Groups}}</script>
     <div class="container">
         <header>
             <h1>{{localize "Transaction Categorization"}}</h1>
             <div class="header-right">
-                <button onclick="openNewGroupModal()" class="primary-button">{{localize "Create New Group"}}</button>
+                <button class="primary-button" onclick="openNewGroupModal()">{{localize "Create New Group"}}</button>
+                <button onclick="window.location.href='/groups'" class="primary-button">{{localize "Groups"}}</button>
                 <button onclick="window.location.href='/'" class="back-button">{{localize "Back to Dashboard"}}</button>
             </div>
         </header>
@@ -56,22 +58,10 @@
         <div class="modal-content">
             <span class="close" onclick="closeNewGroupModal()">&times;</span>
             <h2>{{localize "Create New Group"}}</h2>
-            <form id="newGroupForm">
+            <form id="newGroupForm" onsubmit="submitNewGroup(event)">
                 <div class="form-group">
                     <label>{{localize "Group Name"}}:</label>
                     <input type="text" name="groupName" required>
-                </div>
-                <div class="form-group">
-                    <label>{{localize "Substrings"}}:</label>
-                    <input type="text" name="substrings">
-                </div>
-                <div class="form-group">
-                    <label>{{localize "From Accounts"}}:</label>
-                    <input type="text" name="fromAccounts">
-                </div>
-                <div class="form-group">
-                    <label>{{localize "To Accounts"}}:</label>
-                    <input type="text" name="toAccounts">
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="primary-button">{{localize "Create"}}</button>
@@ -90,9 +80,6 @@
                 <div class="form-group">
                     <label for="groupSelect">{{localize "Group"}}:</label>
                     <select id="groupSelect" required>
-                        {{range $name, $group := .Groups}}
-                        <option value="{{$name}}">{{$name}}</option>
-                        {{end}}
                     </select>
                 </div>
                 <div class="form-group">
@@ -103,7 +90,7 @@
                         <option value="toAccount">{{localize "To Account"}}</option>
                     </select>
                 </div>
-                <div id="substringGroup" class="form-group">
+                <div class="form-group">
                     <label for="categorySubstring">{{localize "Value"}}:</label>
                     <input type="text" id="categorySubstring" required>
                 </div>
@@ -115,19 +102,22 @@
         </div>
     </div>
 
-    <script src="/static/js/categorization.js"></script>
+    <!-- Load scripts after HTML elements are created. -->
     <script>
         window.localizedStrings = {
+            sourceType: "{{localize "Source Type"}}",
             type: "{{localize "type"}}",
             my: "{{localize "my"}}",
             unknown: "{{localize "unknown"}}",
-            sourceType: "{{localize "Source Type"}}",
             source: "{{localize "Source"}}",
             from: "{{localize "From"}}",
             to: "{{localize "To"}}",
             occurencesInTransactions: "{{localize "Occurences in transactions"}}",
-            unknownAccount: "{{localize "Unknown Account"}}"
+            unknownAccount: "{{localize "Unknown Account"}}",
+            groupAlreadyExists: "{{localize "Group with this name already exists"}}"
         };
     </script>
+    <script id="groupsData" type="application/json">{{.Groups}}</script>
+    <script src="/static/js/categorization.js"></script>
 </body>
 </html> 

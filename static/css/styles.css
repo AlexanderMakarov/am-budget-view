@@ -127,6 +127,10 @@ h1 {
     background-color: #f5f5f5;
 }
 
+.transactions-table tr.highlighted-row {
+    background-color: #236aad !important;
+}
+
 .amount {
     font-family: monospace;
     text-align: right;
@@ -313,4 +317,29 @@ h1 {
     color: #666;
     font-size: 0.9em;
     margin-top: 4px;
+}
+
+.groups-table td.monospace {
+    font-family: monospace;
+    white-space: pre;
+    vertical-align: top;
+}
+
+.groups-table td.monospace div {
+    margin: 2px 0;
+}
+
+.table-container {
+    margin-top: 20px;
+    width: 100%;
+    overflow-x: auto;
+}
+
+.rule-item {
+    padding: 4px 8px;
+    margin: 2px 0;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-family: monospace;
+    word-break: break-all;
 }

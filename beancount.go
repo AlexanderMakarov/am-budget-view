@@ -35,7 +35,7 @@ const beancountOutputTimeFormat = "2006-01-02"
 
 // buildBeancountFile creates a beancount file with journal entries.
 // Returns number of journal entries and error if any.
-func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*CurrencyStatistics, accounts map[string]*AccountFromTransactions, outputFileName string) (int, error) {
+func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*CurrencyStatistics, accounts map[string]*AccountStatistics, outputFileName string) (int, error) {
 
 	// Create accounts.beancount file.
 	file, err := os.Create(outputFileName)

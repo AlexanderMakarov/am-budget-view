@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -35,6 +36,7 @@ func ListenAndServe(dataHandler *DataHandler) error {
 	http.HandleFunc("/", handleIndex(dataHandler))
 	http.HandleFunc("/transactions", handleTransactions(dataHandler))
 	http.HandleFunc("/categorization", handleCategorization(dataHandler))
+	http.HandleFunc("/groups", handleGroups(dataHandler))
 
 	// Serve static files based on DEV_MODE
 	if devMode {
@@ -75,7 +77,7 @@ func handleIndex(dataHandler *DataHandler) func(w http.ResponseWriter, r *http.R
 		}
 
 		// Prepare JSON with statistics.
-		statistics, err := dataHandler.GetMonthlyStatistics(true)
+		statistics, err := dataHandler.GetMonthlyStatistics()
 		if err != nil {
 			logAndReturnError(w, err)
 			return
@@ -117,7 +119,7 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 		txType := r.URL.Query().Get("type")
 		currency := r.URL.Query().Get("currency")
 
-		statistics, err := dataHandler.GetMonthlyStatistics(true)
+		statistics, err := dataHandler.GetMonthlyStatistics()
 		if err != nil {
 			logAndReturnError(w, err)
 			return
@@ -131,7 +133,7 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 				continue
 			}
 
-			if currStat.Start.Format("2006-01") == month {
+			if i18n.T("date_format", "val", currStat.Start) == month {
 				if txType == "income" {
 					if groupData, ok := currStat.Income[group]; ok {
 						entries = groupData.JournalEntries
@@ -146,7 +148,7 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 		}
 
 		// JSON encode the accounts
-		jsonAccounts, err := json.Marshal(dataHandler.Accounts)
+		jsonAccounts, err := json.Marshal(dataHandler.DataMart.Accounts)
 		if err != nil {
 			logAndReturnError(w, err)
 			return
@@ -155,14 +157,14 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 		// Prepare data for the template
 		var templateEntries []struct {
 			JournalEntry
-			FromAccountInfo *AccountFromTransactions
-			ToAccountInfo   *AccountFromTransactions
+			FromAccountInfo *AccountStatistics
+			ToAccountInfo   *AccountStatistics
 			IsCounted       bool
 		}
 
 		for _, entry := range entries {
-			fromAccount := dataHandler.Accounts[entry.FromAccount]
-			toAccount := dataHandler.Accounts[entry.ToAccount]
+			fromAccount := dataHandler.DataMart.Accounts[entry.FromAccount]
+			toAccount := dataHandler.DataMart.Accounts[entry.ToAccount]
 			// Check if both accounts exist and are transaction accounts
 			isCounted := fromAccount != nil &&
 				toAccount != nil &&
@@ -171,8 +173,8 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 
 			templateEntries = append(templateEntries, struct {
 				JournalEntry
-				FromAccountInfo *AccountFromTransactions
-				ToAccountInfo   *AccountFromTransactions
+				FromAccountInfo *AccountStatistics
+				ToAccountInfo   *AccountStatistics
 				IsCounted       bool
 			}{
 				JournalEntry:    entry,
@@ -189,8 +191,8 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 			Currency string
 			Entries  []struct {
 				JournalEntry
-				FromAccountInfo *AccountFromTransactions
-				ToAccountInfo   *AccountFromTransactions
+				FromAccountInfo *AccountStatistics
+				ToAccountInfo   *AccountStatistics
 				IsCounted       bool
 			}
 			Accounts template.JS
@@ -214,51 +216,94 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
-			// Handle POST requests for updating categorization
 			var request struct {
-				Action      string `json:"action"`
-				GroupName   string `json:"groupName"`
-				Substring   string `json:"substring,omitempty"`
-				FromAccount string `json:"fromAccount,omitempty"`
-				ToAccount   string `json:"toAccount,omitempty"`
+				Action       string   `json:"action"`
+				GroupName    string   `json:"groupName"`
+				Substrings   []string `json:"substrings,omitempty"`
+				FromAccounts []string `json:"fromAccounts,omitempty"`
+				ToAccounts   []string `json:"toAccounts,omitempty"`
 			}
-			
+
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			switch request.Action {
+			case "upsertGroup":
+				if request.GroupName == "" {
+					logAndReturnError(w, fmt.Errorf("for 'upsertGroup' action 'groupName' is required"))
+					return
+				}
+				if group, ok := dataHandler.Config.Groups[request.GroupName]; ok {
+					group.Substrings = request.Substrings
+					group.FromAccounts = request.FromAccounts
+					group.ToAccounts = request.ToAccounts
+				} else {
+					group = &GroupConfig{
+						Name:         request.GroupName,
+						Substrings:   request.Substrings,
+						FromAccounts: request.FromAccounts,
+						ToAccounts:   request.ToAccounts,
+					}
+					dataHandler.Config.Groups[request.GroupName] = group
+				}
+				dataHandler.UpdateGroups(dataHandler.Config.Groups)
+
+			case "deleteGroup":
+				if request.GroupName == "" {
+					logAndReturnError(w, fmt.Errorf("for 'deleteGroup' action 'groupName' is required"))
+					return
+				}
+				delete(dataHandler.Config.Groups, request.GroupName)
+				dataHandler.UpdateGroups(dataHandler.Config.Groups)
+
+			default:
+				logAndReturnError(w, fmt.Errorf("unknown action: %s", request.Action))
+				return
+			}
+
+			// After any modification update groups in memory and on disk.
+			if err := dataHandler.UpdateGroups(dataHandler.Config.Groups); err != nil {
 				logAndReturnError(w, err)
 				return
 			}
 
-			// Update configuration based on the request
-			_, err := dataHandler.GetJournalEntries(false)
-			if err != nil {
-				logAndReturnError(w, err)
-				return
-			}
+			// Return updated list of uncategorized transactions
+		}
 
-			// Get updated list of uncategorized transactions
-			uncategorizedTransactions := dataHandler.GetUncategorizedTransactions()
-			
-			// Return the updated transactions list as JSON
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(uncategorizedTransactions); err != nil {
-				logAndReturnError(w, err)
-				return
-			}
+		// Show the categorization page.
+		transactions, err := dataHandler.GetUncategorizedTransactions()
+		if err != nil {
+			logAndReturnError(w, err)
 			return
 		}
-
-		// For GET requests, show the categorization page
 		data := struct {
 			Transactions []Transaction
-			Groups      map[string]*GroupConfig
-			Accounts    template.JS
+			Groups       template.JS
+			Accounts     template.JS
 		}{
-			Transactions: dataHandler.GetUncategorizedTransactions(),
-			Groups:       dataHandler.Config.Groups,
-			Accounts:     template.JS(mustEncodeJSON(dataHandler.Accounts)),
+			Transactions: transactions,
+			Groups:       template.JS(mustEncodeJSON(getSortedGroups(dataHandler.Config.Groups))),
+			Accounts:     template.JS(mustEncodeJSON(dataHandler.DataMart.Accounts)),
+		}
+		err = parseAndExecuteTemplate("templates/categorization.html", w, data)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
+	}
+}
+
+func handleGroups(dataHandler *DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := struct {
+			Groups map[string]*GroupConfig
+		}{
+			Groups: getSortedGroups(dataHandler.Config.Groups),
 		}
 
-		err := parseAndExecuteTemplate("templates/categorization.html", w, data)
+		err := parseAndExecuteTemplate("templates/groups.html", w, data)
 		if err != nil {
 			logAndReturnError(w, err)
 			return
@@ -306,7 +351,8 @@ func parseAndExecuteTemplate(templatePath string, w http.ResponseWriter, data in
 		tmpl, err = template.New(templatePath).Funcs(templateFunctions).ParseFiles(templatePath)
 	} else {
 		// For embedded files, we need to read the content first
-		content, err := templateFS.ReadFile(templatePath)
+		var content []byte
+		content, err = templateFS.ReadFile(templatePath)
 		if err != nil {
 			return err
 		}
@@ -320,4 +366,20 @@ func parseAndExecuteTemplate(templatePath string, w http.ResponseWriter, data in
 
 	// Execute using the base name of the template
 	return tmpl.ExecuteTemplate(w, filepath.Base(templatePath), data)
+}
+
+func getSortedGroups(groups map[string]*GroupConfig) map[string]*GroupConfig {
+	// Get sorted group names
+	var groupNames []string
+	for name := range groups {
+		groupNames = append(groupNames, name)
+	}
+	sort.Strings(groupNames)
+
+	// Create sorted groups map
+	sortedGroups := make(map[string]*GroupConfig)
+	for _, name := range groupNames {
+		sortedGroups[name] = groups[name]
+	}
+	return sortedGroups
 }

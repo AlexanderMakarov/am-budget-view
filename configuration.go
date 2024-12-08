@@ -111,3 +111,13 @@ func readConfig(filename string) (*Config, error) {
 
 	return cfg, nil
 }
+
+// writeToFile writes the configuration to a file.
+// Preserves all comments and formatting.
+func (cfg *Config) writeToFile(filename string) error {
+	buf, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, buf, 0644)
+}

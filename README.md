@@ -335,13 +335,17 @@ CI will do the rest.
 - [x] Translate to Russian.
 - [x] Avoid situation when port is binded by previous app instance.
 - [x] Write instruction about both options for Ameriabank transactions.
-- [ ] Add "Categorization" page in UI and relevant functionality.
 - [ ] Enable categorization by accounts, like "expense to this account is a rent".
+- [ ] Support group to ignore some transactions as "to me". Because
+      a) user may have transactions from other bank accounts.
+      b) transaction between banks may happen under different account.
+- [ ] Add "Categorization" page in UI and relevant functionality.
+- [ ] Collect more details about accounts (distribution of usage?), separate page.
 - [ ] Manage all settings (config.yaml) in web UI.
 - [ ] Record new video(s) with instructions.
 - [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
-- [ ] Collect more details about accounts (distribution of usage).
-- [ ] (? small value) Add translation for all parsers and set right Russian declensions.
+- [ ] Fix structure, see https://appliedgo.com/blog/go-project-layout
+- [ ] (? small value) Add translation to all parsers and set right Russian declensions.
 - [ ] (? value vs complexity) Allow to choose "transactions" files in UI.
 - [ ] (? small value) Improve translation to Russian with correct declensions everywhere.
 - [ ] (? unclear value) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD

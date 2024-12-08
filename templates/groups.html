@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{localize "Groups"}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{localize "Groups"}}</h1>
+            <div class="header-right">
+                <button onclick="window.location.href='/categorization'" class="primary-button">
+                    {{localize "Back to Categorization"}}
+                </button>
+            </div>
+        </header>
+
+        <div class="table-container">
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>{{localize "Name"}}</th>
+                        <th>{{localize "From Accounts"}}</th>
+                        <th>{{localize "To Accounts"}}</th>
+                        <th>{{localize "Details Substrings"}}</th>
+                        <th width="100">{{localize "Actions"}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $name, $group := .Groups}}
+                    <tr>
+                        <td><strong>{{$name}}</strong></td>
+                        <td>
+                            {{range $group.FromAccounts}}
+                            <div class="rule-item">{{.}}</div>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{range $group.ToAccounts}}
+                            <div class="rule-item">{{.}}</div>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{range $group.Substrings}}
+                            <div class="rule-item">{{.}}</div>
+                            {{end}}
+                        </td>
+                        <td>
+                            <button onclick="deleteGroup('{{$name}}')" class="delete-button">
+                                {{localize "Delete"}}
+                            </button>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function deleteGroup(groupName) {
+            if (!confirm('{{localize "Are you sure you want to delete this group?"}}')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/categorization', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'deleteGroup',
+                        groupName: groupName
+                    })
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + await response.text());
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html> 
