@@ -5,80 +5,244 @@ import (
 	"log"
 )
 
-func PrintUncategorizedTransactions(transactions []Transaction, config *Config) error {
-	trieRoot := newTrieNode()
-	for _, substrings := range config.GroupNamesToSubstrings {
-		for _, substring := range substrings {
-			trieRoot.insert(substring)
+// CategoryMatch represents the result of transaction categorization
+type CategoryMatch struct {
+	Name          string
+	BySubstring   bool
+	ByFromAccount bool
+	ByToAccount   bool
+}
+
+type groupConfigWithName struct {
+	GroupConfig
+	Name string
+}
+
+// Categorization handles efficient categorization of transactions using
+// pre-built trie and accounts mappings.
+type Categorization struct {
+	// Indicates if all unknown transactions should be grouped.
+	isGroupAllUnknownTransactions bool
+	// Trie for efficient substring matching.
+	trie *TrieNode
+	// Mapping from 'from' accounts to group configurations.
+	fromAccountToGroupConfig map[string]*groupConfigWithName
+	// Mapping from 'to' accounts to group configurations.
+	toAccountToGroupConfig map[string]*groupConfigWithName
+}
+
+// NewCategorization creates and initializes a new Categorization instance
+func NewCategorization(config *Config) (*Categorization, error) {
+	c := &Categorization{
+		isGroupAllUnknownTransactions: config.GroupAllUnknownTransactions,
+		trie:                          newTrieNode(),
+		fromAccountToGroupConfig:      make(map[string]*groupConfigWithName),
+		toAccountToGroupConfig:        make(map[string]*groupConfigWithName),
+	}
+
+	// Fill up config.Groups with legacy GroupNamesToSubstrings.
+	if config.Groups == nil {
+		config.Groups = make(map[string]*GroupConfig)
+	}
+	for groupName, substrings := range config.GroupNamesToSubstrings {
+		groupConfig := config.Groups[groupName]
+		if groupConfig == nil {
+			groupConfig = &GroupConfig{}
+			config.Groups[groupName] = groupConfig
+		}
+		groupConfig.Substrings = append(groupConfig.Substrings, substrings...)
+	}
+
+	// Handle new Groups format.
+	for groupName, group := range config.Groups {
+		groupCopy := &groupConfigWithName{
+			GroupConfig: *group,
+			Name:        groupName,
+		}
+
+		// Add substrings. Check for duplicates.
+		for _, substring := range group.Substrings {
+			if err := c.trie.insert(substring, groupName, groupCopy); err != nil {
+				return nil, err
+			}
+		}
+
+		// Add "from" accounts. Check for duplicates.
+		for _, fromAccount := range group.FromAccounts {
+			if duplicateGroup, ok := c.fromAccountToGroupConfig[fromAccount]; ok {
+				return nil, errors.New(i18n.T(
+					"wrong configuration: 'from' account a is duplicated in groups",
+					"a", fromAccount,
+					"group1", duplicateGroup.Name,
+					"group2", groupName,
+				))
+			}
+			c.fromAccountToGroupConfig[fromAccount] = groupCopy
+		}
+
+		// Add "to" accounts. Check for duplicates.
+		for _, toAccount := range group.ToAccounts {
+			if duplicateGroup, ok := c.toAccountToGroupConfig[toAccount]; ok {
+				return nil, errors.New(i18n.T(
+					"wrong configuration: 'to' account a is duplicated in groups",
+					"a", toAccount,
+					"group1", duplicateGroup.Name,
+					"group2", groupName,
+				))
+			}
+			c.toAccountToGroupConfig[toAccount] = groupCopy
 		}
 	}
+
+	// Remove old GroupNamesToSubstrings.
+	config.GroupNamesToSubstrings = nil
+
+	return c, nil
+}
+
+// CategorizeTransaction categorizes a single transaction using the pre-built trie
+// and accounts mapping.
+// Returns CategoryMatch, flag if transaction is uncategorized and error.
+func (c *Categorization) CategorizeTransaction(tr *Transaction) (*CategoryMatch, bool, error) {
+	// Validate transaction details.
+	if tr.Details == "" {
+		return nil, false, errors.New(i18n.T("empty details for transaction from f t", "f", tr.Source, "t", tr))
+	}
+
+	// First try to find matching group by accounts.
+	if tr.FromAccount != "" {
+		if groupConfig, ok := c.fromAccountToGroupConfig[tr.FromAccount]; ok {
+			return &CategoryMatch{
+				Name:          groupConfig.Name,
+				ByFromAccount: true,
+			}, false, nil
+		}
+	}
+	if tr.ToAccount != "" {
+		if groupConfig, ok := c.toAccountToGroupConfig[tr.ToAccount]; ok {
+			return &CategoryMatch{
+				Name:        groupConfig.Name,
+				ByToAccount: true,
+			}, false, nil
+		}
+	}
+
+	// Try to find matching group in the trie.
+	if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig != nil {
+		return &CategoryMatch{
+			Name:        groupConfig.Name,
+			BySubstring: true,
+		}, false, nil
+	}
+
+	// Handle uncategorized case.
+	if c.isGroupAllUnknownTransactions {
+		return &CategoryMatch{
+			Name: UnknownGroupName,
+		}, true, nil
+	} else {
+		return &CategoryMatch{
+			Name: tr.Details,
+		}, true, nil
+	}
+}
+
+// PrintUncategorizedTransactions prints transactions that couldn't be categorized
+func (c *Categorization) PrintUncategorizedTransactions(transactions []Transaction) error {
 	missedCnt := 0
 	for _, tr := range transactions {
 		if tr.Details == "" {
 			return errors.New(i18n.T("empty details for transaction from f t", "f", tr.Source, "t", tr))
 		}
-		details := tr.Details
-		if !trieRoot.searchSubstring(details) {
+		if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
 			log.Printf("Uncategorized transaction %+v", tr)
 			missedCnt++
 		}
 	}
+
 	lenTrans := len(transactions)
 	log.Printf("Total %d uncategorized transactions from %d (%.2f%%)", missedCnt, lenTrans, float64(missedCnt)/float64(lenTrans)*100.00)
 	return nil
 }
 
-// Trie Node structure
-type TrieNode struct {
-	children map[rune]*TrieNode
-	isEnd    bool
-}
-
-// Create a new Trie Node
-func newTrieNode() *TrieNode {
-	return &TrieNode{children: make(map[rune]*TrieNode)}
-}
-
-// Insert a word into the Trie
-func (t *TrieNode) insert(word string) {
-	node := t
-	for _, ch := range word {
-		if _, ok := node.children[ch]; !ok {
-			newNode := newTrieNode()
-			node.children[ch] = newNode
-			node = newNode
-		} else {
-			node = node.children[ch]
+// GetUncategorizedTransactions returns transactions that couldn't be categorized
+func (c *Categorization) GetUncategorizedTransactions(transactions []Transaction) []Transaction {
+	var uncategorized []Transaction
+	for _, tr := range transactions {
+		if tr.Details == "" {
+			continue // Skip invalid transactions
+		}
+		if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
+			uncategorized = append(uncategorized, tr)
 		}
 	}
-	node.isEnd = true
+	return uncategorized
 }
 
-// searchSubstring checks if provided string contains any of the substrings in Trie.
-func (t *TrieNode) searchSubstring(s string) bool {
-	// Iterate over each rune in the string
-	for i := 0; i < len([]rune(s)); i++ {
-		// Start from the root of the Trie for each new starting position in the string
+// Trie Node structure.
+type TrieNode struct {
+	children    map[rune]*TrieNode
+	isEnd       bool
+	groupName   *string              // Pointer to the group name this node ends with
+	groupConfig *groupConfigWithName // Store the group configuration
+}
+
+// Create a new Trie Node.
+func newTrieNode() *TrieNode {
+	return &TrieNode{
+		children:  make(map[rune]*TrieNode),
+		groupName: nil,
+	}
+}
+
+// Insert a substring into the Trie with its group name. Returns error if duplicate exists.
+func (t *TrieNode) insert(substring string, groupName string, config *groupConfigWithName) error {
+	node := t
+	for _, ch := range substring {
+		if _, ok := node.children[ch]; !ok {
+			node.children[ch] = newTrieNode()
+		}
+		node = node.children[ch]
+	}
+
+	// Check for duplicate at exact position.
+	if node.isEnd {
+		return errors.New(i18n.T(
+			"wrong configuration: substring s is duplicated in groups",
+			"s", substring,
+			"group1", *node.groupName, // existing group name
+			"group2", groupName, // new group name being inserted
+		))
+	}
+
+	node.isEnd = true
+	node.groupName = &groupName
+	node.groupConfig = config
+	return nil
+}
+
+// findLongestMatchingGroup finds the group with the longest matching substring in the trie
+func (t *TrieNode) findLongestMatchingGroup(s string) *groupConfigWithName {
+	runes := []rune(s)
+	var bestMatch *groupConfigWithName
+	var bestMatchLength int
+
+	for i := 0; i < len(runes); i++ {
 		node := t
-		// Iterate over the string starting from the ith rune
-		for j := i; j < len([]rune(s)); j++ {
-			// Convert the jth character to a rune
-			ch := []rune(s)[j]
-			// Check if the current character exists in the Trie
+		matchLength := 0
+		for j := i; j < len(runes); j++ {
+			ch := runes[j]
 			if nextNode, ok := node.children[ch]; ok {
-				// If it exists, move to the next node in the Trie
 				node = nextNode
-				// If we've reached the end of a word in the Trie, return true
-				if node.isEnd {
-					return true
+				matchLength++
+				if node.isEnd && node.groupConfig != nil && matchLength > bestMatchLength {
+					bestMatch = node.groupConfig
+					bestMatchLength = matchLength
 				}
 			} else {
-				// If the current character doesn't exist in the Trie, break the inner loop
-				// and start a new search from the next starting position in the string
 				break
 			}
 		}
 	}
-	// If no substring of the string is found in the Trie, return false
-	return false
+	return bestMatch
 }

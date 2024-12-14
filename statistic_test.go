@@ -18,24 +18,24 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 	// Cases
 	tests := []struct {
 		name               string
-		accounts           map[string]*AccountFromTransactions
+		accounts           map[string]*AccountStatistics
 		expectedMyAccounts map[string]struct{}
 	}{
 		{
 			"no_accounts",
-			map[string]*AccountFromTransactions{},
+			map[string]*AccountStatistics{},
 			map[string]struct{}{},
 		},
 		{
 			"no_my_accounts",
-			map[string]*AccountFromTransactions{
+			map[string]*AccountStatistics{
 				"a": {Number: "a", IsTransactionAccount: false},
 			},
 			map[string]struct{}{},
 		},
 		{
 			"many_my_accounts",
-			map[string]*AccountFromTransactions{
+			map[string]*AccountStatistics{
 				"a": {Number: "a", IsTransactionAccount: true},
 				"b": {Number: "b", IsTransactionAccount: false},
 				"c": {Number: "c", IsTransactionAccount: true},
@@ -68,10 +68,10 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 }
 
 func Test_groupExtractorByCategories_HandleJournalEntry(t *testing.T) {
-	a1Mine := &AccountFromTransactions{Number: "a1", IsTransactionAccount: true}
-	a1NotMine := &AccountFromTransactions{Number: "a1", IsTransactionAccount: false}
-	a2NotMine := &AccountFromTransactions{Number: "a2", IsTransactionAccount: false}
-	a3NotMine := &AccountFromTransactions{Number: "a3", IsTransactionAccount: false}
+	a1Mine := &AccountStatistics{Number: "a1", IsTransactionAccount: true}
+	a1NotMine := &AccountStatistics{Number: "a1", IsTransactionAccount: false}
+	a2NotMine := &AccountStatistics{Number: "a2", IsTransactionAccount: false}
+	a3NotMine := &AccountStatistics{Number: "a3", IsTransactionAccount: false}
 	jesVariousCategories := []JournalEntry{
 		newUsdJE(1, false, "a", "a1", "a2"),
 		newUsdJE(2, false, "a", "a3", "a1"),
@@ -250,33 +250,33 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 `
 	tests := []struct {
 		name           string
-		accounts       map[string]*AccountFromTransactions
+		accounts       map[string]*AccountStatistics
 		journalEntries []JournalEntry
 		expected       string
 	}{
 		{
 			name:           "various_groups_no_accounts",
-			accounts:       map[string]*AccountFromTransactions{},
+			accounts:       map[string]*AccountStatistics{},
 			journalEntries: jesVariousCategories,
 			expected:       expectedVariousCategoriesFull,
 		},
 		{
 			name:           "various_groups_not_mine_accounts",
-			accounts:       map[string]*AccountFromTransactions{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			accounts:       map[string]*AccountStatistics{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
 			journalEntries: jesVariousCategories,
 			expected:       expectedVariousCategoriesFull,
 		},
 		{
 			name:           "various_groups_a1_mine_account",
-			accounts:       map[string]*AccountFromTransactions{"a1": a1Mine},
+			accounts:       map[string]*AccountStatistics{"a1": a1Mine},
 			journalEntries: jesVariousCategories,
 			expected:       expectedVariousCategoriesA1Mine,
 		},
 		{
 			name:           "various_currencies",
-			accounts:       map[string]*AccountFromTransactions{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			accounts:       map[string]*AccountStatistics{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
 			journalEntries: jesVariousCurrencies,
-			expected: expectedVariousCurrenciesFull,
+			expected:       expectedVariousCurrenciesFull,
 		},
 	}
 	for _, tt := range tests {
@@ -298,42 +298,6 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 			DumpIntervalStatistics(builder.GetIntervalStatistics(), &actual, "", true)
 			assertStringEqual(t, actual.String(), tt.expected)
 		})
-	}
-}
-
-func assertStringEqual(t *testing.T, actual, expected string) {
-
-	// Compare actual vs expected strings line by line
-	actualLines := strings.Split(actual, "\n")
-	expectedLines := strings.Split(expected, "\n")
-
-	if len(actualLines) != len(expectedLines) {
-		t.Errorf("Output has different number of lines - got %d, expected %d\n",
-			len(actualLines), len(expectedLines))
-	}
-	linesCount := len(actualLines)
-	if len(expectedLines) < linesCount {
-		linesCount = len(expectedLines)
-	}
-
-	for i := 0; i < linesCount; i++ {
-		if actualLines[i] != expectedLines[i] {
-			// Find first differing character
-			minLen := len(actualLines[i])
-			if len(expectedLines[i]) < minLen {
-				minLen = len(expectedLines[i])
-			}
-
-			diffPos := 0
-			for diffPos < minLen && actualLines[i][diffPos] == expectedLines[i][diffPos] {
-				diffPos++
-			}
-
-			t.Errorf("Line %d differs at position %d:\nExpected: %s\n  Actual: %s\n",
-				i+1, diffPos,
-				expectedLines[i],
-				actualLines[i])
-		}
 	}
 }
 

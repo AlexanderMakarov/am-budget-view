@@ -155,13 +155,13 @@ and instructions how you got this file.
   [шаблонам поиска glob](https://ru.wikipedia.org/wiki/%D0%A8%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D0%BE%D0%B8%D1%81%D0%BA%D0%B0)
   объявленным в файле "config.yaml" (приложение создает файл "config.yaml" при первом запуске).
   При успешном запуске страница браузера, скорее всего, будет содержать несколько
-  предопределенных групп и одну большую группу "Unknown" созданную из еще не категоризированных транзакций.
+  начальных категорий и одну большую категорию "Unknown" созданную из еще не категоризированных транзакций.
 4. Для категоризации транзакций необходимо отредактировать файл "config.yaml"
   (будет создан рядом с приложением после первого запуска).
   Откройте его в любом текстовом редакторе ("Блокнот" в Windows, "TextEditor" на Mac, различные на Linux-es)
-  и прокрутите до раздела `groupNamesToSubstrings` - здесь будет список предопределенных категорий.
+  и прокрутите до раздела `groupNamesToSubstrings` - здесь будет список начальных категорий.
   Измените эти категории в соответствии с вашими потребностями.
-  Смотрите примеры в файле конфигурации - вы можете удалить ненужные и добавить свои собственные группы.
+  Смотрите примеры в файле конфигурации - вы можете удалить ненужные и добавить свои собственные категории.
   Будьте внимательны с форматированием и отступами. Периодически перезапускайте приложение, чтобы выявить
   возможные ошибки и проверить результат, так как одна новая строка, добавленная в "config.yaml",
   может охватывать десятки некатегоризированных транзакций и радикально сократить количество элементов для категоризации.
@@ -335,12 +335,18 @@ CI will do the rest.
 - [x] Translate to Russian.
 - [x] Avoid situation when port is binded by previous app instance.
 - [x] Write instruction about both options for Ameriabank transactions.
-- [ ] Add "Categorization" page in UI and relevant functionality.
-- [ ] Enable categorization by accounts, like "expense to this account is a rent".
-- [ ] Manage all settings (config.yaml) in web UI.
+- [x] Enable categorization by accounts, like "expense to this account is a rent".
+- [x] Add "Categorization" page in UI and relevant functionality.
+- [ ] Support group to ignore some transactions as "to me". Because:
+      a) user may have transactions from other bank accounts.
+      b) transaction between banks may happen under different account.
+- [ ] Add "Edit" actions to "Groups" page (to revert wrong change).
+- [ ] Collect more details about accounts (distribution of usage?), separate page.
+- [ ] Manage all settings (config.yaml) in web UI, separate page.
 - [ ] Record new video(s) with instructions.
 - [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
-- [ ] (? small value) Add translation for all parsers and set right Russian declensions.
+- [ ] Fix folders structure, see https://appliedgo.com/blog/go-project-layout
+- [ ] (? small value) Add translation to all parsers and set right Russian declensions.
 - [ ] (? value vs complexity) Allow to choose "transactions" files in UI.
 - [ ] (? small value) Improve translation to Russian with correct declensions everywhere.
 - [ ] (? unclear value) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD

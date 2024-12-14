@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/thlib/go-timezone-local/tzlocal"
@@ -133,8 +132,8 @@ groupNamesToSubstrings:
 	checkErrorContainsSubstring(t, err, "yaml: line 6: could not find expected ':'")
 }
 
-func TestReadConfig_MisstypedField(t *testing.T) {
-	// Arrange. Note that "groupsNamesToSubstrings" is a wrong name.
+func TestReadConfig_GroupsNotSpecified(t *testing.T) {
+	// Arrange. Note that both "groupNamesToSubstrings" and "groups" are not specified.
 	tempFile := createTempFileWithContent(
 		`inecobankStatementXmlFilesGlob: "*.xml"
 inecobankStatementXlsxFilesGlob: "*.xlsx"
@@ -148,7 +147,7 @@ detailedOutput: true
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
 groupAllUnknownTransactions: true
-groupsNamesToSubstrings:
+groupsNamesToSubstrings: # Should be groupNamesToSubstrings
   g1:
     - Sub1
     - Sub2
@@ -165,7 +164,52 @@ groupsNamesToSubstrings:
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "line 13: field groupsNamesToSubstrings not found in type")
+	checkErrorContainsSubstring(t, err, "either 'groups' or 'groupNamesToSubstrings' must be set")
+}
+
+func TestReadConfig_MisstypedField(t *testing.T) {
+	// Arrange.
+	tempFile := createTempFileWithContent(
+		`inecobankStatementXmlFilesGlob: "*.xml"
+inecobankStatementXlsxFilesGlob: "*.xlsx"
+myAmeriaCsvFilesGlob: "*.csv" # Should be ameriaCsvFilesGlob
+myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
+myAmeriaHistoryXlsFilesGlob: "History*.xls"
+myAmeriaMyAccounts: 
+  - Account1
+  - Account2
+detailedOutput: true
+monthStartDayNumber: 1
+timeZoneLocation: "America/New_York"
+groupAllUnknownTransactions: true
+groups:
+  g1:
+    substrings:
+      - Sub1
+      - Sub2
+    fromAccounts:
+      - "1234567890123456"
+  g2:
+    substrings:
+      - Sub3
+    fromAccounts:
+      - "1234567890123456"
+`,
+	)
+	defer os.Remove(tempFile.Name())
+
+	// Act
+	_, err := readConfig(tempFile.Name())
+
+	// Assert
+	if err == nil {
+		t.Fatal("Expected error, but got no error")
+	}
+	checkErrorContainsSubstring(
+		t,
+		err,
+		"Key: 'Config.AmeriaCsvFilesGlob' Error:Field validation for 'AmeriaCsvFilesGlob' failed on the 'required' tag",
+	)
 }
 
 func TestReadConfig_FileNotFound(t *testing.T) {
@@ -193,8 +237,11 @@ func TestReadConfig_EmptyFile(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "EOF")
-	checkErrorContainsSubstring(t, err, "can't decode YAML from configuration file")
+	checkErrorContainsSubstring(
+		t,
+		err,
+		"either 'groups' or 'groupNamesToSubstrings' must be set",
+	)
 }
 
 func TestReadConfig_NotAllFields(t *testing.T) {
@@ -278,6 +325,155 @@ groupNamesToSubstrings:
 	}
 }
 
+func readUseWriteConfig(t *testing.T, content string) string {
+	tempFile := createTempFileWithContent(content)
+	defer os.Remove(tempFile.Name())
+	cfg, err := readConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read config: %v", err)
+	}
+
+	_, err = NewCategorization(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create categorization: %v", err)
+	}
+
+	err = cfg.writeToFile(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	// Read the file back to check for comments
+	buf, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read written config: %v", err)
+	}
+	return string(buf)
+}
+
+func TestWriteToFile_FromNewToNew(t *testing.T) {
+	// Arrange.
+	initialContent := `# Root comment
+inecobankStatementXmlFilesGlob: '*.xml'  # After line comment
+inecobankStatementXlsxFilesGlob: "*.xlsx"
+ameriaCsvFilesGlob: '*.csv'
+myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
+myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+# Before group comment
+myAmeriaMyAccounts:
+  - Account1 # List element comment
+  # Between list elements comment
+  - Account2
+detailedOutput: true
+categorizeMode: false
+monthStartDayNumber: 1
+timeZoneLocation: America/New_York
+groupAllUnknownTransactions: true
+groups:
+  # Before group comment
+  g1:
+    substrings:
+      - Sub1 # Group element comment
+      # Before group element comment
+      - Sub2
+`
+	// Note that comments are preserved with following limitations:
+	// - Optional fields will be added with default values.
+	// - Order of fields is replaced with `Config` struct fields order.
+	// - 2 spaces before comments are changed to 1.
+	// - Single quotes are changed to double quotes.
+	expectedContent := `# Root comment
+inecobankStatementXmlFilesGlob: '*.xml' # After line comment
+inecobankStatementXlsxFilesGlob: '*.xlsx'
+ameriaCsvFilesGlob: '*.csv'
+myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
+myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+# Before group comment
+myAmeriaMyAccounts:
+  - Account1 # List element comment
+  # Between list elements comment
+  - Account2
+detailedOutput: true
+categorizeMode: false
+monthStartDayNumber: 1
+timeZoneLocation: America/New_York
+groupAllUnknownTransactions: true
+groups:
+  # Before group comment
+  g1:
+    substrings:
+      - Sub1 # Group element comment
+      # Before group element comment
+      - Sub2
+`
+
+	// Act
+	actualContent := readUseWriteConfig(t, initialContent)
+
+	// Assert
+	assertStringEqual(t, actualContent, expectedContent)
+}
+
+func TestWriteToFile_FromOldToNew(t *testing.T) {
+	// Arrange.
+	initialContent := `# Root comment
+inecobankStatementXmlFilesGlob: '*.xml'  # After line comment
+inecobankStatementXlsxFilesGlob: "*.xlsx"
+ameriaCsvFilesGlob: '*.csv'
+myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
+myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+# Before group comment
+myAmeriaMyAccounts:
+  - Account1 # List element comment
+  # Between list elements comment
+  - Account2
+detailedOutput: true
+categorizeMode: false
+monthStartDayNumber: 1
+timeZoneLocation: America/New_York
+groupAllUnknownTransactions: true
+groupNamesToSubstrings:
+  # Before group comment
+  g1:
+    - Sub1 # Group element comment
+    - Sub2
+`
+	// Note that comments are preserved with following limitations:
+	// - Optional fields will be added with default values.
+	// - Order of fields is replaced with `Config` struct fields order.
+	// - 2 spaces before comments are changed to 1.
+	// - Single quotes are changed to double quotes.
+	expectedContent := `# Root comment
+inecobankStatementXmlFilesGlob: '*.xml' # After line comment
+inecobankStatementXlsxFilesGlob: '*.xlsx'
+ameriaCsvFilesGlob: '*.csv'
+myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
+myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+# Before group comment
+myAmeriaMyAccounts:
+  - Account1 # List element comment
+  # Between list elements comment
+  - Account2
+detailedOutput: true
+categorizeMode: false
+monthStartDayNumber: 1
+timeZoneLocation: America/New_York
+groupAllUnknownTransactions: true
+groups:
+  # Before group comment
+  g1:
+    substrings:
+      - Sub1 # Group element comment
+      - Sub2
+`
+
+	// Act
+	actualContent := readUseWriteConfig(t, initialContent)
+
+	// Assert
+	assertStringEqual(t, actualContent, expectedContent)
+}
+
 // createTempFileWithContent creates a temporary file with the given content.
 func createTempFileWithContent(content string) *os.File {
 	tempFile, err := os.CreateTemp("", "test_config_*.yaml")
@@ -288,14 +484,4 @@ func createTempFileWithContent(content string) *os.File {
 		panic(err)
 	}
 	return tempFile
-}
-
-func checkErrorContainsSubstring(t *testing.T, err error, substring string) {
-	if !strings.Contains(err.Error(), substring) {
-		t.Errorf(
-			"Expected error message to contain '%s', got '%s'",
-			substring,
-			err.Error(),
-		)
-	}
 }

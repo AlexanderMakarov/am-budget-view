@@ -93,10 +93,10 @@ func TestFindClosestExchangeRate(t *testing.T) {
 		{date: testDate.AddDate(0, 0, 2), currencyFrom: "AMD", currencyTo: "RUB", exchangeRate: 4.3},
 	}
 	tests := []struct {
-		name          string
-		date          time.Time
-		curState      *currencyState
-		expectedDays  int
+		name         string
+		date         time.Time
+		curState     *currencyState
+		expectedDays int
 	}{
 		{
 			name: "empty",

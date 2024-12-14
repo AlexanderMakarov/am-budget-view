@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{localize "Transaction Categorization"}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <script id="accountsData" type="application/json">{{.Accounts}}</script>
+    <script id="groupsData" type="application/json">{{.Groups}}</script>
+    <div class="container">
+        <header>
+            <h1>{{localize "Transaction Categorization"}}</h1>
+            <div class="header-right">
+                <button class="primary-button" onclick="openNewGroupModal()">{{localize "Create New Group"}}</button>
+                <button onclick="window.location.href='/groups'" class="primary-button">{{localize "Groups"}}</button>
+                <button onclick="window.location.href='/'" class="back-button">{{localize "Back to Dashboard"}}</button>
+            </div>
+        </header>
+
+        <table class="transactions-table">
+            <thead>
+                <tr>
+                    <th>{{localize "Date"}}</th>
+                    <th>{{localize "From Account"}}</th>
+                    <th>{{localize "To Account"}}</th>
+                    <th>{{localize "Amount"}}</th>
+                    <th>{{localize "Details"}}</th>
+                    <th>{{localize "Account Currency"}}</th>
+                    <th>{{localize "Source Type"}}</th>
+                    <th>{{localize "Source"}}</th>
+                    <th>{{localize "Actions"}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Transactions}}
+                <tr>
+                    <td>{{.Date | formatDate}}</td>
+                    <td>{{.FromAccount}}</td>
+                    <td>{{.ToAccount}}</td>
+                    <td class="amount">{{.Amount}}</td>
+                    <td>{{.Details}}</td>
+                    <td>{{.AccountCurrency}}</td>
+                    <td>{{.SourceType}}</td>
+                    <td>{{.Source}}</td>
+                    <td>
+                        <button onclick="showCategoryActions(this)" class="action-button">
+                            {{localize "Categorize"}}
+                        </button>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        <div class="explanation-text preserve-line-breaks">
+            {{localize "note_categorization"}}
+        </div>
+    </div>
+
+    <!-- New Group Modal -->
+    <div id="newGroupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeNewGroupModal()">&times;</span>
+            <h2>{{localize "Create New Group"}}</h2>
+            <form id="newGroupForm" onsubmit="submitNewGroup(event)">
+                <div class="form-group">
+                    <label>{{localize "Group Name"}}:</label>
+                    <input type="text" name="groupName" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">{{localize "Create"}}</button>
+                    <button type="button" onclick="closeNewGroupModal()" class="secondary-button">{{localize "Cancel"}}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Actions Popup -->
+    <div id="categoryActionsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCategoryModal()">&times;</span>
+            <h3>{{localize "Add to Group"}}</h3>
+            <form onsubmit="submitCategoryAction(event)">
+                <div class="form-group">
+                    <label for="groupSelect">{{localize "Group"}}:</label>
+                    <select id="groupSelect" required>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="categoryBy">{{localize "Add by"}}:</label>
+                    <select id="categoryBy" onchange="handleByMethodChange()" required>
+                        <option value="substring">{{localize "Substring"}}</option>
+                        <option value="fromAccount">{{localize "From Account"}}</option>
+                        <option value="toAccount">{{localize "To Account"}}</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="categorySubstring">{{localize "Value"}}:</label>
+                    <input type="text" id="categorySubstring" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">{{localize "Add"}}</button>
+                    <button type="button" onclick="closeCategoryModal()" class="secondary-button">{{localize "Cancel"}}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Load scripts after HTML elements are created. -->
+    <script>
+        window.localizedStrings = {
+            sourceType: "{{localize "Source Type"}}",
+            type: "{{localize "type"}}",
+            my: "{{localize "my"}}",
+            unknown: "{{localize "unknown"}}",
+            source: "{{localize "Source"}}",
+            from: "{{localize "From"}}",
+            to: "{{localize "To"}}",
+            occurencesInTransactions: "{{localize "Occurences in transactions"}}",
+            unknownAccount: "{{localize "Unknown Account"}}",
+            groupAlreadyExists: "{{localize "Group with this name already exists"}}"
+        };
+    </script>
+    <script id="groupsData" type="application/json">{{.Groups}}</script>
+    <script src="/static/js/categorization.js"></script>
+</body>
+</html> 

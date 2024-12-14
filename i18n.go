@@ -52,11 +52,14 @@ func (b *I18nFsBackend) GetLocales() ([]string, error) {
 
 	if devMode {
 		entries, err = os.ReadDir("locales")
+		if err != nil {
+			return nil, fmt.Errorf("can't read locales from 'locales' directory: %w", err)
+		}
 	} else {
 		entries, err = b.FS.ReadDir("locales")
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, fmt.Errorf("can't read locales from embedded filesystem: %w", err)
+		}
 	}
 	b.langs = make([]string, 0)
 	for _, entry := range entries {
@@ -105,19 +108,21 @@ type I18n struct {
 	locale       string
 	translations map[string]map[string]interface{}
 	funcs        map[string]func(entry interface{}, props map[string]interface{}) string
+	devMode      bool
 }
 
 // Init initializes the translator instance with the backend and default locale.
-func (i18n *I18n) Init(backend I18nFsBackend, defaultLocale string, validateKeys bool) error {
+func (i18n *I18n) Init(backend I18nFsBackend, defaultLocale string, devMode bool) error {
 	i18n.backend = backend
 	i18n.locale = defaultLocale
+	i18n.devMode = devMode
 	var err error
 	i18n.translations, err = i18n.backend.LoadTranslations(defaultLocale)
-	if validateKeys {
-		i18n.validateKeys()
-	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load translations: %w", err)
+	}
+	if i18n.devMode {
+		i18n.validateKeys()
 	}
 	i18n.funcs = i18n.buildDefaultFormatters()
 	return nil
@@ -400,6 +405,9 @@ func (i18n *I18n) Tfallback(reason, key string, args ...interface{}) string {
 	var argsList []string
 	for _, arg := range args {
 		argsList = append(argsList, fmt.Sprintf("%+v", arg))
+	}
+	if i18n.devMode {
+		panic(fmt.Sprintf("[%s: %s] %s, %s", i18n.locale, reason, key, strings.Join(argsList, ", ")))
 	}
 	return fmt.Sprintf("[%s: %s] %s, %s", i18n.locale, reason, key, strings.Join(argsList, ", "))
 }

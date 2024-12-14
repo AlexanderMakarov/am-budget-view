@@ -21,6 +21,9 @@
                         <option value="{{.}}">{{.}}</option>
                     {{end}}
                 </select>
+                <button onclick="window.location.href='/categorization'" class="primary-button">
+                    {{localize "Transaction Categorization"}}
+                </button>
                 <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">{{localize "See on GitHub"}}</a>
             </div>
         </header>
@@ -38,6 +41,7 @@
             {{localize "Notes"}}
             <ul>
                 <li>{{localize "note_exchange_rates"}}</li>
+                <li>{{localize "note_unknown_transactions"}}</li>
             </ul>
         </div>
     </div>
