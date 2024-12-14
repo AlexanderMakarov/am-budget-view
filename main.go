@@ -12,7 +12,7 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
-var devMode bool = os.Getenv("DEV_MODE") != "" || os.Getenv("DEV_MODE") != "false"
+var devMode bool = os.Getenv("DEV_MODE") != "" && strings.ToLower(os.Getenv("DEV_MODE")) != "false"
 
 //go:embed config.yaml
 var defaultConfig []byte
@@ -26,6 +26,7 @@ var langToLocale = map[string]string{
 }
 
 func init() {
+	log.Printf("Version=%s, devMode=%t", Version, devMode)
 	i18n = &I18n{}
 	err := i18n.Init(I18nFsBackend{FS: locales}, "en-US", devMode)
 	if err != nil {
@@ -52,8 +53,6 @@ func (Args) Description() string {
 }
 
 func main() {
-	log.Printf("Version: %s", Version)
-
 	// Parse arguments and set configPath.
 	var args Args
 	p, err := arg.NewParser(arg.Config{}, &args)

@@ -52,11 +52,14 @@ func (b *I18nFsBackend) GetLocales() ([]string, error) {
 
 	if devMode {
 		entries, err = os.ReadDir("locales")
+		if err != nil {
+			return nil, fmt.Errorf("can't read locales from 'locales' directory: %w", err)
+		}
 	} else {
 		entries, err = b.FS.ReadDir("locales")
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, fmt.Errorf("can't read locales from embedded filesystem: %w", err)
+		}
 	}
 	b.langs = make([]string, 0)
 	for _, entry := range entries {
@@ -115,11 +118,11 @@ func (i18n *I18n) Init(backend I18nFsBackend, defaultLocale string, devMode bool
 	i18n.devMode = devMode
 	var err error
 	i18n.translations, err = i18n.backend.LoadTranslations(defaultLocale)
+	if err != nil {
+		return fmt.Errorf("failed to load translations: %w", err)
+	}
 	if i18n.devMode {
 		i18n.validateKeys()
-	}
-	if err != nil {
-		return err
 	}
 	i18n.funcs = i18n.buildDefaultFormatters()
 	return nil

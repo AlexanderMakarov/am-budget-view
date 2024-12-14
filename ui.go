@@ -133,7 +133,9 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 				continue
 			}
 
-			if i18n.T("date_format", "val", currStat.Start) == month {
+			// Break this into separate steps for debugging
+			formattedDate := i18n.T("date_format", "val", currStat.Start)[:7] // YYYY-MM
+			if formattedDate == month {
 				if txType == "income" {
 					if groupData, ok := currStat.Income[group]; ok {
 						entries = groupData.JournalEntries
