@@ -24,11 +24,12 @@ Results are:
 
 Automatically opens browser with local UI:
 
-<img src="docsdata/main page.png" alt="main page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/main page v2.png" alt="main page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/montly expenses per category percent.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/montly expenses per category percent ru.png" alt="Ежемесячные расходы по категориям" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/categorization.png" alt="Categorization page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/transactions.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/main page ru.png" alt="главная страница USD + Expenses Data View" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/main page v2 ru.png" alt="главная страница USD + Expenses Data View" width="300" onclick="window.open(this.src)"/>
 
 ### 2. Text report with most important and structured insights into your budget.
 
@@ -63,7 +64,8 @@ This application allows you to configure categorization for your personal set of
 
 ## List of supported banks, file formats and relevant notes
 
-In short supported: Inecobank individual accounts, Ameriabank both individual and legal accounts.
+In short supported: Inecobank individual accounts (haven't tried with legal account though),
+Ameriabank both individual and legal accounts.
 
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (click on account, choose dates range, icon to download in right bottom corner).
@@ -109,9 +111,9 @@ In short supported: Inecobank individual accounts, Ameriabank both individual an
   to at least distinguish incomes from expenses in the file.
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
 
-To add new bank support please provide file with transactions (in private or with obfuscsated data,
-because it contains sensitive information) downloaded from bank application
-and instructions how you got this file.
+To add new bank support please provide file with transactions
+(in private or with obfuscsated data, because it contains sensitive information)
+downloaded from the bank application and instructions how you got this file.
 
 # How to use
 
@@ -120,31 +122,39 @@ and instructions how you got this file.
 
 1. Загрузите исполняемый файл приложения (имя начинается с "am-budget-view-"), скомпилированный для вашей операционной системы со страницы
 [Releases](https://github.com/AlexanderMakarov/am-budget-view/releases):
-- Для Windows используйте "am-budget-view-windows-amd64.exe". Даже если у вас процессор Intel. Используйте версию "arm", только если у вас ARM процессор.
+- Для Windows используйте "am-budget-view-windows-amd64.exe". Даже если у вас процессор Intel.
+  Используйте версию "arm", только если у вас ARM процессор.
 - Для Mac OS X с процессором M1+ используйте "am-budget-view-darwin-arm64".
   Для старых Macbook (до 2020 года) используйте "am-budget-view-darwin-amd64".
 - Для большинства Linux-es выберите "am-budget-view-linux-amd64".
 2. Загрузите "Statement" файлы с банковских сайтов за требуемый период и
   поместите их рядом с исполняемым файлом ("am-budget-view-...").
-  Подробности см. на [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
+  Подробности см. на [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes).
   Все файлы необходимо поместить в ту же папку, где находится исполняемый файл
   ("am-budget-view-..."). Детали по банкам:
   - Для индивидуальных счетов Inecobank - откройте [Online Inecobank сайт](https://online.inecobank.am)
     выберите нужный счет, укажите в полях "From" и "To" необходимый диапазон,
-    нажмите "Search", прокрутите страницу вниз, найдите в правом нижнем углу
+    нажмите "Search", проскролльте страницу вниз, найдите в правом нижнем углу
     5 значков, нажмите на значок "XML" чтобы загрузить файл.
   - Для индивидуальных счетов Ameria откройте [My Ameria сайт](https://myameria.am/),
-    выберите нужный счет, выберите опцию "Statement" справа,
+    выберите нужный счет, выберите опцию "Statement" (справа),
     задайте необходимый диапазон, установите флажок "In AMD" (чтобы получить курсы обмена),
-    выберите "Excel", нажмите "Download", чтобы загрузить файл.
+    выберите "Excel", нажмите "Download" чтобы загрузить файл.
   - Для юридических счетов Ameria откройте [Online Ameriabank сайт](https://online.ameriabank.am/),
     выберите "Accounts" в левом меню, выберите нужный счет,
     нажмите кнопку "Statement" вверху, в появившемся диалоговом окне задайте требуемый период,
     установите флажок "Show equivalent in AMD" (чтобы получить курсы обмена),
     нажмите "ОК", на новой вкладке "Account Statement" найдите 5 значков в правой средней части,
-    нажмите на значок "Export to CSV", чтобы загрузить файл.
+    нажмите на значок "Export to CSV" чтобы загрузить файл.
+  - Для "INECOBANK Statement" XLSL файлов которые Inecobank присылает для
+    индивидуальных счетов - 
+    (учтите что эти файлы не содержат "Reciever/Payer" номера счёта поэтому часть
+    функционала не будет работать и лучше использовать "Statement" файлы с сайта)
+    так как XLSL файлы защищены паролем то их нужно сохранить в папку приложения
+    без защиты ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
+    [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
 3. Запустите приложение ("am-budget-view-\*-\*").
-  Если все в порядке, то через пару секунд откроется новая вкладка в браузере
+  Если все в порядке то через пару секунд откроется новая вкладка в браузере
   с агрегированными данными из банковских транзакций, которые были предоставлены через "Statement" файлы.
   В противном случае откроется текстовый файл с описанием ошибки.
   В случае ошибки необходимо ее исправить чтобы продолжить работу.
@@ -155,29 +165,34 @@ and instructions how you got this file.
   [шаблонам поиска glob](https://ru.wikipedia.org/wiki/%D0%A8%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD_%D0%BF%D0%BE%D0%B8%D1%81%D0%BA%D0%B0)
   объявленным в файле "config.yaml" (приложение создает файл "config.yaml" при первом запуске).
   При успешном запуске страница браузера, скорее всего, будет содержать несколько
-  начальных категорий и одну большую категорию "Unknown" созданную из еще не категоризированных транзакций.
-4. Для категоризации транзакций необходимо отредактировать файл "config.yaml"
-  (будет создан рядом с приложением после первого запуска).
-  Откройте его в любом текстовом редакторе ("Блокнот" в Windows, "TextEditor" на Mac, различные на Linux-es)
-  и прокрутите до раздела `groupNamesToSubstrings` - здесь будет список начальных категорий.
-  Измените эти категории в соответствии с вашими потребностями.
-  Смотрите примеры в файле конфигурации - вы можете удалить ненужные и добавить свои собственные категории.
-  Будьте внимательны с форматированием и отступами. Периодически перезапускайте приложение, чтобы выявить
-  возможные ошибки и проверить результат, так как одна новая строка, добавленная в "config.yaml",
-  может охватывать десятки некатегоризированных транзакций и радикально сократить количество элементов для категоризации.
-  Чтобы найти некатегоризированные транзакции, есть 2 способа:
-  1. На странице браузера прокрутите вниз до "Ежемесячные расходы по категориям (%)" или
-    "Ежемесячные доходы по категориям (%)" и нажмите на строку "Unknown" в первом месяце.
-    Это откроет страницу "Транзакции", где подстроки из столбца "Подметки"
-    могут использоваться для назначения категории.
-  2. В файле "config.yaml" установите `categorizeMode: true` и перезапустите приложение в терминале.
-    Приложение выведет в терминал все некатегоризированные транзакции со значением "Подметки"
-    и некоторой статистикой в ​​конце.
-5. После того, как вы классифицируете все транзакции, вы получите готовый отчет для ручного расследования,
-  сравнения месяцев, принятия финансовых решений и т.д.
-  Обратите внимание, что чем больше счетов будет предоставлено приложению, тем более полной будет финансовая картина.
-6. В следующий раз достаточно добавить новые или обновить старые "Statement" файлы с новыми транзакциями
-  и снова запустить приложение.
+  начальных категорий и одну большую категорию "Unknown" созданную из еще не
+  категоризированных транзакций.
+4. Для категоризации транзакций используйте кнопку "Категоризация транзакций" в правом
+  верхнем углу. Откроется страница со списком не категоризованных транзакций где
+  у каждый строки справа будет кнопка "Категоризовать". При нажатии на неё откроется
+  модальное окно для создания нового правила категоризации.
+  Окно содержит выбор категории, способа категоризации и значения.
+  Приложение поддерживает следующие способы категоризации (типы правил):
+  - "Подстрока" - выбранная подстрока ищется в столбце "Пометки".
+  - "Со счёта" - выбранный номер счёта ищется в столбце "Со счёта".
+  - "На счёт" - выбранный номер счёта ищется в столбце "На счёт".
+  После нажатия на кнопку "Добавить" новое правило категоризации будет добавлено в
+  конфигурационный файл "config.yaml" и страница будет обновлена с применением нового правила.
+  Таким образом большой список транзакций можно будет категоризировать достаточно быстро.
+  Если нужно добавить новую категорию то используйте кнопку "Создать новую категорию"
+  в правом верхнем углу.
+  Если нужно удалить уже существующую категорию или посмотреть все категории и правила
+  то нажмите кнопку "Категории" - откроется отдельная страница со список категорий и
+  кнопкой "Удалить" для каждой из них.
+5. После того, как вы классифицируете все транзакции, вы получите готовый и интуитивно
+  понятный отчет о расходах и доходах, сравнения месяцев, принятия финансовых решений и т.д.
+  Обратите внимание, что чем больше счетов будет предоставлено приложению,
+  тем более полной будет финансовая картина.
+6. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
+  с новыми транзакциями и снова запустить приложение.
+  Возможно потребуется добавить новые правила категоризации для новых транзакций.
+  Важно сохранять конфигурационный файл "config.yaml" чтобы не потерять Ваши
+  персональные правила категоризации.
 </details>
 
 Script in English:
@@ -192,7 +207,7 @@ Script in English:
 2. Download "Statement" files from bank sites for required period and
    put them near the executable file ("am-budget-view-...").
    See details on 
-   [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes)
+   [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes).
    All files need to place in the same folder where the executable file
    ("am-budget-view-...") is placed. Details per bank:
    - For Inecobank individual accounts - open [Ineco Online main page](https://online.inecobank.am),
@@ -209,6 +224,13 @@ Script in English:
      set "Show equivalent in AMD" checkbox (to have exchange rates), press "OK",
      in new "Account Statement" tab look for 5 icons at the middle right,
      press "Export to CSV" to download the file.
+   - For "INECOBANK Statement" XLSL files which Inecobank sends for
+     individual accounts - 
+     (note that these files don't contain "Reciever/Payer" account number
+     so some functionality won't work and it's better to use "Statement" files from the site)
+     since XLSL files are protected by password they need to be saved in the application folder
+     without protection ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
+     [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
 3. Run application ("am-budget-view-\*-\*" file).
    If everything is OK then after a couple of seconds it would open a new tab in browser
    with aggregated details from bank transactions which where provided via "Statement" files.
@@ -222,34 +244,30 @@ Script in English:
    declared in "config.yaml" file (app would create default "config.yaml" file near it).
    But in a successful case browser page most probably would contain some pre-defined groups
    and one big "Unknown" group made from all uncategorized yet transactions.
-4. To categorize transactions need to edit "config.yaml" file
-   (will be created near the app after the first launch).
-   So open it in any text redactor ('Notepad' in Windows, 'TextEditor' on Mac, various on Linux-es)
-   and scroll to `groupNamesToSubstrings` section - here would be list of pre-defined categories.
-   Edit these categories to fit your needs.
-   See examples in configuration file - you may remove not needed and add your own groups.
-   Be careful about syntax and indentations. Re-run application periodically to highlight
-   possible erorrs and check result - one new string added to "config.yaml" may cover dozens
-   of uncategorized transactions and drastically reduce number of items to categorize.
-   To find uncategorized transactions there are 2 ways:
-   1. In browser page scroll down to "Monthly Expenses per Category (%)" or
-      "Monthly Incomes per Category (%)" and press on "Unknown" bar in the first month.
-      It would open "Transactions" page where substrings from "Details" column
-      may be used for assigning category.
-   2. In "config.yaml" file set `categorizeMode: true` and re-run application in terminal.
-      It would print into terminal all uncategorized transactions with "Details" value
-      and some statistic at the end.
-5. Once you categorized all transactions you will get a clean report for manual investigation,
-   comparing months, making fincancial decisions. etc.
-   Note that more accounts are provided to the application, the more full financial
+4. To categorize transactions use "Transaction Categorization" button at the top right.
+   It would open a page with a list of uncategorized transactions where each row would have
+   a "Categorize" button on the right. When pressed it would open a modal window for creating
+   a new categorization rule.
+   This window contains group (category) selection, rule type and value.
+   Application supports the following categorization types (rule types):
+   - "Substring" - selected substring is searched in "Details" column.
+   - "From Account" - selected account number is searched in "From Account" column.
+   - "To Account" - selected account number is searched in "To Account" column.
+   After pressing "Add" button new categorization rule would be added to
+   "config.yaml" file and page would be updated with new rule applied.
+   So a big list of transactions could be categorized quickly.
+   If you need to add a new category use "Create New Group" button at the top right.
+   If you need to delete an existing category or see all categories and rules
+   then press "Groups" button - it would open a separate page with a list of groups
+   (categories) and a "Delete" button for each of them.
+5. After you categorize all transactions you would get a ready and intuitive report
+   about expenses and incomes, comparison of months, making financial decisions and so on.
+   Note that more statement files are provided to the application, the more full financial
    picture would be.
-4. Next time it is enough to download "Statements" with new transactions and run application again.
-
-[![Watch the video for Inecobank and old application version](https://img.youtube.com/vi/4MZN-SK15HE/hqdefault.jpg)](https://www.youtube.com/embed/4MZN-SK15HE)
-Note that:
-- This video is for old application version, replace "aggregate-inecobank-statement" with "am-budget-view".
-  This app haven't had Web UI.
-- "config.yaml" would be created automatically, skip this step.
+6. With time it is enough to add new or update old "Statement" files with new transactions
+   and run application again.
+   It may be required to add new categorization rules for new transactions.
+   It is important to save "config.yaml" file to not lose your personal categorization rules.
 
 ### Notes:
 1. For remained formats and banks steps are near the same as for Inecobank.
