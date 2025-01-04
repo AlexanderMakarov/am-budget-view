@@ -221,6 +221,7 @@ func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
 			var request struct {
 				Action       string   `json:"action"`
 				GroupName    string   `json:"groupName"`
+				NewGroupName string   `json:"newGroupName,omitempty"`
 				Substrings   []string `json:"substrings,omitempty"`
 				FromAccounts []string `json:"fromAccounts,omitempty"`
 				ToAccounts   []string `json:"toAccounts,omitempty"`
@@ -257,9 +258,18 @@ func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
 				}
 				delete(dataHandler.Config.Groups, request.GroupName)
 
-			default:
-				logAndReturnError(w, fmt.Errorf("unknown action: %s", request.Action))
-				return
+			case "renameGroup":
+				if request.NewGroupName == "" {
+					logAndReturnError(w, fmt.Errorf("newGroupName is required"))
+					return
+				}
+				if _, exists := dataHandler.Config.Groups[request.NewGroupName]; exists {
+					http.Error(w, "Group with this name already exists", http.StatusBadRequest)
+					return
+				}
+				group := dataHandler.Config.Groups[request.GroupName]
+				delete(dataHandler.Config.Groups, request.GroupName)
+				dataHandler.Config.Groups[request.NewGroupName] = group
 			}
 
 			// After any modification update groups in memory and on disk.
@@ -343,6 +353,11 @@ func (lw *logWriter) Write(b []byte) (int, error) {
 }
 
 func parseAndExecuteTemplate(templatePath string, w http.ResponseWriter, data interface{}) error {
+	// Set cache-control headers before any writes to response
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	var tmpl *template.Template
 	var err error
 	if devMode {

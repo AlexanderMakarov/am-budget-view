@@ -17,40 +17,43 @@
             </div>
         </header>
 
-        <table class="transactions-table">
-            <thead>
-                <tr>
-                    <th>{{localize "Date"}}</th>
-                    <th>{{localize "From Account"}}</th>
-                    <th>{{localize "To Account"}}</th>
-                    <th>{{localize "Amount"}}</th>
-                    <th>{{localize "Details"}}</th>
-                    <th>{{localize "Account Currency"}}</th>
-                    <th>{{localize "Source Type"}}</th>
-                    <th>{{localize "Source"}}</th>
-                    <th>{{localize "Actions"}}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Transactions}}
-                <tr>
-                    <td>{{.Date | formatDate}}</td>
-                    <td>{{.FromAccount}}</td>
-                    <td>{{.ToAccount}}</td>
-                    <td class="amount">{{.Amount}}</td>
-                    <td>{{.Details}}</td>
-                    <td>{{.AccountCurrency}}</td>
-                    <td>{{.SourceType}}</td>
-                    <td>{{.Source}}</td>
-                    <td>
-                        <button onclick="showCategoryActions(this)" class="action-button">
-                            {{localize "Categorize"}}
-                        </button>
-                    </td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
+        <div class="table-container">
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>{{localize "Date"}}</th>
+                        <th>{{localize "From Account"}}</th>
+                        <th>{{localize "To Account"}}</th>
+                        <th>{{localize "Amount"}}</th>
+                        <th>{{localize "Details"}}</th>
+                        <th>{{localize "Account Currency"}}</th>
+                        <th>{{localize "Source Type"}}</th>
+                        <th>{{localize "Source"}}</th>
+                        <th>{{localize "Actions"}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Transactions}}
+                    <tr>
+                        <td>{{.Date | formatDate}}</td>
+                        <td>{{.FromAccount}}</td>
+                        <td>{{.ToAccount}}</td>
+                        <td class="amount">{{.Amount}}</td>
+                        <td>{{.Details}}</td>
+                        <td>{{.AccountCurrency}}</td>
+                        <td>{{.SourceType}}</td>
+                        <td>{{.Source}}</td>
+                        <td>
+                            <button onclick="showCategoryActions(this)" class="action-button">
+                                {{localize "Categorize"}}
+                            </button>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
         <div class="explanation-text preserve-line-breaks">
             {{localize "note_categorization"}}
         </div>

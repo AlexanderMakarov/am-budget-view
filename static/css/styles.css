@@ -9,7 +9,7 @@ body {
     width: 100%;
     padding: 20px;
     box-sizing: border-box;
-    overflow-x: auto;
+    min-height: 100vh;
 }
 
 .chart {
@@ -51,6 +51,7 @@ body {
 }
 
 header {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -102,13 +103,11 @@ h1 {
 
 .transactions-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     background-color: white;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     border-radius: 5px;
-    overflow-x: auto;
-    position: relative;
-    z-index: 1;
 }
 
 .transactions-table th,
@@ -119,8 +118,11 @@ h1 {
 }
 
 .transactions-table th {
-    background-color: #f8f9fa;
-    font-weight: bold;
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 2;
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
 .transactions-table tr:hover {
@@ -175,6 +177,7 @@ h1 {
     margin-top: 20px;
     font-size: 16px;
     line-height: 1.5;
+    flex: 0 0 auto;
 }
 
 .preserve-line-breaks {
@@ -336,7 +339,24 @@ h1 {
 .table-container {
     margin-top: 20px;
     width: 100%;
-    overflow-x: auto;
+    height: calc(100vh - 80px);
+    overflow: auto;
+    background: white;
+}
+
+/* Add alternating row colors */
+.transactions-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Update hover state to be more visible */
+.transactions-table tbody tr:hover {
+    background-color: #b5c5d5;
+}
+
+/* Update non-statistical rows to preserve alternating pattern */
+.transactions-table tr.non-statistical {
+    color: #888;
 }
 
 .rule-item {
@@ -346,4 +366,8 @@ h1 {
     border-radius: 4px;
     font-family: monospace;
     word-break: break-all;
+}
+
+.transactions-table thead {
+    /* Remove all styles */
 }

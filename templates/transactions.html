@@ -14,52 +14,55 @@
             </div>
         </header>
 
-        <table class="transactions-table">
-            <thead>
-                <tr>
-                    <th>{{localize "Date"}}</th>
-                    <th>{{localize "From Account"}}</th>
-                    <th>{{localize "To Account"}}</th>
-                    <th>{{localize "Amount"}} ({{.Currency}})</th>
-                    <th>{{localize "Details"}}</th>
-                    <th>{{localize "Account Currency"}}</th>
-                    <th>{{localize "с conversion precision (days)" "c" .Currency}}</th>
-                    <th>{{localize "Source Type"}}</th>
-                    <th>{{localize "Source"}}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Entries}}
-                <tr {{if .IsCounted}}class="non-statistical"{{end}}>
-                    <td>{{.Date | formatDate}}</td>
-                    <td class="account" 
-                        data-account="{{.FromAccount}}" 
-                        data-is-transaction="{{if .FromAccountInfo}}{{.FromAccountInfo.IsTransactionAccount}}{{end}}"
-                        data-from="{{if .FromAccountInfo}}{{.FromAccountInfo.From | formatDate}}{{end}}"
-                        data-to="{{if .FromAccountInfo}}{{.FromAccountInfo.To | formatDate}}{{end}}"
-                        data-source-type="{{if .FromAccountInfo}}{{.FromAccountInfo.SourceType}}{{end}}"
-                        data-source="{{if .FromAccountInfo}}{{.FromAccountInfo.Source}}{{end}}">
-                        {{.FromAccount}}
-                    </td>
-                    <td class="account" 
-                        data-account="{{.ToAccount}}" 
-                        data-is-transaction="{{if .ToAccountInfo}}{{.ToAccountInfo.IsTransactionAccount}}{{end}}"
-                        data-from="{{if .ToAccountInfo}}{{.ToAccountInfo.From | formatDate}}{{end}}"
-                        data-to="{{if .ToAccountInfo}}{{.ToAccountInfo.To | formatDate}}{{end}}"
-                        data-source-type="{{if .ToAccountInfo}}{{.ToAccountInfo.SourceType}}{{end}}"
-                        data-source="{{if .ToAccountInfo}}{{.ToAccountInfo.Source}}{{end}}">
-                        {{.ToAccount}}
-                    </td>
-                    <td class="amount">{{with .Amounts}}{{(index . $.Currency).Amount}}{{end}}</td>
-                    <td>{{.Details}}</td>
-                    <td>{{.AccountCurrency}}</td>
-                    <td>{{with .Amounts}}{{(index . $.Currency).ConversionPrecision}}{{end}}</td>
-                    <td>{{.SourceType}}</td>
-                    <td>{{.Source}}</td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
+        <div class="table-container">
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>{{localize "Date"}}</th>
+                        <th>{{localize "From Account"}}</th>
+                        <th>{{localize "To Account"}}</th>
+                        <th>{{localize "Amount"}} ({{.Currency}})</th>
+                        <th>{{localize "Details"}}</th>
+                        <th>{{localize "Account Currency"}}</th>
+                        <th>{{localize "с conversion precision (days)" "c" .Currency}}</th>
+                        <th>{{localize "Source Type"}}</th>
+                        <th>{{localize "Source"}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Entries}}
+                    <tr {{if .IsCounted}}class="non-statistical"{{end}}>
+                        <td>{{.Date | formatDate}}</td>
+                        <td class="account" 
+                            data-account="{{.FromAccount}}" 
+                            data-is-transaction="{{if .FromAccountInfo}}{{.FromAccountInfo.IsTransactionAccount}}{{end}}"
+                            data-from="{{if .FromAccountInfo}}{{.FromAccountInfo.From | formatDate}}{{end}}"
+                            data-to="{{if .FromAccountInfo}}{{.FromAccountInfo.To | formatDate}}{{end}}"
+                            data-source-type="{{if .FromAccountInfo}}{{.FromAccountInfo.SourceType}}{{end}}"
+                            data-source="{{if .FromAccountInfo}}{{.FromAccountInfo.Source}}{{end}}">
+                            {{.FromAccount}}
+                        </td>
+                        <td class="account" 
+                            data-account="{{.ToAccount}}" 
+                            data-is-transaction="{{if .ToAccountInfo}}{{.ToAccountInfo.IsTransactionAccount}}{{end}}"
+                            data-from="{{if .ToAccountInfo}}{{.ToAccountInfo.From | formatDate}}{{end}}"
+                            data-to="{{if .ToAccountInfo}}{{.ToAccountInfo.To | formatDate}}{{end}}"
+                            data-source-type="{{if .ToAccountInfo}}{{.ToAccountInfo.SourceType}}{{end}}"
+                            data-source="{{if .ToAccountInfo}}{{.ToAccountInfo.Source}}{{end}}">
+                            {{.ToAccount}}
+                        </td>
+                        <td class="amount">{{with .Amounts}}{{(index . $.Currency).Amount}}{{end}}</td>
+                        <td>{{.Details}}</td>
+                        <td>{{.AccountCurrency}}</td>
+                        <td>{{with .Amounts}}{{(index . $.Currency).ConversionPrecision}}{{end}}</td>
+                        <td>{{.SourceType}}</td>
+                        <td>{{.Source}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
         <div class="explanation-text">
             {{localize "Transactions list note" "group" .Group}}
         </div>

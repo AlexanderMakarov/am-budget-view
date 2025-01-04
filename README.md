@@ -355,10 +355,10 @@ CI will do the rest.
 - [x] Write instruction about both options for Ameriabank transactions.
 - [x] Enable categorization by accounts, like "expense to this account is a rent".
 - [x] Add "Categorization" page in UI and relevant functionality.
+- [x] Add "Edit" actions to "Groups" page (to revert wrong change).
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.
-- [ ] Add "Edit" actions to "Groups" page (to revert wrong change).
 - [ ] Collect more details about accounts (distribution of usage?), separate page.
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
 - [ ] Record new video(s) with instructions.

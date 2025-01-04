@@ -29,20 +29,23 @@
                 <tbody>
                     {{range $name, $group := .Groups}}
                     <tr>
-                        <td><strong>{{$name}}</strong></td>
-                        <td>
+                        <td class="group-name" data-original-name="{{$name}}">
+                            <span class="name-display">{{$name}}</span>
+                            <input type="text" class="name-edit" style="display: none;" value="{{$name}}">
+                        </td>
+                        <td class="rules-cell" data-rule-type="fromAccounts">
                             {{range $group.FromAccounts}}
-                            <div class="rule-item">{{.}}</div>
+                            <div class="rule-item" onclick="editRule(this, '{{$name}}', 'fromAccounts')">{{.}}</div>
                             {{end}}
                         </td>
-                        <td>
+                        <td class="rules-cell" data-rule-type="toAccounts">
                             {{range $group.ToAccounts}}
-                            <div class="rule-item">{{.}}</div>
+                            <div class="rule-item" onclick="editRule(this, '{{$name}}', 'toAccounts')">{{.}}</div>
                             {{end}}
                         </td>
-                        <td>
+                        <td class="rules-cell" data-rule-type="substrings">
                             {{range $group.Substrings}}
-                            <div class="rule-item">{{.}}</div>
+                            <div class="rule-item" onclick="editRule(this, '{{$name}}', 'substrings')">{{.}}</div>
                             {{end}}
                         </td>
                         <td>
@@ -55,36 +58,44 @@
                 </tbody>
             </table>
         </div>
+        <div class="explanation-text">
+            {{localize "note_groups"}}
+        </div>
+    </div>
+
+    <!-- Rule Edit Modal -->
+    <div id="ruleEditModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRuleModal()">&times;</span>
+            <h3>{{localize "Edit Rule"}}</h3>
+            <form id="ruleEditForm" onsubmit="submitRuleEdit(event)">
+                <div class="form-group">
+                    <label for="ruleSelect">{{localize "Select Rule"}}:</label>
+                    <select id="ruleSelect" onchange="handleRuleSelect()" required>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ruleValue">{{localize "Value"}}:</label>
+                    <input type="text" id="ruleValue" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">{{localize "Apply"}}</button>
+                    <button type="button" onclick="deleteRule()" class="delete-button">{{localize "Delete"}}</button>
+                    <button type="button" onclick="closeRuleModal()" class="secondary-button">{{localize "Cancel"}}</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
-        async function deleteGroup(groupName) {
-            if (!confirm('{{localize "Are you sure you want to delete this group?"}}')) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/categorization', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'deleteGroup',
-                        groupName: groupName
-                    })
-                });
-
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + await response.text());
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error: ' + error.message);
-            }
-        }
+        window.localizedStrings = {
+            groupNameEmpty: '{{localize "Group name cannot be empty"}}',
+            ruleValueEmpty: '{{localize "Rule value cannot be empty"}}',
+            confirmDeleteRule: '{{localize "Are you sure you want to delete this rule?"}}',
+            confirmDeleteGroup: '{{localize "Are you sure you want to delete this group?"}}'
+        };
     </script>
+
+    <script src="/static/js/groups.js"></script>
 </body>
 </html> 
