@@ -15,4 +15,6 @@ build:
 
 build-windows:
 	GOOS=windows GOARCH=amd64 go build -o am-budget-view.exe
- 
+
+build-macos-amd64:
+	GOOS=darwin GOARCH=amd64 go build -o am-budget-view-macos-amd64

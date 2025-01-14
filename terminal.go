@@ -33,7 +33,7 @@ func ensureTerminalWindow() {
 		// Escape double quotes and backslashes in the path
 		escapedPath := strings.ReplaceAll(executable, `\`, `\\`)
 		escapedPath = strings.ReplaceAll(escapedPath, `"`, `\"`)
-		
+
 		script := fmt.Sprintf(`tell application "Terminal"
 			do script "\"%s\""
 			activate
@@ -52,7 +52,7 @@ func ensureTerminalWindow() {
 			{"x-terminal-emulator", "-e", os.Args[0]},
 			{"xterm", "-e", os.Args[0]},
 		}
-		
+
 		for _, termCmd := range terminals {
 			if path, err := exec.LookPath(termCmd[0]); err == nil {
 				cmd := exec.Command(path, termCmd[1:]...)
@@ -73,14 +73,18 @@ func isRunningInTerminal() bool {
 		if os.Getenv("TERM") == "" {
 			return false
 		}
-		// Check if parent process is Terminal.app
+		// Check if parent process is Terminal.app or a shell.
 		ppid := os.Getppid()
 		parentName, err := getProcessName(ppid)
 		if err != nil {
 			return false
 		}
-		return strings.Contains(strings.ToLower(parentName), "terminal") ||
-			strings.Contains(strings.ToLower(parentName), "iterm")
+		parentNameLower := strings.ToLower(parentName)
+		return strings.Contains(parentNameLower, "terminal") ||
+			strings.Contains(parentNameLower, "iterm") ||
+			strings.Contains(parentNameLower, "zsh") ||
+			strings.Contains(parentNameLower, "bash") ||
+			strings.Contains(parentNameLower, "sh")
 	default:
 		// For Unix-like systems, check if the process has a controlling terminal
 		if os.Getenv("TERM") == "dumb" || os.Getenv("TERM") == "" {
@@ -109,27 +113,37 @@ func isRunningInTerminal() bool {
 }
 
 func getProcessName(pid int) (string, error) {
-	cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-	if err != nil {
-		return "", err
-	}
-	// Get the first string before null byte
-	for i, b := range cmdline {
-		if b == 0 {
-			return string(cmdline[:i]), nil
+	switch runtime.GOOS {
+	case "darwin":
+		cmd := exec.Command("ps", "-p", fmt.Sprintf("%d", pid), "-o", "comm=")
+		output, err := cmd.Output()
+		if err != nil {
+			return "", err
 		}
+		return strings.TrimSpace(string(output)), nil
+	default:
+		cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+		if err != nil {
+			return "", err
+		}
+		// Get the first string before null byte
+		for i, b := range cmdline {
+			if b == 0 {
+				return string(cmdline[:i]), nil
+			}
+		}
+		return string(cmdline), nil
 	}
-	return string(cmdline), nil
 }
 
 func isTerminalProcess(name string) bool {
 	terminalProcesses := []string{
-		"gnome-terminal", "konsole", "xfce4-terminal", 
-		"mate-terminal", "xterm", "terminator", 
+		"gnome-terminal", "konsole", "xfce4-terminal",
+		"mate-terminal", "xterm", "terminator",
 		"urxvt", "rxvt", "termite", "alacritty",
 		"kitty", "bash", "zsh", "sh", "fish",
 	}
-	
+
 	for _, term := range terminalProcesses {
 		if strings.Contains(name, term) {
 			return true
