@@ -18,3 +18,17 @@ build-windows:
 
 build-macos-amd64:
 	GOOS=darwin GOARCH=amd64 go build -o am-budget-view-macos-amd64
+
+release:
+	git fetch --all
+	@echo "Last 5 release tags:"
+	@git tag -l "release*" | sort -rV | head -n 5
+	@echo ""
+	@if [ -z "$(version)" ]; then \
+		echo "Error: version parameter is required. Use 'make release version=X.X.X [comment=\"Your comment\"]'"; \
+		exit 1; \
+	fi
+	git checkout master
+	git pull
+	git tag -a "release$(version)" -m "$(comment)"
+	@echo "Now run: git push origin release$(version)"
