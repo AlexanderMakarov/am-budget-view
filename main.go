@@ -194,7 +194,19 @@ func main() {
 	transactions = append(transactions, ameriaCsvTransactions...)
 	allFileInfos = append(allFileInfos, fileInfos...)
 
-	// Check we found something.
+	// Generic CSV
+	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
+		config.GenericCsvFilesGlob,
+		"Generic CSV",
+		GenericCsvFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		fatalError(err, isWriteToFile, isOpenFileWithResult)
+	}
+	transactions = append(transactions, genericCsvTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
 	if len(transactions) < 1 {
 		fatalError(
 			errors.New(

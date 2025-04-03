@@ -46,6 +46,7 @@ type Config struct {
 	AmeriaCsvFilesGlob                   string   `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaAccountStatementXlsFilesGlob string   `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaHistoryXlsFilesGlob          string   `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
+	GenericCsvFilesGlob                  string   `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	MyAmeriaMyAccounts                   []string `yaml:"myAmeriaMyAccounts,omitempty"`
 	ConvertToCurrencies                  []string `yaml:"convertToCurrencies,omitempty"`
 	MinCurrencyTimespanPercent           int      `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
@@ -179,7 +180,7 @@ func mergeComments(newNode, oldNode *yaml.Node) {
 		// Special handling for groups and groupNamesToSubstrings
 		if newNode.Kind == yaml.MappingNode {
 			var groupsNode, oldGroupsToSubstringsNode *yaml.Node
-			
+
 			// Find the relevant nodes
 			for i := 0; i < len(newNode.Content); i += 2 {
 				if newNode.Content[i].Value == "groups" {
@@ -193,22 +194,22 @@ func mergeComments(newNode, oldNode *yaml.Node) {
 			}
 
 			// If we found both nodes, merge comments from groupNamesToSubstrings to groups.substrings
-			if groupsNode != nil && oldGroupsToSubstringsNode != nil && 
-			   groupsNode.Kind == yaml.MappingNode && oldGroupsToSubstringsNode.Kind == yaml.MappingNode {
+			if groupsNode != nil && oldGroupsToSubstringsNode != nil &&
+				groupsNode.Kind == yaml.MappingNode && oldGroupsToSubstringsNode.Kind == yaml.MappingNode {
 				for i := 0; i < len(groupsNode.Content); i += 2 {
 					groupName := groupsNode.Content[i].Value
 					groupConfig := groupsNode.Content[i+1]
-					
+
 					// Find corresponding old substrings
 					for j := 0; j < len(oldGroupsToSubstringsNode.Content); j += 2 {
 						if oldGroupsToSubstringsNode.Content[j].Value == groupName {
 							oldSubstrings := oldGroupsToSubstringsNode.Content[j+1]
-							
+
 							// Find substrings field in new group config
 							for k := 0; k < len(groupConfig.Content); k += 2 {
 								if groupConfig.Content[k].Value == "substrings" {
 									newSubstrings := groupConfig.Content[k+1]
-									
+
 									// Only merge comments for the actual substring elements
 									if oldSubstrings.Kind == yaml.SequenceNode && newSubstrings.Kind == yaml.SequenceNode {
 										// Clear any comments that might have been incorrectly propagated
@@ -218,7 +219,7 @@ func mergeComments(newNode, oldNode *yaml.Node) {
 										groupConfig.Content[k].HeadComment = ""
 										groupConfig.Content[k].LineComment = ""
 										groupConfig.Content[k].FootComment = ""
-										
+
 										// Copy comments directly from old sequence elements to new ones
 										for l := 0; l < len(newSubstrings.Content) && l < len(oldSubstrings.Content); l++ {
 											newSubstrings.Content[l].HeadComment = oldSubstrings.Content[l].HeadComment

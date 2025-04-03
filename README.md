@@ -30,6 +30,7 @@ Automatically opens browser with local UI:
 <img src="docsdata/categorization.png" alt="Categorization page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/transactions.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/main page v2 ru.png" alt="главная страница USD + Expenses Data View" width="300" onclick="window.open(this.src)"/>
+TODO "Files" page
 
 ### 2. Text report with most important and structured insights into your budget.
 
@@ -110,6 +111,19 @@ Ameriabank both individual and legal accounts.
   don't have account number or by `myAmeriaIncomeSubstrings` setting
   to at least distinguish incomes from expenses in the file.
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
+- [FULL] Generic CSV files with transactions from the any source.
+  In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
+  Supported fields:
+  - Date - string with date of the transaction `YYYY-MM-DD` format.
+  - FromAccount - string with account number of the sender.
+  - ToAccount - string with account number of the receiver.
+  - IsExpense - boolean value, true if the transaction is an expense, false if it is an income.
+  - Amount - string with amount of the transaction.
+  - Details - string with details of the transaction.
+  - AccountCurrency - string with currency of the account.
+  - OriginCurrency - string with currency of the transaction before conversion.
+  - OriginCurrencyAmount - string with amount of the transaction in origin currency.
+  Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
 
 To add new bank support please provide file with transactions
 (in private or with obfuscsated data, because it contains sensitive information)
@@ -357,7 +371,7 @@ CI will do the rest.
 - [x] Add "Categorization" page in UI and relevant functionality.
 - [x] Add "Edit" actions to "Groups" page (to revert wrong change).
 - [x] Traceability of files - show list of files used for report generation.
-- [ ] `Transaction` format CSV file parser.
+- [x] `Transaction` format CSV file parser.
       This is to allow load data from any source (not only Inecobank and Ameria).
 - [ ] In "Transactions" page show rule which categorized transaction with ability to delete it.
 - [ ] Support group to ignore some transactions as "to me". Because:

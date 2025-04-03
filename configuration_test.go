@@ -16,6 +16,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   - Account1
   - Account2
@@ -68,6 +69,12 @@ groupNamesToSubstrings:
 			cfg.MyAmeriaHistoryXlsFilesGlob,
 		)
 	}
+	if cfg.GenericCsvFilesGlob != "generic*.csv" {
+		t.Errorf(
+			"Expected GenericCsvFilesGlob to be 'generic*.csv', got '%s'",
+			cfg.GenericCsvFilesGlob,
+		)
+	}
 	if len(cfg.MyAmeriaMyAccounts) != 2 || cfg.MyAmeriaMyAccounts[0] != "Account1" || cfg.MyAmeriaMyAccounts[1] != "Account2" {
 		t.Errorf(
 			"Expected MyAmeriaMyAccounts to be ['Account1', 'Account2'], got '%v'",
@@ -105,6 +112,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts
   - Account1
   - Account2
@@ -129,7 +137,7 @@ groupNamesToSubstrings:
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "yaml: line 6: could not find expected ':'")
+	checkErrorContainsSubstring(t, err, "yaml: line 7: could not find expected ':'")
 }
 
 func TestReadConfig_GroupsNotSpecified(t *testing.T) {
@@ -140,6 +148,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   - Account1
   - Account2
@@ -175,6 +184,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 myAmeriaCsvFilesGlob: "*.csv" # Should be ameriaCsvFilesGlob
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   - Account1
   - Account2
@@ -252,6 +262,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+genericCsvFilesGlob: "generic*.csv"
 detailedOutput: false
 groupAllUnknownTransactions: true
 groupNamesToSubstrings:
@@ -296,6 +307,12 @@ groupNamesToSubstrings:
 		t.Errorf(
 			"Expected MyAmeriaHistoryXlsFilesGlob to be 'History*.xls', got '%s'",
 			cfg.MyAmeriaHistoryXlsFilesGlob,
+		)
+	}
+	if cfg.GenericCsvFilesGlob != "generic*.csv" {
+		t.Errorf(
+			"Expected GenericCsvFilesGlob to be 'generic*.csv', got '%s'",
+			cfg.GenericCsvFilesGlob,
 		)
 	}
 	if len(cfg.MyAmeriaMyAccounts) != 0 {
@@ -343,7 +360,7 @@ func readUseWriteConfig(t *testing.T, content string) string {
 		t.Fatalf("Failed to write config: %v", err)
 	}
 
-	// Read the file back to check for comments
+	// Read resulting file to check for comments.
 	buf, err := os.ReadFile(tempFile.Name())
 	if err != nil {
 		t.Fatalf("Failed to read written config: %v", err)
@@ -359,6 +376,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: '*.csv'
 myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
 myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+genericCsvFilesGlob: "generic*.csv"
 # Before group comment
 myAmeriaMyAccounts:
   - Account1 # List element comment
@@ -388,6 +406,7 @@ inecobankStatementXlsxFilesGlob: '*.xlsx'
 ameriaCsvFilesGlob: '*.csv'
 myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
 myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+genericCsvFilesGlob: generic*.csv
 # Before group comment
 myAmeriaMyAccounts:
   - Account1 # List element comment
