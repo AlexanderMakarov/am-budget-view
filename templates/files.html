@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{localize "Files"}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{localize "Files Used in Report Generation"}}</h1>
+            <div class="header-right">
+                <button onclick="window.location.href='/'" class="back-button">
+                    {{localize "Back to Dashboard"}}
+                </button>
+            </div>
+        </header>
+
+        <div class="alert alert-info">
+            {{localize "Working Directory"}}: {{.WorkingDir}}
+        </div>
+
+        <div class="table-container">
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th>{{localize "File Name"}}</th>
+                        <th>{{localize "type"}}</th>
+                        <th>{{localize "Number of Transactions"}}</th>
+                        <th>{{localize "Modified Date"}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Files}}
+                    <tr>
+                        <td>{{.Path}}</td>
+                        <td>{{.Type}}</td>
+                        <td>{{.TransactionsCount}}</td>
+                        <td>{{.ModifiedTime | formatDate}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

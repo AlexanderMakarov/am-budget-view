@@ -16,6 +16,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 		detailsIncome  []string
 		wantErr        bool
 		expectedResult []Transaction
+		expectedSourceType string
 	}{
 		{
 			name:          "valid_file-check_by_account",
@@ -73,6 +74,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					ToAccount:            "1234567890123456",
 				},
 			},
+			expectedSourceType: "MyAmeriaExcel",
 		},
 		{
 			name:           "file_not_found",
@@ -80,7 +82,8 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			myAccounts:     []string{},
 			detailsIncome:  []string{},
 			wantErr:        true,
-			expectedResult: nil,
+			expectedResult:       nil,
+			expectedSourceType:   "",
 		},
 		{
 			name:           "invalid_header",
@@ -89,6 +92,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			detailsIncome:  []string{},
 			wantErr:        true,
 			expectedResult: nil,
+			expectedSourceType: "",
 		},
 		{
 			name:           "no_data",
@@ -97,6 +101,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			detailsIncome:  []string{},
 			wantErr:        false,
 			expectedResult: []Transaction{},
+			expectedSourceType: "MyAmeriaExcel",
 		},
 		//add tests with "(AMD)" columns
 	}
@@ -106,12 +111,15 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			parser := MyAmeriaExcelFileParser{
 				MyAccounts: tt.myAccounts,
 			}
-			actual, err := parser.ParseRawTransactionsFromFile(tt.filePath)
+			actual, returnedSourceType, err := parser.ParseRawTransactionsFromFile(tt.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseRawTransactionsFromFile() error = %+v, wantErr %+v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(actual, tt.expectedResult) {
 				t.Errorf("ParseRawTransactionsFromFile() actual=%+v, expected=%+v", actual, tt.expectedResult)
+			}
+			if returnedSourceType != tt.expectedSourceType {
+				t.Errorf("ParseRawTransactionsFromFile() returned source type = %+v, expected=%+v", returnedSourceType, tt.expectedSourceType)
 			}
 		})
 	}

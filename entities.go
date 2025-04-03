@@ -76,28 +76,30 @@ const OutputDateFormat = "2006-01-02"
 
 // Transaction represents a single transaction with data available in the source file.
 type Transaction struct {
-	// IsExpense is true if transaction is an expense, false if it is an income.
-	IsExpense bool
 	// Date of the transaction.
 	Date time.Time
-	// Details is a description of the transaction.
-	Details string
-	// Amount in account currency.
-	Amount MoneyWith2DecimalPlaces
-	// SourceType is a type of the source of the transaction. No spaces.
-	SourceType string
-	// Source identifier, usually file path.
-	Source string
-	// AccountCurrency is a currency of the account.
-	AccountCurrency string
-	// OriginCurrency is a currency of the transaction before conversion.
-	OriginCurrency string
-	// OriginCurrencyAmount is an amount in origin currency.
-	OriginCurrencyAmount MoneyWith2DecimalPlaces
 	// FromAccount is an account which pays the transaction, amount is decreasing here.
 	FromAccount string
 	// ToAccount is an account which receives the transaction, amount is increasing here.
 	ToAccount string
+	// IsExpense is true if transaction is an expense, false if it is an income.
+	IsExpense bool
+	// Amount in account currency.
+	Amount MoneyWith2DecimalPlaces
+	// Details is a description of the transaction.
+	Details string
+	// SourceType is a type of the source of the transaction. No spaces.
+	SourceType string
+	// Source identifier, usually file path.
+	Source string
+	// AccountCurrency is a currency of the account. ISO 3-character code.
+	AccountCurrency string
+	// OriginCurrency is a currency of the transaction before conversion. ISO 3-character code.
+	// Can be empty if transaction is in account currency.
+	OriginCurrency string
+	// OriginCurrencyAmount is an amount in origin currency.
+	// Can be empty if transaction is in account currency.
+	OriginCurrencyAmount MoneyWith2DecimalPlaces
 }
 
 // AccountStatistics is a struct representing data about an account found in transactions.
@@ -167,8 +169,11 @@ type JournalEntry struct {
 type FileParser interface {
 	// ParseRawTransactionsFromFile parses raw/unified transactions
 	// from the specified by path file.
-	// Returns list of parsed transactions and account number on success or error if can't parse.
-	ParseRawTransactionsFromFile(filePath string) ([]Transaction, error)
+	// Returns:
+	// - list of parsed transactions,
+	// - file type (source type, no spaces),
+	// - error if can't parse.
+	ParseRawTransactionsFromFile(filePath string) ([]Transaction, string, error)
 }
 
 // Group is a struct representing a group of journal entries.

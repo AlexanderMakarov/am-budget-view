@@ -7,7 +7,7 @@ import (
 )
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *testing.T) {
-	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, _, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/ameria/not_existing_path.csv",
 	)
 	if !strings.Contains(err.Error(), "failed to open file") {
@@ -18,11 +18,14 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *tes
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing.T) {
 	filePath := "testdata/ameria/with_bom_header.csv"
 	sourceType := "AmeriaCsv:AMD"
-	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
+	transactions, returnedSourceType, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
+	if returnedSourceType != sourceType {
+		t.Errorf("expected source type %s, but got %s", sourceType, returnedSourceType)
+	}
 	expectedTransactions := []Transaction{
 		{
 			IsExpense:       false,
@@ -58,7 +61,7 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidHeader(t *testing.T) {
 
 	// Act
-	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, _, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/ameria/invalid_header.csv",
 	)
 

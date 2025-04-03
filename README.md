@@ -356,10 +356,16 @@ CI will do the rest.
 - [x] Enable categorization by accounts, like "expense to this account is a rent".
 - [x] Add "Categorization" page in UI and relevant functionality.
 - [x] Add "Edit" actions to "Groups" page (to revert wrong change).
+- [x] Traceability of files - show list of files used for report generation.
+- [ ] `Transaction` format CSV file parser.
+      This is to allow load data from any source (not only Inecobank and Ameria).
+- [ ] In "Transactions" page show rule which categorized transaction with ability to delete it.
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.
+      c) currency exchange inside the same bank may happen under different account.
 - [ ] Collect more details about accounts (distribution of usage?), separate page.
+- [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
 - [ ] Record new video(s) with instructions.
 - [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).

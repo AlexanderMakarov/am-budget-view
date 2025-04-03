@@ -43,10 +43,12 @@ type InecoXlsxTransaction struct {
 type InecoExcelFileParser struct {
 }
 
-func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]Transaction, error) {
+func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) (
+	[]Transaction, string, error,
+) {
 	f, err := xlsx.OpenFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return nil, "", fmt.Errorf("failed to open file: %w", err)
 	}
 
 	// Find first sheet.
@@ -79,7 +81,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 			// "Ամսաթիվ	Գումար		Արժույթ		Մուտք	Ելք"
 			// i.e. 5 columns only, unique headers are placed in the row below.
 			if i > giveUpFindHeaderInInecoExcelAfterRows {
-				return nil, fmt.Errorf(
+				return nil, "", fmt.Errorf(
 					"after scanning %d rows can't find headers %v",
 					i, inecoXlsxHeadersBeforeTransactions,
 				)
@@ -110,13 +112,13 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 
 				// Check if account number and currenct are found.
 				if len(accountNumber) < 1 {
-					return nil, fmt.Errorf(
+					return nil, "", fmt.Errorf(
 						"failed to parse account number under label '%s' after transactions header is found in %d row",
 						inecoXlsxAccountNumberLabel, i,
 					)
 				}
 				if len(accountCurrency) < 1 {
-					return nil, fmt.Errorf(
+					return nil, "", fmt.Errorf(
 						"failed to parse account currency under label '%s' after transactions header is found in %d row",
 						inecoXlsxAccountCurrencyLabel, i,
 					)
@@ -130,7 +132,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 					isRegularAccount = false
 					sourceType = fmt.Sprintf("InecoExcelCard:%s", accountCurrency)
 				} else {
-					return nil, fmt.Errorf(
+					return nil, "", fmt.Errorf(
 						"after scanning %d rows and locating '%s' headers"+
 							" can't find either '%s' or '%s' headers (got only '%s') to understand which XLSX type it is",
 						i, inecoXlsxHeadersBeforeTransactions, inecoXlsxRegularAccountHeaders, inecoXlsxCardAccountHeaders, prevRowString,
@@ -158,26 +160,26 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 		// Parse date which is always 1st. Note that it has extra quotes.
 		date, err := time.Parse(InecoDateFormat, firstCell)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
+			return nil, "", fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
 		}
 		// Parse other fields of transaction depending on type of XLSX.
 		var transaction InecoXlsxTransaction
 		if isRegularAccount {
 			amountOrigCur, err := parseAmount(i, cells, 1, "amount in original currency")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 			amountIn, err := parseAmount(i, cells, 5, "income amount")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 			amountOut, err := parseAmount(i, cells, 6, "expense amount")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 			rate, err := parseAmount(i, cells, 7, "rate")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 
 			transaction = InecoXlsxTransaction{
@@ -193,23 +195,23 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 		} else {
 			dateApplied, err := time.Parse(InecoDateFormat, cells[10].String())
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse 'date when applied' from 6th cell of %d row: %w", i, err)
+				return nil, "", fmt.Errorf("failed to parse 'date when applied' from 6th cell of %d row: %w", i, err)
 			}
 			amountOrigCur, err := parseAmount(i, cells, 1, "amount in original currency")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 			amountIn, err := parseAmount(i, cells, 5, "income amount")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 			amountOut, err := parseAmount(i, cells, 6, "expense amount")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 			rate, err := parseAmount(i, cells, 7, "rate")
 			if err != nil {
-				return nil, fmt.Errorf("%w", err)
+				return nil, "", fmt.Errorf("%w", err)
 			}
 
 			transaction = InecoXlsxTransaction{
@@ -258,7 +260,7 @@ func (p InecoExcelFileParser) ParseRawTransactionsFromFile(filePath string) ([]T
 		}
 		transactions = append(transactions, transaction)
 	}
-	return transactions, nil
+	return transactions, sourceType, nil
 }
 
 func mergeCellsToString(cells []*xlsx.Cell) string {

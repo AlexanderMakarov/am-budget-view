@@ -102,7 +102,10 @@ func findAmountNearCurrency(details string, currencyIndex int) int {
 var currencyRegex = regexp.MustCompile(`\s[A-Z]{3}\W`)
 
 // parseExchangeRateFromDetails tries to parse exchange rate from details.
-// Transaction details may contain it in format "330000 AMD / 4.4 = 75000 RUB".
+// Transaction details may contain it in formats
+// - "330000 AMD / 4.4 = 75000 RUB"
+// - "1550 EUR * 410.84 = 636802 AMD"
+// - "1085500 AMD / 417.5 = 2600 EUR"
 func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency1, targetCurrency2 string) *ExchangeRate {
 	// Try to find both currencies in details.
 	currency1Index := strings.Index(details, targetCurrency1)
@@ -151,7 +154,29 @@ func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency
 		return nil
 	}
 	// Parse exchange rate.
-	exchangeRate := float64(amount2) / float64(amount1)
+	// Check if there's a multiplication sign between the amounts
+	minIndex := currency1Index
+	if currency2Index < currency1Index {
+		minIndex = currency2Index
+	}
+	maxIndex := currency1Index
+	if currency2Index > currency1Index {
+		maxIndex = currency2Index
+	}
+	betweenAmounts := details[minIndex:maxIndex]
+	isMultiplication := strings.Contains(betweenAmounts, "*")
+
+	var exchangeRate float64
+	if isMultiplication {
+		// For multiplication format: first_amount * rate = second_amount
+		// So exchange_rate = second_amount / first_amount
+		exchangeRate = float64(amount2) / float64(amount1)
+	} else {
+		// For division format: first_amount / rate = second_amount
+		// So exchange_rate = first_amount / second_amount
+		exchangeRate = float64(amount2) / float64(amount1)
+	}
+
 	return &ExchangeRate{
 		date:         date,
 		currencyFrom: targetCurrency1,
@@ -318,7 +343,14 @@ func convertToCurrency(
 			// Check direct rates from current currency
 			fromCurState := curStates[current.currency]
 			for _, er := range fromCurState.statistics.ExchangeRates {
-				if er.currencyTo != toCurrency && er.currencyFrom != toCurrency {
+				// Get the other currency from the exchange rate
+				otherCurrency := er.currencyTo
+				if er.currencyTo == current.currency {
+					otherCurrency = er.currencyFrom
+				}
+
+				// Skip if this rate doesn't connect to any other currency
+				if otherCurrency == current.currency {
 					continue
 				}
 
@@ -333,33 +365,28 @@ func convertToCurrency(
 				newPrecision += fromNode.precision
 
 				// Calculate converted amount based on exchange rate direction
-				// ExchangeRate = CurrencyFrom / CurrencyTo
 				var newAmount MoneyWith2DecimalPlaces
-				if er.currencyFrom == current.currency && er.currencyTo == toCurrency {
-					// Direct conversion: current -> target
-					newAmount = MoneyWith2DecimalPlaces{
-						int: int(float64(fromNode.amount.int) * er.exchangeRate),
-					}
-				} else if er.currencyTo == current.currency && er.currencyFrom == toCurrency {
-					// Reverse conversion: target -> current
-					newAmount = MoneyWith2DecimalPlaces{
-						int: int(float64(fromNode.amount.int) * er.exchangeRate),
-					}
-				} else if er.currencyFrom == current.currency {
-					// Indirect conversion through another currency
+				if er.currencyFrom == current.currency {
 					newAmount = MoneyWith2DecimalPlaces{
 						int: int(float64(fromNode.amount.int) * er.exchangeRate),
 					}
 				} else {
-					// Reverse indirect conversion
 					newAmount = MoneyWith2DecimalPlaces{
 						int: int(float64(fromNode.amount.int) / er.exchangeRate),
 					}
 				}
 
-				if newPrecision < bestPrecision {
-					bestPrecision = newPrecision
-					bestAmount = newAmount
+				// Update the other currency if we found a better path
+				otherNode := nodes[otherCurrency]
+				if newPrecision < otherNode.precision {
+					otherNode.amount = newAmount
+					otherNode.precision = newPrecision
+					if !processed[otherCurrency] {
+						queue = append(queue, queueItem{
+							currency:  otherCurrency,
+							precision: newPrecision,
+						})
+					}
 				}
 			}
 

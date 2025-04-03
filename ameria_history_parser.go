@@ -49,10 +49,10 @@ type MyAmeriaExcelFileParser struct {
 
 func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	filePath string,
-) ([]Transaction, error) {
+) ([]Transaction, string, error) {
 	f, err := xlsx.OpenFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return nil, "", fmt.Errorf("failed to open file: %w", err)
 	}
 
 	// Find first sheet.
@@ -65,7 +65,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	for i, row := range firstSheet.Rows {
 		cells := row.Cells
 		if len(cells) < len(xlsxHeaders) {
-			return nil, fmt.Errorf(
+			return nil, "", fmt.Errorf(
 				"%d row has only %d cells while need to find information for headers %v",
 				i, len(cells), xlsxHeaders,
 			)
@@ -73,7 +73,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		// Find header row.
 		if !isHeaderRowFound {
 			if i > giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells {
-				return nil, fmt.Errorf(
+				return nil, "", fmt.Errorf(
 					"after scanning %d rows can't find headers %v",
 					i, xlsxHeaders,
 				)
@@ -101,11 +101,11 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		// Parse date and amount.
 		date, err := time.Parse(MyAmeriaHistoryDateFormat, cells[0].String())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
+			return nil, "", fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
 		}
 		var amount MoneyWith2DecimalPlaces
 		if err := amount.UnmarshalText([]byte(cells[9].String())); err != nil {
-			return nil, fmt.Errorf("failed to parse amount from 10th cell of %d row: %w", i, err)
+			return nil, "", fmt.Errorf("failed to parse amount from 10th cell of %d row: %w", i, err)
 		}
 
 		transaction := MyAmeriaTransaction{
@@ -148,5 +148,5 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		}
 	}
 
-	return transactions, nil
+	return transactions, "MyAmeriaExcel", nil
 }

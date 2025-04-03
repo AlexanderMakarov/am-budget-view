@@ -75,46 +75,49 @@ func openFileInOS(url string) error {
 
 // parseTransactionsOfOneType parses transactions from files of one type by one glob pattern.
 // Updates parsingWarnings slice with warnings were found.
+// Returns list of transactions, list of file infos and error if it is fatal.
 func parseTransactionsOfOneType(
-	glob, nameOfFilesUnderGlob string,
+	glob,
+	nameOfFilesUnderGlob string,
 	parser FileParser,
 	parsingWarnings *[]string,
-) ([]Transaction, error) {
-	transactions, warning, err := parseTransactionFiles(glob, parser)
+) ([]Transaction, []FileInfo, error) {
+	transactions, warning, fileInfos, err := parseTransactionFiles(glob, parser)
 	if err != nil {
-		return nil, errors.New(i18n.T("error on parsing transactions from name files", "name", nameOfFilesUnderGlob, "err", err))
+		return nil, nil, errors.New(i18n.T("error on parsing transactions from name files", "name", nameOfFilesUnderGlob, "err", err))
 	}
 	if warning != "" {
 		*parsingWarnings = append(*parsingWarnings, i18n.T("Can't parse all n files", "n", nameOfFilesUnderGlob, "warning", warning))
 	}
-	return transactions, nil
+	return transactions, fileInfos, nil
 }
 
 // parseTransactionFiles parses transactions from files by glob pattern.
 // Returns list of transactions, not fatal error message and error if it is fatal.
-func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, string, error) {
+func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, string, []FileInfo, error) {
 	files, err := getFilesByGlob(glob)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	if len(files) < 1 {
 		workingDir, err := os.Getwd()
 		if err != nil {
-			return nil, "", errors.New(i18n.T("can't get working directory", "err", err))
+			return nil, "", nil, errors.New(i18n.T("can't get working directory", "err", err))
 		}
-		return nil, i18n.T("there are no files in d matching p pattern", "d", workingDir, "p", glob), nil
+		return nil, i18n.T("there are no files in d matching p pattern", "d", workingDir, "p", glob), nil, nil
 	}
 
 	result := make([]Transaction, 0)
+	fileInfos := make([]FileInfo, 0)
 	notFatalError := ""
 	for _, file := range files {
 		log.Println(i18n.T("Parsing file with parser", "file", file, "parser", parser))
-		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
+		rawTransactions, sourceType, err := parser.ParseRawTransactionsFromFile(file)
 		if err != nil {
 			notFatalError = i18n.T("can't parse transactions from file f", "f", file, "err", err)
 			if len(rawTransactions) < 1 {
 				// If both error and no transactions then treat error as fatal.
-				return result, "", errors.New(i18n.T("can't parse transactions from file f", "f", file, "err", err))
+				return result, "", nil, errors.New(i18n.T("can't parse transactions from file f", "f", file, "err", err))
 			} else {
 				// Otherwise just log.
 				log.Println(notFatalError)
@@ -126,6 +129,18 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 		}
 		log.Println(i18n.T("Found n transactions in f file", "n", len(rawTransactions), "f", file))
 		result = append(result, rawTransactions...)
+
+		// Get file info.
+		fileInfo, err := os.Stat(file)
+		if err != nil {
+			return result, "", nil, errors.New(i18n.T("can't get file info for '%s': %v", file, err))
+		}
+		fileInfos = append(fileInfos, FileInfo{
+			Path:              file,
+			Type:              sourceType,
+			TransactionsCount: len(rawTransactions),
+			ModifiedTime:      fileInfo.ModTime(),
+		})
 	}
-	return result, notFatalError, nil
+	return result, notFatalError, fileInfos, nil
 }

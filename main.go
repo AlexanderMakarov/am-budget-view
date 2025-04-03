@@ -125,11 +125,13 @@ func main() {
 	// Log settings.
 	log.Println(i18n.T("Using configuration", "config", config))
 
+	var allFileInfos []FileInfo
+
 	// Parse files to unified Transaction-s.
 	// Ineco XML
 	transactions := make([]Transaction, 0)
 	parsingWarnings := []string{}
-	inecoXmlTransactions, err := parseTransactionsOfOneType(
+	inecoXmlTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.InecobankStatementXmlFilesGlob,
 		"Inecobank XML statements",
 		InecoXmlParser{},
@@ -139,9 +141,10 @@ func main() {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, inecoXmlTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
 
 	// Ineco XLSX
-	inecoXlsxTransactions, err := parseTransactionsOfOneType(
+	inecoXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.InecobankStatementXlsxFilesGlob,
 		"Inecobank XLSX statements",
 		InecoExcelFileParser{},
@@ -151,9 +154,10 @@ func main() {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, inecoXlsxTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
 
 	// MyAmeria Excel account statements and history.
-	myAmeriaStatementsXlsTransactions, err := parseTransactionsOfOneType(
+	myAmeriaStatementsXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.MyAmeriaAccountStatementXlsFilesGlob,
 		"MyAmeria Account Statements Excel",
 		MyAmeriaExcelStmtFileParser{},
@@ -163,7 +167,7 @@ func main() {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, myAmeriaStatementsXlsTransactions...)
-	myAmeriaHistoryXlsTransactions, err := parseTransactionsOfOneType(
+	myAmeriaHistoryXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.MyAmeriaHistoryXlsFilesGlob,
 		"MyAmeria History Excel",
 		MyAmeriaExcelFileParser{
@@ -175,9 +179,10 @@ func main() {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, myAmeriaHistoryXlsTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
 
 	// Ameria CSV
-	ameriaCsvTransactions, err := parseTransactionsOfOneType(
+	ameriaCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.AmeriaCsvFilesGlob,
 		"Ameria CSV",
 		AmeriaCsvFileParser{},
@@ -187,6 +192,7 @@ func main() {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	transactions = append(transactions, ameriaCsvTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
 
 	// Check we found something.
 	if len(transactions) < 1 {
@@ -224,7 +230,7 @@ func main() {
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
-	dataHandler := NewDataHandler(args.ConfigPath, config, timeZone, dataMart, groupExtractorFactory, categorization)
+	dataHandler := NewDataHandler(args.ConfigPath, config, timeZone, dataMart, groupExtractorFactory, categorization, allFileInfos)
 
 	// Build journal entries.
 	journalEntries, err := dataHandler.GetJournalEntries()
@@ -309,6 +315,15 @@ func main() {
 	}
 }
 
+
+// FileInfo represents information about a parsed transaction file.
+type FileInfo struct {
+	Path              string    `json:"path"`
+	Type              string    `json:"type"`
+	TransactionsCount int       `json:"transactionsCount"`
+	ModifiedTime      time.Time `json:"modifiedTime"`
+}
+
 // DataHandler is a handler for data.
 // Contians methods to recalculate, cache, persist data.
 type DataHandler struct {
@@ -330,9 +345,11 @@ type DataHandler struct {
 	uncategorizedTransactions []Transaction
 	// monthlyStatistics is a list of cached monthly statistics.
 	monthlyStatistics []map[string]*IntervalStatistic
+	// FileInfos is a list of cached file information.
+	FileInfos []FileInfo
 }
 
-func NewDataHandler(configPath string, initialConfig *Config, timeZone *time.Location, dataMart *DataMart, groupExtractorFactory StatisticBuilderFactory, initialCategorization *Categorization) *DataHandler {
+func NewDataHandler(configPath string, initialConfig *Config, timeZone *time.Location, dataMart *DataMart, groupExtractorFactory StatisticBuilderFactory, initialCategorization *Categorization, fileInfos []FileInfo) *DataHandler {
 	return &DataHandler{
 		ConfigPath:            configPath,
 		Config:                initialConfig,
@@ -340,6 +357,7 @@ func NewDataHandler(configPath string, initialConfig *Config, timeZone *time.Loc
 		DataMart:              dataMart,
 		GroupExtractorFactory: groupExtractorFactory,
 		categorization:        initialCategorization,
+		FileInfos:             fileInfos,
 	}
 }
 

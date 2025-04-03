@@ -72,27 +72,28 @@ func (xd *XmlDate) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 type InecoXmlParser struct {
 }
 
-// ParseRawTransactionsFromFile implements FileParser.
-func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transaction, error) {
+func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) (
+	[]Transaction, string, error,
+) {
 
 	// Open XML file.
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error opening file: %w", err)
+		return nil, "", fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	// Read the file content
 	xmlData, err := io.ReadAll(file)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
+		return nil, "", fmt.Errorf("error reading file: %w", err)
 	}
 
 	// Unmarshal XML.
 	var stmt Statement
 	err = xml.Unmarshal(xmlData, &stmt)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling XML: %w", err)
+		return nil, "", fmt.Errorf("error unmarshalling XML: %w", err)
 	}
 
 	// Validate that all fields are set.
@@ -100,7 +101,7 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 	for i, operation := range stmt.Operations.Transactions {
 		err = validate.Struct(operation)
 		if err != nil {
-			return nil, fmt.Errorf("error in %d transaction: %w", i+1, err)
+			return nil, "", fmt.Errorf("error in %d transaction: %w", i+1, err)
 		}
 	}
 	sourceType := fmt.Sprintf("InecoXml:%s", stmt.Currency)
@@ -133,7 +134,7 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) ([]Transacti
 			ToAccount:       to,
 		})
 	}
-	return transactions, nil
+	return transactions, sourceType, nil
 }
 
 var _ FileParser = InecoXmlParser{}

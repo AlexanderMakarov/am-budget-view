@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -37,6 +38,7 @@ func ListenAndServe(dataHandler *DataHandler) error {
 	http.HandleFunc("/transactions", handleTransactions(dataHandler))
 	http.HandleFunc("/categorization", handleCategorization(dataHandler))
 	http.HandleFunc("/groups", handleGroups(dataHandler))
+	http.HandleFunc("/files", handleFiles(dataHandler))
 
 	// Serve static files based on DEV_MODE
 	if devMode {
@@ -313,6 +315,29 @@ func handleGroups(dataHandler *DataHandler) http.HandlerFunc {
 		}
 
 		err := parseAndExecuteTemplate("templates/groups.html", w, data)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
+	}
+}
+
+func handleFiles(dataHandler *DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		workingDir, err := os.Getwd()
+		if err != nil {
+			workingDir = i18n.T("Unable to determine working directory")
+		}
+
+		data := struct {
+			WorkingDir string
+			Files      []FileInfo
+		}{
+			WorkingDir: workingDir,
+			Files:      dataHandler.FileInfos,
+		}
+
+		err = parseAndExecuteTemplate("templates/files.html", w, data)
 		if err != nil {
 			logAndReturnError(w, err)
 			return
