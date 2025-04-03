@@ -327,7 +327,6 @@ func main() {
 	}
 }
 
-
 // FileInfo represents information about a parsed transaction file.
 type FileInfo struct {
 	Path              string    `json:"path"`

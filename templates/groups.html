@@ -33,19 +33,19 @@
                             <span class="name-display">{{$name}}</span>
                             <input type="text" class="name-edit" style="display: none;" value="{{$name}}">
                         </td>
-                        <td class="rules-cell" data-rule-type="fromAccounts">
+                        <td class="rules-cell" data-rule-type="FromAccount">
                             {{range $group.FromAccounts}}
-                            <div class="rule-item" onclick="editRule(this, '{{$name}}', 'fromAccounts')">{{.}}</div>
+                            <div class="rule-item" data-group="{{$name}}" data-rule-value="{{.}}">{{.}}</div>
                             {{end}}
                         </td>
-                        <td class="rules-cell" data-rule-type="toAccounts">
+                        <td class="rules-cell" data-rule-type="ToAccount">
                             {{range $group.ToAccounts}}
-                            <div class="rule-item" onclick="editRule(this, '{{$name}}', 'toAccounts')">{{.}}</div>
+                            <div class="rule-item" data-group="{{$name}}" data-rule-value="{{.}}">{{.}}</div>
                             {{end}}
                         </td>
-                        <td class="rules-cell" data-rule-type="substrings">
+                        <td class="rules-cell" data-rule-type="Substring">
                             {{range $group.Substrings}}
-                            <div class="rule-item" onclick="editRule(this, '{{$name}}', 'substrings')">{{.}}</div>
+                            <div class="rule-item" data-group="{{$name}}" data-rule-value="{{.}}">{{.}}</div>
                             {{end}}
                         </td>
                         <td>
@@ -63,39 +63,134 @@
         </div>
     </div>
 
-    <!-- Rule Edit Modal -->
-    <div id="ruleEditModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeRuleModal()">&times;</span>
-            <h3>{{localize "Edit Rule"}}</h3>
-            <form id="ruleEditForm" onsubmit="submitRuleEdit(event)">
-                <div class="form-group">
-                    <label for="ruleSelect">{{localize "Select Rule"}}:</label>
-                    <select id="ruleSelect" onchange="handleRuleSelect()" required>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="ruleValue">{{localize "Value"}}:</label>
-                    <input type="text" id="ruleValue" required>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="primary-button">{{localize "Apply"}}</button>
-                    <button type="button" onclick="deleteRule()" class="delete-button">{{localize "Delete"}}</button>
-                    <button type="button" onclick="closeRuleModal()" class="secondary-button">{{localize "Cancel"}}</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Include the shared modal template -->
+    {{template "shared/rule_edit_modal.html" .}}
 
     <script>
+        // Localized strings
         window.localizedStrings = {
             groupNameEmpty: '{{localize "Group name cannot be empty"}}',
             ruleValueEmpty: '{{localize "Rule value cannot be empty"}}',
             confirmDeleteRule: '{{localize "Are you sure you want to delete this rule?"}}',
             confirmDeleteGroup: '{{localize "Are you sure you want to delete this group?"}}'
         };
-    </script>
 
-    <script src="/static/js/groups.js"></script>
+        // DOM Ready handler
+        document.addEventListener('DOMContentLoaded', function() {
+            // Group name editing handlers
+            document.querySelectorAll('.group-name').forEach(cell => {
+                const display = cell.querySelector('.name-display');
+                const input = cell.querySelector('.name-edit');
+                
+                display.addEventListener('click', () => {
+                    display.style.display = 'none';
+                    input.style.display = 'block';
+                    input.focus();
+                });
+
+                input.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        await applyNameChange(cell, input);
+                    } else if (e.key === 'Escape') {
+                        cancelNameEdit(cell);
+                    }
+                });
+
+                input.addEventListener('blur', () => {
+                    applyNameChange(cell, input);
+                });
+            });
+
+            // Rule item click handlers - using shared modal
+            document.querySelectorAll('.rule-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const ruleType = this.closest('td').getAttribute('data-rule-type');
+                    const ruleValue = this.getAttribute('data-rule-value');
+                    const group = this.getAttribute('data-group');
+                    openRuleModal(ruleType, ruleValue, group);
+                });
+            });
+        });
+
+        // Group name editing functions
+        async function applyNameChange(cell, input) {
+            const newName = input.value.trim();
+            const originalName = cell.dataset.originalName;
+            
+            if (newName === originalName) {
+                cancelNameEdit(cell);
+                return;
+            }
+
+            if (newName === '') {
+                alert(window.localizedStrings.groupNameEmpty);
+                cancelNameEdit(cell);
+                return;
+            }
+
+            try {
+                const response = await fetch('/categorization', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'renameGroup',
+                        groupName: originalName,
+                        newGroupName: newName
+                    })
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const error = await response.text();
+                    alert('Error: ' + error);
+                    cancelNameEdit(cell);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+                cancelNameEdit(cell);
+            }
+        }
+
+        function cancelNameEdit(cell) {
+            const display = cell.querySelector('.name-display');
+            const input = cell.querySelector('.name-edit');
+            display.style.display = 'block';
+            input.style.display = 'none';
+            input.value = cell.dataset.originalName;
+        }
+
+        async function deleteGroup(groupName) {
+            if (!confirm(window.localizedStrings.confirmDeleteGroup)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/categorization', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'deleteGroup',
+                        groupName: groupName
+                    })
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + await response.text());
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+    </script>
 </body>
 </html> 

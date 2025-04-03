@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -21,6 +22,9 @@ var templateFS embed.FS
 
 var templateFunctions template.FuncMap
 
+// Pre-parsed shared templates (used only in production mode)
+var sharedTemplates *template.Template
+
 // initTemplateFunctions sets up template functions when i18n is initialized.
 func initTemplateFunctions() {
 	templateFunctions = template.FuncMap{
@@ -31,14 +35,53 @@ func initTemplateFunctions() {
 	}
 }
 
+// initSharedTemplates initializes shared templates in production mode.
+func initSharedTemplates() error {
+	if !devMode {
+		sharedTemplates = template.New("shared").Funcs(templateFunctions)
+
+		// Read all shared template files from embedded FS
+		entries, err := templateFS.ReadDir("templates/shared")
+		if err != nil {
+			return fmt.Errorf("failed to read shared templates directory: %w", err)
+		}
+
+		// Parse each shared template
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".html") {
+				content, err := templateFS.ReadFile("templates/shared/" + entry.Name())
+				if err != nil {
+					return fmt.Errorf("failed to read shared template %s: %w", entry.Name(), err)
+				}
+
+				// Use "shared/" prefix for template name
+				templateName := "shared/" + filepath.Base(entry.Name())
+				_, err = sharedTemplates.New(templateName).Parse(string(content))
+				if err != nil {
+					return fmt.Errorf("failed to parse shared template %s: %w", entry.Name(), err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func ListenAndServe(dataHandler *DataHandler) error {
+	// Initialize template functions
 	initTemplateFunctions()
 
+	// Initialize shared templates
+	if err := initSharedTemplates(); err != nil {
+		return fmt.Errorf("failed to initialize shared templates: %w", err)
+	}
+
+	// Set up HTTP handlers
 	http.HandleFunc("/", handleIndex(dataHandler))
 	http.HandleFunc("/transactions", handleTransactions(dataHandler))
 	http.HandleFunc("/categorization", handleCategorization(dataHandler))
 	http.HandleFunc("/groups", handleGroups(dataHandler))
 	http.HandleFunc("/files", handleFiles(dataHandler))
+	http.HandleFunc("/open-file", handleOpenFile(dataHandler))
 
 	// Serve static files based on DEV_MODE
 	if devMode {
@@ -159,32 +202,30 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 		}
 
 		// Prepare data for the template
-		var templateEntries []struct {
+		type TemplateEntry struct {
 			JournalEntry
 			FromAccountInfo *AccountStatistics
 			ToAccountInfo   *AccountStatistics
 			IsCounted       bool
+			Group           string
 		}
+
+		var templateEntries []TemplateEntry
 
 		for _, entry := range entries {
 			fromAccount := dataHandler.DataMart.Accounts[entry.FromAccount]
 			toAccount := dataHandler.DataMart.Accounts[entry.ToAccount]
-			// Check if both accounts exist and are transaction accounts
 			isCounted := fromAccount != nil &&
 				toAccount != nil &&
 				fromAccount.IsTransactionAccount &&
 				toAccount.IsTransactionAccount
 
-			templateEntries = append(templateEntries, struct {
-				JournalEntry
-				FromAccountInfo *AccountStatistics
-				ToAccountInfo   *AccountStatistics
-				IsCounted       bool
-			}{
+			templateEntries = append(templateEntries, TemplateEntry{
 				JournalEntry:    entry,
 				FromAccountInfo: fromAccount,
 				ToAccountInfo:   toAccount,
 				IsCounted:       isCounted,
+				Group:           group,
 			})
 		}
 
@@ -193,12 +234,7 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 			Group    string
 			Type     string
 			Currency string
-			Entries  []struct {
-				JournalEntry
-				FromAccountInfo *AccountStatistics
-				ToAccountInfo   *AccountStatistics
-				IsCounted       bool
-			}
+			Entries  []TemplateEntry
 			Accounts template.JS
 		}{
 			Month:    month,
@@ -345,6 +381,23 @@ func handleFiles(dataHandler *DataHandler) http.HandlerFunc {
 	}
 }
 
+func handleOpenFile(dataHandler *DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		filePath := r.URL.Query().Get("path")
+		if filePath == "" {
+			http.Error(w, "No file path provided", http.StatusBadRequest)
+			return
+		}
+
+		if err := openFileInOS(filePath); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 // Helper function to encode JSON and panic on error (since this is server startup)
 func mustEncodeJSON(v interface{}) string {
 	data, err := json.Marshal(v)
@@ -384,23 +437,59 @@ func parseAndExecuteTemplate(templatePath string, w http.ResponseWriter, data in
 	w.Header().Set("Expires", "0")
 
 	var tmpl *template.Template
-	var err error
+
 	if devMode {
-		// In dev mode, load from filesystem with base name
-		tmpl, err = template.New(templatePath).Funcs(templateFunctions).ParseFiles(templatePath)
-	} else {
-		// For embedded files, we need to read the content first
-		var content []byte
-		content, err = templateFS.ReadFile(templatePath)
+		// In dev mode, parse both shared and main templates from filesystem
+		tmpl = template.New(filepath.Base(templatePath)).Funcs(templateFunctions)
+
+		// Get list of all shared template files
+		sharedFiles, err := filepath.Glob("templates/shared/*.html")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to list shared templates: %w", err)
 		}
-		// Create template with the base name and parse the content
-		baseName := filepath.Base(templatePath)
-		tmpl, err = template.New(baseName).Funcs(templateFunctions).Parse(string(content))
-	}
-	if err != nil {
-		return err
+
+		// Parse each shared template with "shared/" prefix
+		for _, sharedFile := range sharedFiles {
+			baseName := filepath.Base(sharedFile)
+			templateName := "shared/" + baseName
+			content, err := os.ReadFile(sharedFile)
+			if err != nil {
+				return fmt.Errorf("failed to read shared template %s: %w", sharedFile, err)
+			}
+			_, err = tmpl.New(templateName).Parse(string(content))
+			if err != nil {
+				return fmt.Errorf("failed to parse shared template %s: %w", sharedFile, err)
+			}
+		}
+
+		// Parse the main template
+		content, err := os.ReadFile(templatePath)
+		if err != nil {
+			return fmt.Errorf("failed to read template %s: %w", templatePath, err)
+		}
+		_, err = tmpl.Parse(string(content))
+		if err != nil {
+			return fmt.Errorf("failed to parse template %s: %w", templatePath, err)
+		}
+	} else {
+		// In production mode, clone pre-parsed shared templates
+		var err error
+		tmpl, err = sharedTemplates.Clone()
+		if err != nil {
+			return fmt.Errorf("failed to clone shared templates: %w", err)
+		}
+
+		// Read and parse the main template
+		content, err := templateFS.ReadFile(templatePath)
+		if err != nil {
+			return fmt.Errorf("failed to read template %s: %w", templatePath, err)
+		}
+
+		// Parse the main template content
+		_, err = tmpl.New(filepath.Base(templatePath)).Parse(string(content))
+		if err != nil {
+			return fmt.Errorf("failed to parse template %s: %w", templatePath, err)
+		}
 	}
 
 	// Execute using the base name of the template

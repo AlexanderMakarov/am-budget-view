@@ -5,14 +5,6 @@ import (
 	"log"
 )
 
-// CategoryMatch represents the result of transaction categorization
-type CategoryMatch struct {
-	Name          string
-	BySubstring   bool
-	ByFromAccount bool
-	ByToAccount   bool
-}
-
 type groupConfigWithName struct {
 	GroupConfig
 	Name string
@@ -31,7 +23,7 @@ type Categorization struct {
 	toAccountToGroupConfig map[string]*groupConfigWithName
 }
 
-// NewCategorization creates and initializes a new Categorization instance
+// NewCategorization creates and initializes a new Categorization instance.
 func NewCategorization(config *Config) (*Categorization, error) {
 	c := &Categorization{
 		isGroupAllUnknownTransactions: config.GroupAllUnknownTransactions,
@@ -41,6 +33,7 @@ func NewCategorization(config *Config) (*Categorization, error) {
 	}
 
 	// Fill up config.Groups with legacy GroupNamesToSubstrings.
+	// TODO: Remove on next minor version.
 	if config.Groups == nil {
 		config.Groups = make(map[string]*GroupConfig)
 	}
@@ -95,6 +88,7 @@ func NewCategorization(config *Config) (*Categorization, error) {
 	}
 
 	// Remove old GroupNamesToSubstrings.
+	// TODO: Remove on next minor version.
 	config.GroupNamesToSubstrings = nil
 
 	return c, nil
@@ -113,25 +107,29 @@ func (c *Categorization) CategorizeTransaction(tr *Transaction) (*CategoryMatch,
 	if tr.FromAccount != "" {
 		if groupConfig, ok := c.fromAccountToGroupConfig[tr.FromAccount]; ok {
 			return &CategoryMatch{
-				Name:          groupConfig.Name,
-				ByFromAccount: true,
+				Name:      groupConfig.Name,
+				RuleType:  RuleTypeFromAccount,
+				RuleValue: tr.FromAccount,
 			}, false, nil
 		}
 	}
 	if tr.ToAccount != "" {
 		if groupConfig, ok := c.toAccountToGroupConfig[tr.ToAccount]; ok {
 			return &CategoryMatch{
-				Name:        groupConfig.Name,
-				ByToAccount: true,
+				Name:      groupConfig.Name,
+				RuleType:  RuleTypeToAccount,
+				RuleValue: tr.ToAccount,
 			}, false, nil
 		}
 	}
 
 	// Try to find matching group in the trie.
-	if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig != nil {
+	groupConfig, matchedSubstring := c.trie.findLongestMatchingGroup(tr.Details)
+	if groupConfig != nil {
 		return &CategoryMatch{
-			Name:        groupConfig.Name,
-			BySubstring: true,
+			Name:      groupConfig.Name,
+			RuleType:  RuleTypeSubstring,
+			RuleValue: matchedSubstring,
 		}, false, nil
 	}
 
@@ -154,7 +152,7 @@ func (c *Categorization) PrintUncategorizedTransactions(transactions []Transacti
 		if tr.Details == "" {
 			return errors.New(i18n.T("empty details for transaction from f t", "f", tr.Source, "t", tr))
 		}
-		if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
+		if groupConfig, _ := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
 			log.Printf("Uncategorized transaction %+v", tr)
 			missedCnt++
 		}
@@ -172,7 +170,7 @@ func (c *Categorization) GetUncategorizedTransactions(transactions []Transaction
 		if tr.Details == "" {
 			continue // Skip invalid transactions
 		}
-		if groupConfig := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
+		if groupConfig, _ := c.trie.findLongestMatchingGroup(tr.Details); groupConfig == nil {
 			uncategorized = append(uncategorized, tr)
 		}
 	}
@@ -185,6 +183,7 @@ type TrieNode struct {
 	isEnd       bool
 	groupName   *string              // Pointer to the group name this node ends with
 	groupConfig *groupConfigWithName // Store the group configuration
+	substring   string               // Full substring
 }
 
 // Create a new Trie Node.
@@ -218,13 +217,15 @@ func (t *TrieNode) insert(substring string, groupName string, config *groupConfi
 	node.isEnd = true
 	node.groupName = &groupName
 	node.groupConfig = config
+	node.substring = substring
 	return nil
 }
 
 // findLongestMatchingGroup finds the group with the longest matching substring in the trie
-func (t *TrieNode) findLongestMatchingGroup(s string) *groupConfigWithName {
+func (t *TrieNode) findLongestMatchingGroup(s string) (*groupConfigWithName, string) {
 	runes := []rune(s)
 	var bestMatch *groupConfigWithName
+	var bestMatchSubstring string
 	var bestMatchLength int
 
 	for i := 0; i < len(runes); i++ {
@@ -237,6 +238,7 @@ func (t *TrieNode) findLongestMatchingGroup(s string) *groupConfigWithName {
 				matchLength++
 				if node.isEnd && node.groupConfig != nil && matchLength > bestMatchLength {
 					bestMatch = node.groupConfig
+					bestMatchSubstring = node.substring
 					bestMatchLength = matchLength
 				}
 			} else {
@@ -244,5 +246,5 @@ func (t *TrieNode) findLongestMatchingGroup(s string) *groupConfigWithName {
 			}
 		}
 	}
-	return bestMatch
+	return bestMatch, bestMatchSubstring
 }

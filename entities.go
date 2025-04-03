@@ -71,8 +71,29 @@ func (m MoneyWith2DecimalPlaces) StringNoIndent() string {
 	return fmt.Sprintf("%s.%02d", dollarString, cents)
 }
 
-// OutputDateFormat format for data in outputs.
-const OutputDateFormat = "2006-01-02"
+// RuleType represents the type of rule which categorized a transaction.
+type RuleType string
+
+const (
+	// OutputDateFormat format for data in outputs.
+	OutputDateFormat = "2006-01-02"
+	// RuleTypeFromAccount is a type of rule that matched by "from" account.
+	RuleTypeFromAccount RuleType = "FromAccount"
+	// RuleTypeToAccount is a type of rule that matched by "to" account.
+	RuleTypeToAccount RuleType = "ToAccount"
+	// RuleTypeSubstring is a type of rule that matched by substring in "details".
+	RuleTypeSubstring RuleType = "Substring"
+)
+
+// CategoryMatch represents the result of transaction categorization.
+type CategoryMatch struct {
+	// Name is a name of the group.
+	Name string
+	// RuleType is a type of rule that matched (FromAccount, ToAccount, or Substring).
+	RuleType RuleType
+	// RuleValue is the actual value that matched (account name or substring).
+	RuleValue string
+}
 
 // Transaction represents a single transaction with data available in the source file.
 type Transaction struct {
@@ -164,6 +185,10 @@ type JournalEntry struct {
 	OriginCurrencyAmount MoneyWith2DecimalPlaces
 	// Amounts contains "converted" amounts in given currencies.
 	Amounts map[string]AmountInCurrency
+	// RuleType is a type of rule that matched (FromAccount, ToAccount, or Substring).
+	RuleType RuleType
+	// RuleValue is the actual value that matched (account name or substring).
+	RuleValue string
 }
 
 type FileParser interface {

@@ -98,6 +98,7 @@
     "Percentage": "Процент",
     "date_format": "{{val, date}}",
     "Actions": "Действия",
+    "Rule": "Правило",
     "Create New Group": "Создать новую категорию",
     "Add to Group": "Добавить в категорию",
     "Group": "Категория",

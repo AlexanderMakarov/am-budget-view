@@ -373,7 +373,8 @@ CI will do the rest.
 - [x] Traceability of files - show list of files used for report generation.
 - [x] `Transaction` format CSV file parser.
       This is to allow load data from any source (not only Inecobank and Ameria).
-- [ ] In "Transactions" page show rule which categorized transaction with ability to delete it.
+- [x] In "Transactions" page show rule which categorized transaction with ability to delete it.
+- [ ] Handle currencies on "Categorization" page (now "Amount" in different currencies).
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.

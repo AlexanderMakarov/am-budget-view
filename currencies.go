@@ -889,6 +889,8 @@ func buildJournalEntries(
 			FromAccount:           t.FromAccount,
 			ToAccount:             t.ToAccount,
 			Amounts:               amounts,
+			RuleType:              category.RuleType,
+			RuleValue:             category.RuleValue,
 		}
 		journalEntries = append(journalEntries, entry)
 	}

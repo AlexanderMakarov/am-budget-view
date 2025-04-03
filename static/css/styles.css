@@ -371,3 +371,22 @@ h1 {
 .transactions-table thead {
     /* Remove all styles */
 }
+
+.source-link,
+.rule-link {
+    color: #0066cc;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.rule-link:hover {
+    color: #004499;
+}
+
+.rule-cell {
+    padding: 12px;
+}
+
+.rule-cell:hover {
+    background-color: #f0f7ff;
+}

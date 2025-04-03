@@ -1,0 +1,142 @@
+<!-- Rule Edit Modal Template -->
+<div id="ruleEditModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeRuleModal()">&times;</span>
+        <h3>{{localize "Edit Rule"}}</h3>
+        <form id="ruleEditForm" onsubmit="submitRuleEdit(event)">
+            <div class="form-group">
+                <label for="ruleSelect">{{localize "Select Rule"}}:</label>
+                <select id="ruleSelect" onchange="handleRuleSelect()" required>
+                    <option value="FromAccount">{{localize "From Account"}}</option>
+                    <option value="ToAccount">{{localize "To Account"}}</option>
+                    <option value="Substring">{{localize "Substring"}}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ruleValue">{{localize "Value"}}:</label>
+                <input type="text" id="ruleValue" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="primary-button">{{localize "Apply"}}</button>
+                <button type="button" onclick="deleteRule()" class="delete-button">{{localize "Delete"}}</button>
+                <button type="button" onclick="closeRuleModal()" class="secondary-button">{{localize "Cancel"}}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Shared modal handling code
+let currentEditGroup = null;
+let currentEditType = null;
+let currentRuleValue = null;
+
+function openRuleModal(ruleType, ruleValue, groupName) {
+    currentEditGroup = groupName;
+    currentEditType = ruleType;
+    currentRuleValue = ruleValue;
+
+    const modal = document.getElementById('ruleEditModal');
+    const select = document.getElementById('ruleSelect');
+    const valueInput = document.getElementById('ruleValue');
+
+    select.value = ruleType;
+    valueInput.value = ruleValue;
+    
+    modal.style.display = 'block';
+}
+
+function handleRuleSelect() {
+    const select = document.getElementById('ruleSelect');
+    const valueInput = document.getElementById('ruleValue');
+    valueInput.value = select.value;
+}
+
+async function submitRuleEdit(event) {
+    event.preventDefault();
+    const newType = document.getElementById('ruleSelect').value;
+    const newValue = document.getElementById('ruleValue').value.trim();
+
+    if (newValue === '') {
+        alert(window.localizedStrings.ruleValueEmpty);
+        return;
+    }
+
+    try {
+        const response = await fetch('/categorization', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'updateRule',
+                groupName: currentEditGroup,
+                oldType: currentEditType,
+                oldValue: currentRuleValue,
+                newType: newType,
+                newValue: newValue
+            })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Error: ' + await response.text());
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
+async function deleteRule() {
+    if (!confirm(window.localizedStrings.confirmDeleteRule)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/categorization', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'deleteRule',
+                groupName: currentEditGroup,
+                ruleType: currentEditType,
+                ruleValue: currentRuleValue
+            })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Error: ' + await response.text());
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
+function closeRuleModal() {
+    const modal = document.getElementById('ruleEditModal');
+    const form = document.getElementById('ruleEditForm');
+    form.reset();
+    modal.style.display = 'none';
+}
+
+// Close modal if clicking outside or pressing ESC
+window.onclick = function(event) {
+    const modal = document.getElementById('ruleEditModal');
+    if (event.target === modal) {
+        closeRuleModal();
+    }
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeRuleModal();
+    }
+});
+</script> 
