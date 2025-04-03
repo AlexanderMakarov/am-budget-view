@@ -1,7 +1,7 @@
 # AM BudgetView
 Local tool to investigate your expenses and incomes by bank transactions.
 
-Was renamed from [aggregate-inecobank-statement](https://github.com/AlexanderMakarov/aggregate-inecobank-statement) after new features were added.
+Was renamed from [aggregate-inecobank-statement](https://github.com/AlexanderMakarov/aggregate-inecobank-statement) after new banks and features were added.
 
 ----
 
@@ -374,16 +374,16 @@ CI will do the rest.
 - [x] `Transaction` format CSV file parser.
       This is to allow load data from any source (not only Inecobank and Ameria).
 - [x] In "Transactions" page show rule which categorized transaction with ability to delete it.
-- [ ] Handle currencies on "Categorization" page (now "Amount" in different currencies).
+- [x] Collect more details about accounts.
+- [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.
       c) currency exchange inside the same bank may happen under different account.
-- [ ] Collect more details about accounts (distribution of usage?), separate page.
+- [ ] Handle currencies on "Categorization" page (now "Amount" in different currencies).
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
 - [ ] Record new video(s) with instructions.
-- [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
 - [ ] Fix folders structure, see https://appliedgo.com/blog/go-project-layout
 - [ ] (? small value) Add translation to all parsers and set right Russian declensions.
 - [ ] (? value vs complexity) Allow to choose "transactions" files in UI.

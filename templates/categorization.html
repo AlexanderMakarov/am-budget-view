@@ -25,8 +25,8 @@
                         <th>{{localize "From Account"}}</th>
                         <th>{{localize "To Account"}}</th>
                         <th>{{localize "Amount"}}</th>
-                        <th>{{localize "Details"}}</th>
                         <th>{{localize "Account Currency"}}</th>
+                        <th>{{localize "Details"}}</th>
                         <th>{{localize "Source Type"}}</th>
                         <th>{{localize "Source"}}</th>
                         <th>{{localize "Actions"}}</th>
@@ -36,11 +36,11 @@
                     {{range .Transactions}}
                     <tr>
                         <td>{{.Date | formatDate}}</td>
-                        <td>{{.FromAccount}}</td>
-                        <td>{{.ToAccount}}</td>
+                        <td class="account" data-account="{{.FromAccount}}">{{.FromAccount}}</td>
+                        <td class="account" data-account="{{.ToAccount}}">{{.ToAccount}}</td>
                         <td class="amount">{{.Amount}}</td>
-                        <td>{{.Details}}</td>
                         <td>{{.AccountCurrency}}</td>
+                        <td>{{.Details}}</td>
                         <td>{{.SourceType}}</td>
                         <td>{{.Source}}</td>
                         <td>
@@ -108,22 +108,195 @@
         </div>
     </div>
 
+    <!-- Include the shared templates. -->
+    {{template "shared/account_info_tooltip.html" .}}
+
     <!-- Load scripts after HTML elements are created. -->
     <script>
-        window.localizedStrings = {
-            sourceType: "{{localize "Source Type"}}",
-            type: "{{localize "type"}}",
-            my: "{{localize "my"}}",
-            unknown: "{{localize "unknown"}}",
-            source: "{{localize "Source"}}",
-            from: "{{localize "From"}}",
-            to: "{{localize "To"}}",
-            occurencesInTransactions: "{{localize "Occurences in transactions"}}",
-            unknownAccount: "{{localize "Unknown Account"}}",
+        // Initialize data and localized strings
+        const groupsData = {{.Groups}};
+        const localizedStrings = {
             groupAlreadyExists: "{{localize "Group with this name already exists"}}"
         };
+
+        let currentTransaction = null;
+
+        // Wait for DOM to be fully loaded
+        document.addEventListener("DOMContentLoaded", function () {
+            // Initialize group select options
+            const groupSelect = document.getElementById("groupSelect");
+            if (groupSelect && groupsData) {
+                Object.keys(groupsData).sort().forEach(groupName => {
+                    const option = document.createElement("option");
+                    option.value = groupName;
+                    option.textContent = groupName;
+                    groupSelect.appendChild(option);
+                });
+            }
+        });
+
+        function getExistingGroupData(groupName) {
+            if (!groupsData || !groupsData[groupName]) {
+                return { substrings: [], fromAccounts: [], toAccounts: [] };
+            }
+            
+            const group = groupsData[groupName];
+            return {
+                substrings: group.Substrings || [],
+                fromAccounts: group.FromAccounts || [],
+                toAccounts: group.ToAccounts || []
+            };
+        }
+
+        function showCategoryActions(button) {
+            const modal = document.getElementById("categoryActionsModal");
+            if (!modal) return;
+
+            // Remove highlight from previously selected row if exists
+            if (currentTransaction) {
+                currentTransaction.classList.remove("highlighted-row");
+            }
+
+            // Store and highlight the current transaction
+            currentTransaction = button.closest("tr");
+            currentTransaction.classList.add("highlighted-row");
+
+            // Pre-fill the value input based on selected method
+            updateValueField();
+
+            // Use flex display to center the modal
+            modal.style.display = "flex";
+        }
+
+        function handleByMethodChange() {
+            updateValueField();
+        }
+
+        function updateValueField() {
+            if (!currentTransaction) return;
+
+            const byMethod = document.getElementById("categoryBy").value;
+            const valueInput = document.getElementById("categorySubstring");
+
+            if (byMethod === "substring") {
+                valueInput.value = currentTransaction.querySelector("td:nth-child(5)").textContent.trim(); // Details
+            } else if (byMethod === "fromAccount") {
+                valueInput.value = currentTransaction.querySelector("td:nth-child(2)").textContent.trim(); // From Account
+            } else if (byMethod === "toAccount") {
+                valueInput.value = currentTransaction.querySelector("td:nth-child(3)").textContent.trim(); // To Account
+            }
+        }
+
+        function submitNewGroup(event) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+            const groupName = formData.get("groupName");
+
+            // Check if group already exists
+            const groupSelect = document.getElementById("groupSelect");
+            const existingGroups = Array.from(groupSelect.options).map((option) => option.value);
+
+            if (existingGroups.includes(groupName)) {
+                alert(localizedStrings.groupAlreadyExists);
+                return;
+            }
+
+            const data = {
+                action: "upsertGroup",
+                groupName: groupName,
+            };
+
+            fetch("/categorization", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
+            })
+                .then(() => window.location.reload())
+                .catch((error) => console.error("Error:", error));
+
+            closeNewGroupModal();
+        }
+
+        function submitCategoryAction(event) {
+            event.preventDefault();
+
+            if (!currentTransaction) return;
+
+            const groupName = document.getElementById("groupSelect").value;
+            const byMethod = document.getElementById("categoryBy").value;
+            const value = document.getElementById("categorySubstring").value.trim();
+
+            // Get existing group data
+            const existingData = getExistingGroupData(groupName);
+
+            // Prepare the updated data
+            let data = {
+                action: "upsertGroup",
+                groupName: groupName,
+                substrings: [...existingData.substrings],
+                fromAccounts: [...existingData.fromAccounts],
+                toAccounts: [...existingData.toAccounts]
+            };
+
+            // Add new rule based on selected method
+            if (byMethod === "substring") {
+                if (!data.substrings.includes(value)) {
+                    data.substrings.push(value);
+                }
+            } else if (byMethod === "fromAccount") {
+                if (!data.fromAccounts.includes(value)) {
+                    data.fromAccounts.push(value);
+                }
+            } else if (byMethod === "toAccount") {
+                if (!data.toAccounts.includes(value)) {
+                    data.toAccounts.push(value);
+                }
+            }
+
+            fetch("/categorization", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
+            })
+                .then(() => window.location.reload())
+                .catch((error) => console.error("Error:", error));
+
+            closeCategoryModal();
+        }
+
+        function closeCategoryModal() {
+            const modal = document.getElementById("categoryActionsModal");
+            if (modal) {
+                modal.style.display = "none";
+                if (currentTransaction) {
+                    currentTransaction.classList.remove("highlighted-row");
+                    currentTransaction = null;
+                }
+            }
+        }
+
+        function openNewGroupModal(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const modal = document.getElementById("newGroupModal");
+            if (modal) {
+                modal.style.display = "flex";
+            }
+        }
+
+        function closeNewGroupModal() {
+            const modal = document.getElementById("newGroupModal");
+            if (modal) {
+                modal.style.display = "none";
+            }
+        }
     </script>
-    <script id="groupsData" type="application/json">{{.Groups}}</script>
-    <script src="/static/js/categorization.js"></script>
 </body>
 </html> 

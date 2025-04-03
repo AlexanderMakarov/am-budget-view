@@ -87,6 +87,8 @@
     "Source": "Source",
     "From": "From",
     "To": "To",
+    "First appeared": "First appeared",
+    "Last appeared": "Last appeared",
     "Transaction Account": "Transaction Account",
     "Unknown Account": "Unknown Account",
     "Transactions list note": "This is list of all transactions marked for '{{group}}' category. Grayed out rows are not included in the statistics, only transactions with foreign accounts are. You may check account details by hovering mouse over account number. Transactions with 'my' accounts are not included in the statistics because they represent transfers between your own accounts, therefore are not 'Income' or 'Expense'.",
@@ -138,6 +140,7 @@
     "Working Directory": "Working Directory",
     "File Name": "File Name",
     "Modified Date": "Modified Date",
-    "Number of Transactions": "Number of Transactions"
+    "Number of Transactions": "Number of Transactions",
+    "Appearances by source": "Appearances by source"
 }
 

@@ -32,6 +32,13 @@ func initTemplateFunctions() {
 		"formatDate": func(date time.Time) string {
 			return i18n.T("date_format", "val", date)
 		},
+		"toJSON": func(v interface{}) string {
+			data, err := json.Marshal(v)
+			if err != nil {
+				return "{}"
+			}
+			return string(data)
+		},
 	}
 }
 

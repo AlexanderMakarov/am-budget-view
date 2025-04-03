@@ -1,0 +1,73 @@
+<!-- Account Info Tooltip Template -->
+<div id="accountTooltip" class="tooltip" style="display: none;"></div>
+
+<script>
+    // Account tooltip functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const tooltip = document.getElementById('accountTooltip');
+        // Prepare localized strings
+        const localizedStrings = {
+            transactionAccount: '{{localize "Transaction Account"}}',
+            unknownAccount: '{{localize "Unknown Account"}}',
+            type: '{{localize "type"}}',
+            source: '{{localize "Source"}}',
+            firstAppeared: '{{localize "First appeared"}}',
+            lastAppeared: '{{localize "Last appeared"}}',
+            occurencesInTransactions: '{{localize "Occurences in transactions"}}',
+            appearancesBySource: '{{localize "Appearances by source"}}'
+        };
+        // Parse the accounts data from the JSON
+        let accountsData = {};
+        try {
+            const accountsScript = document.getElementById('accountsData');
+            if (accountsScript) {
+                accountsData = JSON.parse(accountsScript.textContent);
+            }
+        } catch (e) {
+            console.error('Error parsing accounts data:', e);
+        }
+        // Account tooltip handlers
+        document.querySelectorAll('.account').forEach(cell => {
+            cell.addEventListener('mouseenter', function() {
+                const accountNumber = this.getAttribute('data-account');
+                const accountInfo = accountsData[accountNumber];
+                if (!accountInfo) {
+                    return; // No account info available
+                }
+                const isTransaction = accountInfo.IsTransactionAccount;
+                const from = accountInfo.From;
+                const to = accountInfo.To;
+                const sourceType = accountInfo.SourceType || '';
+                const source = accountInfo.Source || '';
+                const sourceOccurrences = accountInfo.SourceOccurrences || {};
+                const occurrences = accountInfo.OccurencesInTransactions || 0;
+                let tooltipContent = '<table>';
+                tooltipContent += `
+                    <tr><td><b>${isTransaction ? localizedStrings.transactionAccount : localizedStrings.unknownAccount}</b></td></tr>
+                    <tr><td>${localizedStrings.type}:</td><td>${sourceType}</td></tr>
+                    <tr><td>${localizedStrings.source}:</td><td>${source}</td></tr>
+                    <tr><td>${localizedStrings.firstAppeared}:</td><td>${from}</td></tr>
+                    <tr><td>${localizedStrings.lastAppeared}:</td><td>${to}</td></tr>
+                    <tr><td>${localizedStrings.occurencesInTransactions}:</td><td>${occurrences}</td></tr>
+                `;
+                // Add source occurrences information
+                if (Object.keys(sourceOccurrences).length > 0) {
+                    tooltipContent += `<tr><td colspan="2"><b>${localizedStrings.appearancesBySource}:</b></td></tr>`;
+                    for (const [src, count] of Object.entries(sourceOccurrences)) {
+                        tooltipContent += `<tr><td>${src}:</td><td>${count}</td></tr>`;
+                    }
+                }
+                tooltipContent += '</table>';
+                tooltip.innerHTML = tooltipContent;
+                tooltip.style.display = 'block';
+            });
+            cell.addEventListener('mousemove', function(e) {
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+            cell.addEventListener('mouseleave', function() {
+                tooltip.style.display = 'none';
+            });
+        });
+    });
+</script> 

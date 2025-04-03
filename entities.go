@@ -140,6 +140,8 @@ type AccountStatistics struct {
 	To time.Time
 	// OccurencesInTransactions is a number of transactions with this account.
 	OccurencesInTransactions int
+	// SourceOccurrences tracks how many times this account appears in each source.
+	SourceOccurrences map[string]int
 }
 
 // AmountInCurrency is an amount in a specific currency with marks of origin and account currencies.

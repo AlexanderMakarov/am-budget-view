@@ -5,6 +5,7 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
+    <script id="accountsData" type="application/json">{{.Accounts}}</script>
     <div class="container">
         <header>
             <h1>{{if eq .Type "income"}}{{localize "Income transactions for g category" "g" .Group}}{{else}}{{localize "Expense transactions for g category" "g" .Group}}{{end}}</h1>
@@ -33,24 +34,8 @@
                     {{range .Entries}}
                     <tr {{if .IsCounted}}class="non-statistical"{{end}}>
                         <td>{{.Date | formatDate}}</td>
-                        <td class="account" 
-                            data-account="{{.FromAccount}}" 
-                            data-is-transaction="{{if .FromAccountInfo}}{{.FromAccountInfo.IsTransactionAccount}}{{end}}"
-                            data-from="{{if .FromAccountInfo}}{{.FromAccountInfo.From | formatDate}}{{end}}"
-                            data-to="{{if .FromAccountInfo}}{{.FromAccountInfo.To | formatDate}}{{end}}"
-                            data-source-type="{{if .FromAccountInfo}}{{.FromAccountInfo.SourceType}}{{end}}"
-                            data-source="{{if .FromAccountInfo}}{{.FromAccountInfo.Source}}{{end}}">
-                            {{.FromAccount}}
-                        </td>
-                        <td class="account" 
-                            data-account="{{.ToAccount}}" 
-                            data-is-transaction="{{if .ToAccountInfo}}{{.ToAccountInfo.IsTransactionAccount}}{{end}}"
-                            data-from="{{if .ToAccountInfo}}{{.ToAccountInfo.From | formatDate}}{{end}}"
-                            data-to="{{if .ToAccountInfo}}{{.ToAccountInfo.To | formatDate}}{{end}}"
-                            data-source-type="{{if .ToAccountInfo}}{{.ToAccountInfo.SourceType}}{{end}}"
-                            data-source="{{if .ToAccountInfo}}{{.ToAccountInfo.Source}}{{end}}">
-                            {{.ToAccount}}
-                        </td>
+                        <td class="account" data-account="{{.FromAccount}}">{{.FromAccount}}</td>
+                        <td class="account" data-account="{{.ToAccount}}">{{.ToAccount}}</td>
                         <td class="amount">{{with .Amounts}}{{(index . $.Currency).Amount}}{{end}}</td>
                         <td>{{.Details}}</td>
                         <td>{{.AccountCurrency}}</td>
@@ -72,8 +57,9 @@
         </div>
     </div>
 
-    <!-- Include the shared modal template -->
+    <!-- Include shared modal templates -->
     {{template "shared/rule_edit_modal.html" .}}
+    {{template "shared/account_info_tooltip.html" .}}
 
     <script>
         // Localized strings
@@ -84,50 +70,6 @@
 
         // DOM Ready handler
         document.addEventListener('DOMContentLoaded', function() {
-            const tooltip = document.createElement('div');
-            tooltip.className = 'tooltip';
-            document.body.appendChild(tooltip);
-
-            // Account tooltip handlers
-            document.querySelectorAll('.account').forEach(cell => {
-                cell.addEventListener('mouseenter', function() {
-                    const isTransaction = this.getAttribute('data-is-transaction') === 'true';
-                    const from = this.getAttribute('data-from');
-                    const to = this.getAttribute('data-to');
-                    const sourceType = this.getAttribute('data-source-type');
-                    const source = this.getAttribute('data-source');
-                    
-                    let tooltipContent = '<table>';
-                    if (isTransaction) {
-                        tooltipContent += `
-                            <tr><td>{{localize "Source Type"}}:</td><td>${sourceType}</td></tr>
-                            <tr><td>{{localize "Source"}}:</td><td>${source}</td></tr>
-                            <tr><td>{{localize "From"}}:</td><td>${from}</td></tr>
-                            <tr><td>{{localize "To"}}:</td><td>${to}</td></tr>
-                            <tr><td>{{localize "Transaction Account"}}</td></tr>
-                        `;
-                    } else {
-                        tooltipContent += `
-                            <tr><td>{{localize "Unknown Account"}}</td></tr>
-                            <tr><td>{{localize "From"}}:</td><td>${from}</td></tr>
-                            <tr><td>{{localize "To"}}:</td><td>${to}</td></tr>
-                        `;
-                    }
-                    tooltipContent += '</table>';
-                    tooltip.innerHTML = tooltipContent;
-                    tooltip.style.display = 'block';
-                });
-
-                cell.addEventListener('mousemove', function(e) {
-                    tooltip.style.left = e.pageX + 10 + 'px';
-                    tooltip.style.top = e.pageY + 10 + 'px';
-                });
-
-                cell.addEventListener('mouseleave', function() {
-                    tooltip.style.display = 'none';
-                });
-            });
-
             // Source link click handler
             document.querySelectorAll('.source-link').forEach(link => {
                 link.addEventListener('click', function(e) {

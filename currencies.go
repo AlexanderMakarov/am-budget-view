@@ -590,11 +590,16 @@ func BuildDataMart(
 					From:                     t.Date,
 					To:                       t.Date,
 					OccurencesInTransactions: 1,
+					SourceOccurrences:        make(map[string]int),
 				}
+				// Initialize source occurrences for this account
+				accounts[t.ToAccount].SourceOccurrences[t.Source] = 1
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
 				account.OccurencesInTransactions++
+				// Update source occurrences
+				account.SourceOccurrences[t.Source]++
 				if !t.IsExpense {
 					if len(t.SourceType) > 0 {
 						account.SourceType = t.SourceType
@@ -620,11 +625,16 @@ func BuildDataMart(
 					From:                     t.Date,
 					To:                       t.Date,
 					OccurencesInTransactions: 1,
+					SourceOccurrences:        make(map[string]int),
 				}
+				// Initialize source occurrences for this account
+				accounts[t.FromAccount].SourceOccurrences[t.Source] = 1
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
 				account.OccurencesInTransactions++
+				// Update source occurrences
+				account.SourceOccurrences[t.Source]++
 				if t.IsExpense {
 					if len(t.SourceType) > 0 {
 						account.SourceType = t.SourceType
