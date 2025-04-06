@@ -39,7 +39,7 @@
                         <td class="amount">{{with .Amounts}}{{(index . $.Currency).Amount}}{{end}}</td>
                         <td>{{.Details}}</td>
                         <td>{{.AccountCurrency}}</td>
-                        <td>{{with .Amounts}}{{(index . $.Currency).ConversionPrecision}}{{end}}</td>
+                        <td class="conversion-path" data-path="{{with .Amounts}}{{(index . $.Currency).ConversionPath | toJSON}}{{end}}">{{with .Amounts}}{{(index . $.Currency).ConversionPrecision}}{{end}}</td>
                         <td class="source-cell">[{{.SourceType}}] <a href="/open-file?path={{.Source}}" class="source-link" data-source="{{.Source}}">{{.Source}}</a></td>
                         <td class="rule-cell" data-rule-type="{{.RuleType}}" data-rule-value="{{.RuleValue}}" data-group="{{$.Group}}">
                             {{if .RuleType}}
@@ -60,6 +60,7 @@
     <!-- Include shared modal templates -->
     {{template "shared/rule_edit_modal.html" .}}
     {{template "shared/account_info_tooltip.html" .}}
+    {{template "shared/conversion_path_tooltip.html" .}}
 
     <script>
         // Localized strings

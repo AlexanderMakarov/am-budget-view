@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"regexp"
@@ -21,6 +22,8 @@ type ExchangeRate struct {
 	currencyTo string
 	// ExchangeRate = CurrencyFrom / CurrencyTo.
 	exchangeRate float64
+	// Source is a source of the exchange rate.
+	source string
 }
 
 // CurrencyStatistics is a struct representing data about a currency found in transactions.
@@ -46,7 +49,8 @@ type CurrencyStatistics struct {
 	ExchangeRates []*ExchangeRate
 }
 
-// DataMart is a "ready to use" data parsed from transactions. Immutable.
+// DataMart is a container for transactions, accounts, currencies and exchange rates parsed from input files.
+// Can be used to build journal entries.
 type DataMart struct {
 	// SortedTransactions is a sorted transactions list.
 	SortedTransactions []Transaction
@@ -106,7 +110,7 @@ var currencyRegex = regexp.MustCompile(`\s[A-Z]{3}\W`)
 // - "330000 AMD / 4.4 = 75000 RUB"
 // - "1550 EUR * 410.84 = 636802 AMD"
 // - "1085500 AMD / 417.5 = 2600 EUR"
-func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency1, targetCurrency2 string) *ExchangeRate {
+func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency1, targetCurrency2 string, source string) *ExchangeRate {
 	// Try to find both currencies in details.
 	currency1Index := strings.Index(details, targetCurrency1)
 	currency2Index := strings.Index(details, targetCurrency2)
@@ -170,11 +174,11 @@ func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency
 	if isMultiplication {
 		// For multiplication format: first_amount * rate = second_amount
 		// So exchange_rate = second_amount / first_amount
-		exchangeRate = float64(amount2) / float64(amount1)
+		exchangeRate = float64(amount1) / float64(amount2)
 	} else {
 		// For division format: first_amount / rate = second_amount
 		// So exchange_rate = first_amount / second_amount
-		exchangeRate = float64(amount2) / float64(amount1)
+		exchangeRate = float64(amount1) / float64(amount2)
 	}
 
 	return &ExchangeRate{
@@ -182,13 +186,46 @@ func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency
 		currencyFrom: targetCurrency1,
 		currencyTo:   targetCurrency2,
 		exchangeRate: exchangeRate,
+		source:       source,
 	}
 }
 
-// findClosestExchangeRate finds closest exchange rate to the given date.
+func printCurrencyStatisticsMap(convertableCurrencies map[string]*CurrencyStatistics) {
+	if len(convertableCurrencies) == 0 {
+		fmt.Println(i18n.T("No currencies found"))
+		return
+	}
+	fmt.Println(i18n.T("Currency\tFrom\tTo\tNumber of Exchange Rates"))
+	for currency, stat := range convertableCurrencies {
+		fmt.Printf("  %s\t%s\t%s\t%d\n",
+			currency,
+			stat.From.Format(beancountOutputTimeFormat),
+			stat.To.Format(beancountOutputTimeFormat),
+			len(stat.ExchangeRates))
+	}
+}
+
+func buildConversionPath(
+	currencyFrom string,
+	currencyTo string,
+	exchangeRate float64,
+	date time.Time,
+	source string,
+) string {
+	return fmt.Sprintf(
+		"%s/%s=%f (at %s by '%s')",
+		currencyFrom,
+		currencyTo,
+		exchangeRate,
+		date.Format(time.DateOnly),
+		source,
+	)
+}
+
+// findAnyCurrencyClosestExchangeRate finds closest exchange rate in any currency to the given date.
 // Not uses `curState.exchangeRateIndexesPerCurrency`.
 // returns precision as number of days between dates.
-func findClosestExchangeRate(
+func findAnyCurrencyClosestExchangeRate(
 	date time.Time,
 	curState *currencyState,
 ) int {
@@ -214,24 +251,36 @@ func findClosestExchangeRateToCurrency(
 	targetCurrency string,
 	curState *currencyState,
 ) (*ExchangeRate, int) {
+	// If no exchange rates then return nil.
 	if len(curState.statistics.ExchangeRates) == 0 {
 		return nil, math.MaxInt
 	}
+	// If exchange rate index is not set then set it to 0.
 	var exchangeRate *ExchangeRate = nil
 	exchangeRateIndex, ok := curState.exchangeRateIndexesPerCurrency[targetCurrency]
 	if !ok {
+		curState.exchangeRateIndexesPerCurrency[targetCurrency] = 0
+		exchangeRateIndex = 0
+	}
+	// If exchange rate index is out of bounds then return nil.
+	if exchangeRateIndex >= len(curState.statistics.ExchangeRates) {
+		return nil, math.MaxInt
+	}
+	exchangeRate = curState.statistics.ExchangeRates[exchangeRateIndex]
+	// If another currency in exchange rate is not target currency then return nil.
+	if exchangeRate.currencyTo != targetCurrency && exchangeRate.currencyFrom != targetCurrency {
 		return nil, math.MaxInt
 	}
 	dateDiff := date.Sub(exchangeRate.date).Abs()
 	// Find closest exchange rate after current one.
-	for i := exchangeRateIndex; i < len(curState.statistics.ExchangeRates); i++ {
+	for i := exchangeRateIndex + 1; i < len(curState.statistics.ExchangeRates); i++ {
 		checkedEr := curState.statistics.ExchangeRates[i]
 		if checkedEr.currencyTo != targetCurrency && checkedEr.currencyFrom != targetCurrency {
 			// Skip not relevant exchange rates.
 			continue
 		}
 		checkedErDateDiff := checkedEr.date.Sub(date).Abs()
-		if checkedErDateDiff < dateDiff {
+		if checkedErDateDiff <= dateDiff {
 			// If found something better then update exchange rate and date difference.
 			exchangeRate = checkedEr
 			dateDiff = checkedErDateDiff
@@ -246,20 +295,24 @@ func findClosestExchangeRateToCurrency(
 
 // convertToCurrency converts transaction amounts to convertable currencies.
 // Shifts index of exchangeRateIndex in curStates because expects to be called for dates in chronological order.
-// Returns converted amount and number representing how precise conversion was.
+// Calculates precision as:
 // 0 - no conversion (amountCurrency == targetCurrency),
 // 1 - with direct exchange rate to targetCurrency at the same date,
 // >1 - number of days between transaction date to used exchange rate date, plus the number of days to the next exchange rate if first one was not direct.
+// Returns:
+// - converted amount,
+// - number representing how precise conversion was,
+// - path of conversion.
 func convertToCurrency(
 	amount MoneyWith2DecimalPlaces,
 	amountCurrency string,
 	targetCurrency string,
 	date time.Time,
 	curStates map[string]*currencyState,
-) (MoneyWith2DecimalPlaces, int) {
-	// If the same currency then no conversion, precision is 0.
+) (MoneyWith2DecimalPlaces, int, []string) {
+	// If the same currency then no conversion, precision is 0, path is empty.
 	if amountCurrency == targetCurrency {
-		return amount, 0
+		return amount, 0, []string{}
 	}
 
 	// Try to find direct exchange rate.
@@ -272,21 +325,42 @@ func convertToCurrency(
 			precision = 1
 		}
 		if exchangeRateDirect.currencyTo == targetCurrency {
-			return MoneyWith2DecimalPlaces{int: int(float64(amount.int) * exchangeRateDirect.exchangeRate)}, precision
+			return MoneyWith2DecimalPlaces{
+					int: int(float64(amount.int) / exchangeRateDirect.exchangeRate),
+				},
+				precision,
+				[]string{
+					buildConversionPath(
+						exchangeRateDirect.currencyFrom,
+						exchangeRateDirect.currencyTo,
+						exchangeRateDirect.exchangeRate,
+						exchangeRateDirect.date,
+						exchangeRateDirect.source,
+					),
+				}
 		}
-		return MoneyWith2DecimalPlaces{int: int(float64(amount.int) / exchangeRateDirect.exchangeRate)}, precision
+		return MoneyWith2DecimalPlaces{
+				int: int(float64(amount.int) * exchangeRateDirect.exchangeRate),
+			},
+			precision,
+			[]string{
+				buildConversionPath(
+					exchangeRateDirect.currencyTo,
+					exchangeRateDirect.currencyFrom,
+					1/exchangeRateDirect.exchangeRate,
+					exchangeRateDirect.date,
+					exchangeRateDirect.source,
+				),
+			}
 	}
 
 	// Otherwise try to find exchange rate by multiple conversions.
 	// Use Dijkstra's algorithm to find shortest path (with minimal precision loss).
-	// Don't advance exchange rate index in curStates here.
-	// Generated by Claude 3.5 20241022.
-
-	// Find all closest to date exchange rates to all currencies.
 	type currencyNode struct {
 		currency  string
 		amount    MoneyWith2DecimalPlaces
 		precision int
+		path      []string // Track the conversion path with exchange rate details
 	}
 
 	// Build graph of exchange rates between currencies.
@@ -297,6 +371,7 @@ func convertToCurrency(
 			currency:  currency,
 			amount:    MoneyWith2DecimalPlaces{int: math.MaxInt},
 			precision: math.MaxInt,
+			path:      []string{},
 		}
 	}
 	// Set initial amount for source currency.
@@ -304,19 +379,21 @@ func convertToCurrency(
 		currency:  amountCurrency,
 		amount:    amount,
 		precision: 0,
+		path:      []string{},
 	}
 
-	// Use priority queue to process nodes with minimal precision first
+	// Use priority queue to process nodes with minimal precision first.
 	type queueItem struct {
 		currency  string
 		precision int
 	}
 	queue := []queueItem{{currency: amountCurrency, precision: 0}}
 
-	// Track processed nodes to avoid cycles
+	// Track processed nodes to avoid cycles.
 	processed := make(map[string]bool)
 
-	// Run Dijkstra's algorithm
+	// Run Dijkstra's algorithm.
+	log.Printf("Run Dijkstra's algorithm for %d amount %s at %s", amount.int, amountCurrency, date.Format(time.DateOnly))
 	for len(queue) > 0 {
 		// Get node with minimal precision
 		minIdx := 0
@@ -330,92 +407,81 @@ func convertToCurrency(
 
 		fromNode := nodes[current.currency]
 
-		// Try all possible exchange rates from current currency to any other currency
-		for toCurrency := range curStates {
-			if toCurrency == current.currency {
+		// Try all possible exchange rates from current currency to any other currency.
+		fromCurState := curStates[current.currency]
+		for _, er := range fromCurState.statistics.ExchangeRates {
+			// Get the other currency from the exchange rate.
+			otherCurrency := er.currencyTo
+			if er.currencyTo == current.currency {
+				otherCurrency = er.currencyFrom
+			}
+
+			// Skip if this rate doesn't connect to any other currency.
+			if otherCurrency == current.currency {
 				continue
 			}
 
-			// Find best exchange rate between currencies
-			bestPrecision := math.MaxInt
-			var bestAmount MoneyWith2DecimalPlaces
+			// Calculate precision for this exchange rate step.
+			daysDiff := date.Sub(er.date).Abs()
+			stepPrecision := int(daysDiff / (24 * time.Hour))
+			if stepPrecision == 0 {
+				stepPrecision = 1 // It is not the same currency so minimal precision is 1.
+			}
 
-			// Check direct rates from current currency
-			fromCurState := curStates[current.currency]
-			for _, er := range fromCurState.statistics.ExchangeRates {
-				// Get the other currency from the exchange rate
-				otherCurrency := er.currencyTo
-				if er.currencyTo == current.currency {
-					otherCurrency = er.currencyFrom
-				}
+			// Calculate new precision as sum of all steps.
+			newPrecision := fromNode.precision + stepPrecision
 
-				// Skip if this rate doesn't connect to any other currency
-				if otherCurrency == current.currency {
-					continue
-				}
-
-				// Find closest exchange rate to date
-				daysDiff := findClosestExchangeRate(date, fromCurState)
-
-				// Calculate new precision
-				newPrecision := daysDiff
-				if newPrecision == 0 {
-					newPrecision = 1
-				}
-				newPrecision += fromNode.precision
-
-				// Calculate converted amount based on exchange rate direction
+			// Update the other currency if we found a better path.
+			otherNode := nodes[otherCurrency]
+			if newPrecision < otherNode.precision {
+				// Calculate converted amount based on exchange rate direction.
 				var newAmount MoneyWith2DecimalPlaces
-				if er.currencyFrom == current.currency {
-					newAmount = MoneyWith2DecimalPlaces{
-						int: int(float64(fromNode.amount.int) * er.exchangeRate),
-					}
-				} else {
+				var pathEntry string
+				if current.currency == er.currencyFrom {
 					newAmount = MoneyWith2DecimalPlaces{
 						int: int(float64(fromNode.amount.int) / er.exchangeRate),
 					}
-				}
-
-				// Update the other currency if we found a better path
-				otherNode := nodes[otherCurrency]
-				if newPrecision < otherNode.precision {
-					otherNode.amount = newAmount
-					otherNode.precision = newPrecision
-					if !processed[otherCurrency] {
-						queue = append(queue, queueItem{
-							currency:  otherCurrency,
-							precision: newPrecision,
-						})
+					pathEntry = buildConversionPath(
+						er.currencyFrom,
+						er.currencyTo,
+						er.exchangeRate,
+						er.date,
+						er.source,
+					)
+				} else {
+					newAmount = MoneyWith2DecimalPlaces{
+						int: int(float64(fromNode.amount.int) * er.exchangeRate),
 					}
+					pathEntry = buildConversionPath(
+						er.currencyTo,
+						er.currencyFrom,
+						1/er.exchangeRate,
+						er.date,
+						er.source,
+					)
 				}
-			}
-
-			// Update target node if found better precision
-			toNode := nodes[toCurrency]
-			if bestPrecision < toNode.precision {
-				toNode.amount = bestAmount
-				toNode.precision = bestPrecision
-				// Add to queue if not processed
-				if !processed[toCurrency] {
+				otherNode.amount = newAmount
+				otherNode.precision = newPrecision
+				otherNode.path = append(fromNode.path, pathEntry)
+				if !processed[otherCurrency] {
 					queue = append(queue, queueItem{
-						currency:  toCurrency,
-						precision: bestPrecision,
+						currency:  otherCurrency,
+						precision: newPrecision,
 					})
 				}
 			}
 		}
-
 		processed[current.currency] = true
 	}
 
 	// Return converted amount and precision for target currency
 	if targetNode, exists := nodes[targetCurrency]; exists {
 		if targetNode.amount.int != math.MaxInt {
-			return targetNode.amount, targetNode.precision
+			return targetNode.amount, targetNode.precision, targetNode.path
 		}
 	}
 	// If no conversion path found then return original amount with max precision
-	return amount, math.MaxInt
+	return amount, math.MaxInt, []string{}
 }
 
 // BuildDataMart builds data required to build journal entries.
@@ -466,6 +532,7 @@ func BuildDataMart(
 							currencyFrom: t.AccountCurrency,
 							currencyTo:   t.OriginCurrency,
 							exchangeRate: float64(t.Amount.int) / float64(t.OriginCurrencyAmount.int),
+							source:       t.Source,
 						}
 						accountCurrency.ExchangeRates = append(accountCurrency.ExchangeRates, exchangeRate)
 					}
@@ -528,7 +595,13 @@ func BuildDataMart(
 		// Check that exchange rate was set and try to parse it from details if not.
 		if !isExchangeRateSet {
 			// Try to parse exchange rate from details.
-			exchangeRate = parseExchangeRateFromDetails(t.Date, t.Details, t.AccountCurrency, t.OriginCurrency)
+			exchangeRate = parseExchangeRateFromDetails(
+				t.Date,
+				t.Details,
+				t.AccountCurrency,
+				t.OriginCurrency,
+				t.Source,
+			)
 			// If exchange rate was parsed, update both currencies. Create them if not exist.
 			if exchangeRate != nil {
 				// Create or update "from" currency
@@ -847,15 +920,16 @@ func buildJournalEntries(
 		for _, curStatistic := range dataMart.ConvertibleCurrencies {
 			var amount1, amount2 MoneyWith2DecimalPlaces
 			var precision1, precision2 int = math.MaxInt, math.MaxInt
+			var conversionPath1, conversionPath2 []string
 
 			// Only convert if currency exists and amount is non-zero. Use all available exchange rates.
 			if t.AccountCurrency != "" && t.Amount.int != 0 {
-				amount1, precision1 = convertToCurrency(t.Amount, t.AccountCurrency, curStatistic.Name, t.Date, curStates)
+				amount1, precision1, conversionPath1 = convertToCurrency(t.Amount, t.AccountCurrency, curStatistic.Name, t.Date, curStates)
 			}
 
 			// Only convert if currency exists and amount is non-zero. Use all available exchange rates.
 			if t.OriginCurrency != "" && t.OriginCurrencyAmount.int != 0 {
-				amount2, precision2 = convertToCurrency(t.OriginCurrencyAmount, t.OriginCurrency, curStatistic.Name, t.Date, curStates)
+				amount2, precision2, conversionPath2 = convertToCurrency(t.OriginCurrencyAmount, t.OriginCurrency, curStatistic.Name, t.Date, curStates)
 			}
 
 			// Check that any amount is non-zero.
@@ -876,12 +950,14 @@ func buildJournalEntries(
 					Currency:            curStatistic.Name,
 					Amount:              amount1,
 					ConversionPrecision: precision1,
+					ConversionPath:      conversionPath1,
 				}
 			} else {
 				amounts[curStatistic.Name] = AmountInCurrency{
 					Currency:            curStatistic.Name,
 					Amount:              amount2,
 					ConversionPrecision: precision2,
+					ConversionPath:      conversionPath2,
 				}
 			}
 		}

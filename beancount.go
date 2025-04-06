@@ -288,18 +288,3 @@ func normalizeAccountName(account string) string {
 	normalized := validAccountNameRegex.ReplaceAllString(account, "-")
 	return strings.Trim(normalized, "-")
 }
-
-func printCurrencyStatisticsMap(convertableCurrencies map[string]*CurrencyStatistics) {
-	if len(convertableCurrencies) == 0 {
-		fmt.Println(i18n.T("No currencies found"))
-		return
-	}
-	fmt.Println(i18n.T("Currency\tFrom\tTo\tNumber of Exchange Rates"))
-	for currency, stat := range convertableCurrencies {
-		fmt.Printf("  %s\t%s\t%s\t%d\n",
-			currency,
-			stat.From.Format(beancountOutputTimeFormat),
-			stat.To.Format(beancountOutputTimeFormat),
-			len(stat.ExchangeRates))
-	}
-}

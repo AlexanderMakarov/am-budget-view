@@ -154,6 +154,8 @@ type AmountInCurrency struct {
 	// 1 - with direct exchange rate to this currency at the same date,
 	// >1 - number of days between transaction date to used exchange rate date, plus the number of days to the next exchange rate if first one was not direct.
 	ConversionPrecision int
+	// ConversionPath is a path of conversion.
+	ConversionPath []string
 }
 
 // JournalEntry represents a single transaction with normalized data.

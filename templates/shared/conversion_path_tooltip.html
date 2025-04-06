@@ -1,0 +1,46 @@
+<!-- Conversion Path Tooltip Template -->
+<div id="conversionPathTooltip" class="tooltip" style="display: none;"></div>
+
+<script>
+    // Conversion path tooltip functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const tooltip = document.getElementById('conversionPathTooltip');
+        
+        // Prepare localized strings
+        const localizedStrings = {
+            conversionPath: '{{localize "Conversion Path"}}'
+        };
+        
+        // Conversion path tooltip handlers
+        document.querySelectorAll('.conversion-path').forEach(cell => {
+            cell.addEventListener('mouseenter', function() {
+                const path = this.getAttribute('data-path');
+                if (!path) {
+                    return; // No path available
+                }
+                
+                let tooltipContent = '<table>';
+                tooltipContent += `<tr><td><b>${localizedStrings.conversionPath}:</b></td></tr>`;
+                
+                // Parse the path array from the data attribute
+                const paths = JSON.parse(path);
+                for (const step of paths) {
+                    tooltipContent += `<tr><td>${step}</td></tr>`;
+                }
+                
+                tooltipContent += '</table>';
+                tooltip.innerHTML = tooltipContent;
+                tooltip.style.display = 'block';
+            });
+
+            cell.addEventListener('mousemove', function(e) {
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+
+            cell.addEventListener('mouseleave', function() {
+                tooltip.style.display = 'none';
+            });
+        });
+    });
+</script> 
