@@ -93,7 +93,13 @@
                     const group = cell.getAttribute('data-group');
                     
                     if (ruleType && ruleValue) {
-                        openRuleModal(ruleType, ruleValue, group);
+                        // Get the group data from the window.groupsData object
+                        const groupData = window.groupsData[group];
+                        if (groupData) {
+                            openRuleModal(ruleType, ruleValue, group, groupData);
+                        } else {
+                            console.error('Group data not found for:', group);
+                        }
                     }
                 });
             });

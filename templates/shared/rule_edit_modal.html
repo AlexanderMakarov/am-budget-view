@@ -30,11 +30,13 @@
 let currentEditGroup = null;
 let currentEditType = null;
 let currentRuleValue = null;
+let currentGroupData = null;
 
-function openRuleModal(ruleType, ruleValue, groupName) {
+function openRuleModal(ruleType, ruleValue, groupName, groupData) {
     currentEditGroup = groupName;
     currentEditType = ruleType;
     currentRuleValue = ruleValue;
+    currentGroupData = groupData;
 
     const modal = document.getElementById('ruleEditModal');
     const select = document.getElementById('ruleSelect');
@@ -95,16 +97,41 @@ async function deleteRule() {
     }
 
     try {
+        const ruleValue = document.getElementById('ruleValue').value;
+        
+        // Use the provided group data
+        let updatedConfig = {
+            fromAccounts: [...currentGroupData.fromAccounts],
+            toAccounts: [...currentGroupData.toAccounts],
+            substrings: [...currentGroupData.substrings]
+        };
+
+        // Remove the rule from the appropriate array
+        const removeFromArray = (arr, val) => arr.filter(item => item !== val);
+
+        switch (currentEditType) {
+            case 'FromAccount':
+                updatedConfig.fromAccounts = removeFromArray(updatedConfig.fromAccounts, ruleValue);
+                break;
+            case 'ToAccount':
+                updatedConfig.toAccounts = removeFromArray(updatedConfig.toAccounts, ruleValue);
+                break;
+            case 'Substring':
+                updatedConfig.substrings = removeFromArray(updatedConfig.substrings, ruleValue);
+                break;
+        }
+
         const response = await fetch('/categorization', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                action: 'deleteRule',
+                action: 'upsertGroup',
                 groupName: currentEditGroup,
-                ruleType: currentEditType,
-                ruleValue: currentRuleValue
+                fromAccounts: updatedConfig.fromAccounts,
+                toAccounts: updatedConfig.toAccounts,
+                substrings: updatedConfig.substrings
             })
         });
 

@@ -5,6 +5,9 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
+    <script>
+        window.groupsData = JSON.parse('{{toJSON .Groups}}');
+    </script>
     <div class="container">
         <header>
             <h1>{{localize "Groups"}}</h1>
@@ -102,13 +105,25 @@
                 });
             });
 
-            // Rule item click handlers - using shared modal
+            // Rule cell click handler - simplified to use shared modal
             document.querySelectorAll('.rule-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const ruleType = this.closest('td').getAttribute('data-rule-type');
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const cell = this.closest('.rules-cell');
+                    const ruleType = cell.getAttribute('data-rule-type');
                     const ruleValue = this.getAttribute('data-rule-value');
                     const group = this.getAttribute('data-group');
-                    openRuleModal(ruleType, ruleValue, group);
+                    
+                    if (ruleType && ruleValue) {
+                        // Get the group data from the window.groupsData object
+                        const groupData = window.groupsData[group];
+                        
+                        if (groupData) {
+                            openRuleModal(ruleType, ruleValue, group, groupData);
+                        } else {
+                            console.error('Group data not found for:', group);
+                        }
+                    }
                 });
             });
         });
