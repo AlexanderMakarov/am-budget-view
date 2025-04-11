@@ -39,23 +39,23 @@ type GroupConfig struct {
 
 // Config represents the application configuration.
 type Config struct {
-	Language                             string   `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
-	EnsureTerminal                       bool     `yaml:"ensureTerminal,omitempty" default:"true"`
-	InecobankStatementXmlFilesGlob       string   `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
-	InecobankStatementXlsxFilesGlob      string   `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
-	AmeriaCsvFilesGlob                   string   `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaAccountStatementXlsFilesGlob string   `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaHistoryXlsFilesGlob          string   `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
-	GenericCsvFilesGlob                  string   `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
-	MyAmeriaMyAccounts                   []string `yaml:"myAmeriaMyAccounts,omitempty"`
-	ConvertToCurrencies                  []string `yaml:"convertToCurrencies,omitempty"`
-	MinCurrencyTimespanPercent           int      `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
-	MaxCurrencyTimespanGapsDays          int      `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
-	DetailedOutput                       bool     `yaml:"detailedOutput"`
-	CategorizeMode                       bool     `yaml:"categorizeMode"`
-	MonthStartDayNumber                  uint     `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
-	TimeZoneLocation                     string   `yaml:"timeZoneLocation,omitempty"`
-	GroupAllUnknownTransactions          bool     `yaml:"groupAllUnknownTransactions"`
+	Language                             string            `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
+	EnsureTerminal                       bool              `yaml:"ensureTerminal,omitempty" default:"true"`
+	InecobankStatementXmlFilesGlob       string            `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
+	InecobankStatementXlsxFilesGlob      string            `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
+	AmeriaCsvFilesGlob                   string            `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaAccountStatementXlsFilesGlob string            `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
+	MyAmeriaHistoryXlsFilesGlob          string            `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
+	GenericCsvFilesGlob                  string            `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
+	MyAmeriaMyAccounts                   map[string]string `yaml:"myAmeriaMyAccounts,omitempty"`
+	ConvertToCurrencies                  []string          `yaml:"convertToCurrencies,omitempty"`
+	MinCurrencyTimespanPercent           int               `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
+	MaxCurrencyTimespanGapsDays          int               `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
+	DetailedOutput                       bool              `yaml:"detailedOutput"`
+	CategorizeMode                       bool              `yaml:"categorizeMode"`
+	MonthStartDayNumber                  uint              `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
+	TimeZoneLocation                     string            `yaml:"timeZoneLocation,omitempty"`
+	GroupAllUnknownTransactions          bool              `yaml:"groupAllUnknownTransactions"`
 	// Leave here for backward compatibility
 	GroupNamesToSubstrings map[string][]string `yaml:"groupNamesToSubstrings,omitempty"`
 	// New groups format

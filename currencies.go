@@ -917,25 +917,25 @@ func buildJournalEntries(
 		// Convert amounts to convertable currencies.
 		amounts := make(map[string]AmountInCurrency, len(dataMart.ConvertibleCurrencies))
 		for _, curStatistic := range dataMart.ConvertibleCurrencies {
-			var amount1, amount2 MoneyWith2DecimalPlaces
-			var precision1, precision2 int = math.MaxInt, math.MaxInt
-			var conversionPath1, conversionPath2 []string
+			var amountAccCur, amountOrgCur MoneyWith2DecimalPlaces
+			var precisionAccCur, precisionOrgCur int = math.MaxInt, math.MaxInt
+			var conversionPathAccCur, conversionPathOrgCur []string
 
 			// Only convert if currency exists and amount is non-zero. Use all available exchange rates.
 			if t.AccountCurrency != "" && t.Amount.int != 0 {
-				amount1, precision1, conversionPath1 = convertToCurrency(t.Amount, t.AccountCurrency, curStatistic.Name, t.Date, curStates)
+				amountAccCur, precisionAccCur, conversionPathAccCur = convertToCurrency(t.Amount, t.AccountCurrency, curStatistic.Name, t.Date, curStates)
 			}
 
 			// Only convert if currency exists and amount is non-zero. Use all available exchange rates.
 			if t.OriginCurrency != "" && t.OriginCurrencyAmount.int != 0 {
-				amount2, precision2, conversionPath2 = convertToCurrency(t.OriginCurrencyAmount, t.OriginCurrency, curStatistic.Name, t.Date, curStates)
+				amountOrgCur, precisionOrgCur, conversionPathOrgCur = convertToCurrency(t.OriginCurrencyAmount, t.OriginCurrency, curStatistic.Name, t.Date, curStates)
 			}
 
 			// Check that any amount is non-zero.
 			// Note that if transaction amount is 1 (i.e. 100 in 'MoneyWith2DecimalPlaces.int' property)
 			// it may be converted to another currency as 0 but it is valid conversion.
 			// Such transactions are used to check that card can be charged in general.
-			if amount1.int == 0 && amount2.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
+			if amountAccCur.int == 0 && amountOrgCur.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
 				return nil, nil, errors.New(
 					i18n.T("transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
 						"t", t, "c", curStatistic.Name,
@@ -944,20 +944,33 @@ func buildJournalEntries(
 			}
 
 			// Use the conversion with better precision.
-			if precision1 <= precision2 {
+			if precisionAccCur <= precisionOrgCur {
 				amounts[curStatistic.Name] = AmountInCurrency{
 					Currency:            curStatistic.Name,
-					Amount:              amount1,
-					ConversionPrecision: precision1,
-					ConversionPath:      conversionPath1,
+					Amount:              amountAccCur,
+					ConversionPrecision: precisionAccCur,
+					ConversionPath:      conversionPathAccCur,
 				}
 			} else {
 				amounts[curStatistic.Name] = AmountInCurrency{
 					Currency:            curStatistic.Name,
-					Amount:              amount2,
-					ConversionPrecision: precision2,
-					ConversionPath:      conversionPath2,
+					Amount:              amountOrgCur,
+					ConversionPrecision: precisionOrgCur,
+					ConversionPath:      conversionPathOrgCur,
 				}
+			}
+		}
+		// Try to set "account currency amount" even if it wasn't provided in transaction.
+		amount := t.Amount
+		if amount.int == 0 {
+			if convertedAmount, ok := amounts[t.AccountCurrency]; ok {
+				amount = convertedAmount.Amount
+			} else {
+				return nil, nil, errors.New(
+					i18n.T("transaction t amount in account currency c can't be set because both origin file doesn't provide it and currency haven't choosen for conversion into",
+						"t", t, "c", t.AccountCurrency,
+					),
+				)
 			}
 		}
 		entry := JournalEntry{
@@ -968,7 +981,7 @@ func buildJournalEntries(
 			Details:               t.Details,
 			Category:              category.Name,
 			AccountCurrency:       t.AccountCurrency,
-			AccountCurrencyAmount: t.Amount,
+			AccountCurrencyAmount: amount,
 			OriginCurrency:        t.OriginCurrency,
 			OriginCurrencyAmount:  t.OriginCurrencyAmount,
 			FromAccount:           t.FromAccount,

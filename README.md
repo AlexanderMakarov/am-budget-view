@@ -94,8 +94,9 @@ Ameriabank both individual and legal accounts.
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED
   XML files from "Transactions" tab - they don't contain own Reciever/Payer account number and currency.
-- [FULL] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
+- [OUTDATED] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
   https://myameria.am/cards-and-accounts/account-statement/******.
+  THIS PAGE IS NOT AVAILABLE ANYMORE - use "MyAmeria History Excel" instead.
   On the web site choose Cards and Accounts -> Current account -> Statement,
   here select period (last option usually), if available the set "In AMD" (under "Show also"),
   choose "Excel" format, press "Download". Almost the same in mobile app.
@@ -103,13 +104,11 @@ Ameriabank both individual and legal accounts.
   Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
-- [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/events.
-  Page doesn't work on the bank's web site and mobile app for now (September 2024)
-  but is supported for previously downloaded reports.
+- [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/history.
   In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
-  Note that it should be accompanied by `myAmeriaMyAccounts` setting because files
-  don't have account number or by `myAmeriaIncomeSubstrings` setting
-  to at least distinguish incomes from expenses in the file.
+  Note that it should be accompanied by `myAmeriaMyAccounts` map because files
+  don't have account number and currency so it is required to specify it.
+  If transactions would have account number not specified parser would fail.
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
 - [FULL] Generic CSV files with transactions from the any source.
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.

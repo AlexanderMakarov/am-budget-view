@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"time"
 
@@ -44,7 +43,7 @@ type MyAmeriaTransaction struct {
 }
 
 type MyAmeriaExcelFileParser struct {
-	MyAccounts []string
+	MyAccounts map[string]string
 }
 
 func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
@@ -125,24 +124,42 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	}
 
 	// Convert MyAmeria rows to unified transactions and separate expenses from incomes.
+	var ok bool
+	zeroAmount := MoneyWith2DecimalPlaces{
+		int: 0,
+	}
 	transactions := make([]Transaction, len(myAmeriaTransactions))
 	for i, t := range myAmeriaTransactions {
 		isExpense := true
-		if len(p.MyAccounts) > 0 {
-			if slices.Contains(p.MyAccounts, t.BeneficiaryAccount) {
-				isExpense = false
-			}
+		// Currency is different for each transaction (because different account).
+		accountCurrency := ""
+		if accountCurrency, ok = p.MyAccounts[t.BeneficiaryAccount]; ok {
+			isExpense = false
+		} else if accountCurrency, ok = p.MyAccounts[t.OutgoingAccount]; ok {
+			isExpense = true
+		} else {
+			return nil, "", fmt.Errorf("can't find account number for raw transaction %s", t)
+		}
+		// Ameria History XLS files show only original currency amount.
+		originCurrency := t.Currency
+		originCurrencyAmount := t.Amount
+		accountCurrencyAmount := zeroAmount
+		// If account currency matches origin one it may cause issues later so swap "origin" and "account".
+		if accountCurrency == originCurrency {
+			accountCurrencyAmount = t.Amount
+			originCurrency = ""
+			originCurrencyAmount = zeroAmount
 		}
 		transactions[i] = Transaction{
-			IsExpense: isExpense,
-			Date:      t.Date,
-			Details:   t.Details,
-			// Currency is different for each transaction.
-			SourceType: fmt.Sprintf("MyAmeriaExcel:%s", t.Currency),
-			Source:     filePath,
-			// Ameria XLS files show only original currency amount.
-			OriginCurrency:       t.Currency,
-			OriginCurrencyAmount: t.Amount,
+			IsExpense:            isExpense,
+			Date:                 t.Date,
+			Details:              t.Details,
+			SourceType:           fmt.Sprintf("MyAmeriaExcel:%s", accountCurrency),
+			Source:               filePath,
+			Amount:               accountCurrencyAmount,
+			AccountCurrency:      accountCurrency,
+			OriginCurrency:       originCurrency,
+			OriginCurrencyAmount: originCurrencyAmount,
 			FromAccount:          t.OutgoingAccount,
 			ToAccount:            t.BeneficiaryAccount,
 		}

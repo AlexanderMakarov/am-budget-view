@@ -18,8 +18,8 @@ myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
-  - Account1
-  - Account2
+  "Account1": "USD"
+  "Account2": "AMD"
 detailedOutput: true
 categorizeMode: false
 monthStartDayNumber: 1
@@ -75,9 +75,9 @@ groupNamesToSubstrings:
 			cfg.GenericCsvFilesGlob,
 		)
 	}
-	if len(cfg.MyAmeriaMyAccounts) != 2 || cfg.MyAmeriaMyAccounts[0] != "Account1" || cfg.MyAmeriaMyAccounts[1] != "Account2" {
+	if len(cfg.MyAmeriaMyAccounts) != 2 || cfg.MyAmeriaMyAccounts["Account1"] != "USD" || cfg.MyAmeriaMyAccounts["Account2"] != "AMD" {
 		t.Errorf(
-			"Expected MyAmeriaMyAccounts to be ['Account1', 'Account2'], got '%v'",
+			"Expected MyAmeriaMyAccounts to be {'Account1': 'USD', 'Account2': 'AMD'}, got '%v'",
 			cfg.MyAmeriaMyAccounts,
 		)
 	}
@@ -150,8 +150,8 @@ myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
-  - Account1
-  - Account2
+  Account1: USD
+  Account2: AMD
 detailedOutput: true
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
@@ -186,8 +186,8 @@ myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
-  - Account1
-  - Account2
+  Account1: USD
+  Account2: AMD
 detailedOutput: true
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
@@ -379,9 +379,9 @@ myAmeriaHistoryXlsFilesGlob: "1324657890123456"
 genericCsvFilesGlob: "generic*.csv"
 # Before group comment
 myAmeriaMyAccounts:
-  - Account1 # List element comment
+  Account1: USD  # List element comment
   # Between list elements comment
-  - Account2
+  Account2: AMD
 detailedOutput: true
 categorizeMode: false
 monthStartDayNumber: 1
@@ -409,9 +409,9 @@ myAmeriaHistoryXlsFilesGlob: "1324657890123456"
 genericCsvFilesGlob: generic*.csv
 # Before group comment
 myAmeriaMyAccounts:
-  - Account1 # List element comment
+  Account1: USD # List element comment
   # Between list elements comment
-  - Account2
+  Account2: AMD
 detailedOutput: true
 categorizeMode: false
 monthStartDayNumber: 1
@@ -443,9 +443,9 @@ myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
 myAmeriaHistoryXlsFilesGlob: "1324657890123456"
 # Before group comment
 myAmeriaMyAccounts:
-  - Account1 # List element comment
+  Account1: USD # List element comment
   # Between list elements comment
-  - Account2
+  Account2: AMD
 detailedOutput: true
 categorizeMode: false
 monthStartDayNumber: 1
@@ -470,9 +470,9 @@ myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
 myAmeriaHistoryXlsFilesGlob: "1324657890123456"
 # Before group comment
 myAmeriaMyAccounts:
-  - Account1 # List element comment
+  Account1: USD # List element comment
   # Between list elements comment
-  - Account2
+  Account2: AMD
 detailedOutput: true
 categorizeMode: false
 monthStartDayNumber: 1

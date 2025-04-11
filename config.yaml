@@ -21,10 +21,13 @@ myAmeriaHistoryXlsFilesGlob: History *.xls
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 genericCsvFilesGlob: generic*.csv
-# Due to MyAmeria "History" files doesn't provide "is expense or income" information
-# need to specify your account(s) number (16 digits number) and all transactions
-# with "Beneficiary account" from this list would be treated as an income.
+# Due to MyAmeria "History" files don't provide any information about accounts
+# you need to specify map of your account(s) number (16 digits number) and
+# relevant currency 3 letter code.
+# Thus all transactions with "Beneficiary account" from this list would be
+# understood as an income and amount in account currency would be set.
 myAmeriaMyAccounts:
+  "1234567890123456": "AMD"
 # List of currencies to unconditionally convert transactions into.
 # Note that if transactions files don't have enough information about exchange rates
 # totals would be incorrect!
