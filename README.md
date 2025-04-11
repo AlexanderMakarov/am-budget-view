@@ -375,12 +375,14 @@ CI will do the rest.
       This is to allow load data from any source (not only Inecobank and Ameria).
 - [x] In "Transactions" page show rule which categorized transaction with ability to delete it.
 - [x] Collect more details about accounts.
+- [x] Handle currencies on "Categorization" page (now "Amount" in different currencies).
 - [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.
       c) currency exchange inside the same bank may happen under different account.
-- [ ] Handle currencies on "Categorization" page (now "Amount" in different currencies).
+- [ ] Download account statements from MyAmeria by copying "Authoization" header from browser.
+      https://ob.myameria.am/api/statement/account/<someid>?withEquivalentCurrency=true&withDailyMovement=false&withOverdraft=false&dateFrom=04%2F04%2F2024&dateTo=10%2F04%2F2025&accountNumber=<account_number>&fileType=xls
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
 - [ ] Record new video(s) with instructions.

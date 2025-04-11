@@ -26,15 +26,19 @@
                         <th>{{localize "File Name"}}</th>
                         <th>{{localize "type"}}</th>
                         <th>{{localize "Number of Transactions"}}</th>
+                        <th>{{localize "From"}}</th>
+                        <th>{{localize "To"}}</th>
                         <th>{{localize "Modified Date"}}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {{range .Files}}
                     <tr>
-                        <td>{{.Path}}</td>
+                        <td><a href="#" class="file-link" data-path="{{.Path}}">{{.Path}}</a></td>
                         <td>{{.Type}}</td>
                         <td>{{.TransactionsCount}}</td>
+                        <td>{{.FromDate | formatDate}}</td>
+                        <td>{{.ToDate | formatDate}}</td>
                         <td>{{.ModifiedTime | formatDate}}</td>
                     </tr>
                     {{end}}
@@ -42,5 +46,22 @@
             </table>
         </div>
     </div>
+
+    <script>
+        // DOM Ready handler
+        document.addEventListener('DOMContentLoaded', function() {
+            // File link click handler
+            document.querySelectorAll('.file-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const path = this.getAttribute('data-path');
+                    if (path) {
+                        fetch(`/open-file?path=${encodeURIComponent(path)}`)
+                            .catch(err => console.error('Error opening file:', err));
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

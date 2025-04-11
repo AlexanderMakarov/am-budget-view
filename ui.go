@@ -236,6 +236,16 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 			})
 		}
 
+		// Get sorted groups for the template
+		sortedGroups := getSortedGroups(dataHandler.Config.Groups)
+
+		// JSON encode the groups
+		jsonGroups, err := json.Marshal(sortedGroups)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
+
 		data := struct {
 			Month    string
 			Group    string
@@ -243,6 +253,7 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 			Currency string
 			Entries  []TemplateEntry
 			Accounts template.JS
+			Groups   template.JS
 		}{
 			Month:    month,
 			Group:    group,
@@ -250,6 +261,7 @@ func handleTransactions(dataHandler *DataHandler) http.HandlerFunc {
 			Currency: currency,
 			Entries:  templateEntries,
 			Accounts: template.JS(string(jsonAccounts)),
+			Groups:   template.JS(string(jsonGroups)),
 		}
 
 		err = parseAndExecuteTemplate("templates/transactions.html", w, data)

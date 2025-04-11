@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 // getFilesByGlob retrieves files matching the glob pattern.
@@ -110,6 +111,7 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 	result := make([]Transaction, 0)
 	fileInfos := make([]FileInfo, 0)
 	notFatalError := ""
+
 	for _, file := range files {
 		log.Println(i18n.T("Parsing file with parser", "file", file, "parser", parser))
 		rawTransactions, sourceType, err := parser.ParseRawTransactionsFromFile(file)
@@ -135,12 +137,29 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 		if err != nil {
 			return result, "", nil, errors.New(i18n.T("can't get file info for '%s': %v", file, err))
 		}
+		var fileFromDate, fileToDate time.Time
+		if len(rawTransactions) > 0 {
+			fileFromDate = rawTransactions[0].Date
+			fileToDate = rawTransactions[0].Date
+
+			for _, transaction := range rawTransactions {
+				if transaction.Date.Before(fileFromDate) {
+					fileFromDate = transaction.Date
+				}
+				if transaction.Date.After(fileToDate) {
+					fileToDate = transaction.Date
+				}
+			}
+		}
 		fileInfos = append(fileInfos, FileInfo{
 			Path:              file,
 			Type:              sourceType,
 			TransactionsCount: len(rawTransactions),
 			ModifiedTime:      fileInfo.ModTime(),
+			FromDate:          fileFromDate,
+			ToDate:            fileToDate,
 		})
 	}
+
 	return result, notFatalError, fileInfos, nil
 }

@@ -6,6 +6,11 @@
 </head>
 <body>
     <script id="accountsData" type="application/json">{{.Accounts}}</script>
+    <script id="groupsData" type="application/json">{{.Groups}}</script>
+    <script>
+        // Initialize groupsData globally
+        window.groupsData = {{.Groups}};
+    </script>
     <div class="container">
         <header>
             <h1>{{if eq .Type "income"}}{{localize "Income transactions for g category" "g" .Group}}{{else}}{{localize "Expense transactions for g category" "g" .Group}}{{end}}</h1>
@@ -63,11 +68,11 @@
     {{template "shared/conversion_path_tooltip.html" .}}
 
     <script>
-        // Localized strings
-        window.localizedStrings = {
-            ruleValueEmpty: '{{localize "Rule value cannot be empty"}}',
+        const localizedStrings = {
             confirmDeleteRule: '{{localize "Are you sure you want to delete this rule?"}}'
         };
+
+        let currentRuleToDelete = null;
 
         // DOM Ready handler
         document.addEventListener('DOMContentLoaded', function() {

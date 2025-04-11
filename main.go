@@ -333,6 +333,8 @@ type FileInfo struct {
 	Type              string    `json:"type"`
 	TransactionsCount int       `json:"transactionsCount"`
 	ModifiedTime      time.Time `json:"modifiedTime"`
+	FromDate          time.Time `json:"fromDate"`
+	ToDate            time.Time `json:"toDate"`
 }
 
 // DataHandler is a handler for data.
