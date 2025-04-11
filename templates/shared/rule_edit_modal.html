@@ -32,6 +32,12 @@ let currentEditType = null;
 let currentRuleValue = null;
 let currentGroupData = null;
 
+// Define localized strings directly in the modal
+const modalLocalizedStrings = {
+    ruleValueEmpty: '{{localize "Rule value cannot be empty"}}',
+    confirmDeleteRule: '{{localize "Are you sure you want to delete this rule?"}}'
+};
+
 function openRuleModal(ruleType, ruleValue, groupName, groupData) {
     currentEditGroup = groupName;
     currentEditType = ruleType;
@@ -60,7 +66,7 @@ async function submitRuleEdit(event) {
     const newValue = document.getElementById('ruleValue').value.trim();
 
     if (newValue === '') {
-        alert(window.localizedStrings.ruleValueEmpty);
+        alert(modalLocalizedStrings.ruleValueEmpty);
         return;
     }
 
@@ -83,27 +89,25 @@ async function submitRuleEdit(event) {
         if (response.ok) {
             window.location.reload();
         } else {
-            alert('Error: ' + await response.text());
+            alert('Back-end error: ' + await response.text());
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error: ' + error.message);
+        alert('Front-end error: ' + error.message);
     }
 }
 
 async function deleteRule() {
-    if (!confirm(window.localizedStrings.confirmDeleteRule)) {
+    if (!confirm(modalLocalizedStrings.confirmDeleteRule)) {
         return;
     }
 
     try {
         const ruleValue = document.getElementById('ruleValue').value;
-        
-        // Use the provided group data
         let updatedConfig = {
-            fromAccounts: [...currentGroupData.fromAccounts],
-            toAccounts: [...currentGroupData.toAccounts],
-            substrings: [...currentGroupData.substrings]
+            fromAccounts: [...(currentGroupData.FromAccounts || [])],
+            toAccounts: [...(currentGroupData.ToAccounts || [])],
+            substrings: [...(currentGroupData.Substrings || [])]
         };
 
         // Remove the rule from the appropriate array
@@ -120,6 +124,9 @@ async function deleteRule() {
                 updatedConfig.substrings = removeFromArray(updatedConfig.substrings, ruleValue);
                 break;
         }
+
+        // Log the updated configuration for debugging
+        console.log('Sending updated config:', updatedConfig);
 
         const response = await fetch('/categorization', {
             method: 'POST',
@@ -138,11 +145,11 @@ async function deleteRule() {
         if (response.ok) {
             window.location.reload();
         } else {
-            alert('Error: ' + await response.text());
+            alert('Back-end error: ' + await response.text());
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error: ' + error.message);
+        alert('Front-end error: ' + error.message);
     }
 }
 

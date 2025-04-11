@@ -393,7 +393,6 @@ func convertToCurrency(
 	processed := make(map[string]bool)
 
 	// Run Dijkstra's algorithm.
-	log.Printf("Run Dijkstra's algorithm for %d amount %s at %s", amount.int, amountCurrency, date.Format(time.DateOnly))
 	for len(queue) > 0 {
 		// Get node with minimal precision
 		minIdx := 0

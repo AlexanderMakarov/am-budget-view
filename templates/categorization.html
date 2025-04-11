@@ -27,7 +27,6 @@
                         <th>{{localize "Amount"}}</th>
                         <th>{{localize "Account Currency"}}</th>
                         <th>{{localize "Details"}}</th>
-                        <th>{{localize "Source Type"}}</th>
                         <th>{{localize "Source"}}</th>
                         <th>{{localize "Actions"}}</th>
                     </tr>
@@ -41,8 +40,7 @@
                         <td class="amount">{{.Amount}}</td>
                         <td>{{.AccountCurrency}}</td>
                         <td>{{.Details}}</td>
-                        <td>{{.SourceType}}</td>
-                        <td>{{.Source}}</td>
+                        <td class="source-cell">[{{.SourceType}}] <a href="/open-file?path={{.Source}}" class="source-link" data-source="{{.Source}}">{{.Source}}</a></td>
                         <td>
                             <button onclick="showCategoryActions(this)" class="action-button">
                                 {{localize "Categorize"}}
@@ -116,7 +114,10 @@
         // Initialize data and localized strings
         const groupsData = {{.Groups}};
         const localizedStrings = {
-            groupAlreadyExists: "{{localize "Group with this name already exists"}}"
+            groupAlreadyExists: "{{localize "Group with this name already exists"}}",
+            groupNameEmpty: '{{localize "Group name cannot be empty"}}',
+            ruleValueEmpty: '{{localize "Rule value cannot be empty"}}',
+            confirmDeleteRule: '{{localize "Are you sure you want to delete this rule?"}}'
         };
 
         let currentTransaction = null;
@@ -133,6 +134,19 @@
                     groupSelect.appendChild(option);
                 });
             }
+
+            // Source link click handler
+            document.querySelectorAll('.source-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const source = this.getAttribute('data-source');
+                    if (source) {
+                        fetch(`/open-file?path=${encodeURIComponent(source)}`)
+                            .catch(err => console.error('Error opening file:', err));
+                    }
+                });
+            });
+            initializeAccountTooltips();
         });
 
         function getExistingGroupData(groupName) {
