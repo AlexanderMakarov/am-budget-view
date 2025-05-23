@@ -52,7 +52,9 @@ groupAllUnknownTransactions: true
 groups:
   Cash:
     substrings:
-      - INECO ATM
+      - ATM
+      - Cash withdrawal_e-cheque
+      - Կանխիկացում
   Entertainment:
     substrings:
       - AQUATEK
@@ -96,15 +98,20 @@ groups:
       - SUBSCRIPTION
       - AWS EMEA
       - CLOUD
-  To other account:
-    substrings:
-      - Account replenishment
-  Wildberries:
+  Online shopping:
     substrings:
       - WILDBERRIES
-  Yandex Taxi:
+      - OZON.RU
+      - TEMU
+  Taxi:
     substrings:
-      - YANDEX
-  tmp:
+      - GG Taxi
+      - Yandex Taxi
+      - Yandex Go
+  Utilities and rent:
     substrings:
-      - Անկանխիկ գործարք
+      - Kentron View
+      - Veolia Jur
+      - Electricity
+      - VivaCell
+      - Ucom

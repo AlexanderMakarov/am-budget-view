@@ -6,17 +6,19 @@ Was renamed from [aggregate-inecobank-statement](https://github.com/AlexanderMak
 ----
 
 To control your budget you need to know all expenses and incomes, right?
-But it is too time-intensive to note all expenses and incomes manually, each day.
-Fortunately banks do it for us already.
-If you are using a bank plastic card or NFC application on the smartphone you probably have all your transactions written somewhere already.
+If you pay with plastic card or NFC application on the smartphone you
+probably already have all your transactions written by bank already.
+They even send you them in monthly emails.
+There are tools which allows to prepare accounting reports from them, like https://beancount.io/.
+But it is too time-intensive to went through all (thousands of them) transactions manually
+and next need to have accounting knowledge to understand results.
+Using LLM-based solution (ChatGPT/Claude) also quite risky both from privacy/security
+and halluciantion points of view (they may provide wrong results and expose your data).
 
-For example Armenian's [Inecobank](https://online.inecobank.am)
-and [Ameria Bank](https://ameriabank.am) allows to download list of all transactions in files.
-They even send them in monthly emails.
-
-So current application is a simple and completely local tool which allows to aggregate all transactions (hundreds of them) from
-multiple accounts and banks into customizable groups.
-Next it allows to normalize them to one currency and explore on handy charts with ability to drill-down to details.
+This application is a simple and completely local tool which allows to setup 
+categorization rules for all transactions from multiple accounts and banks into your custom groups.
+Next it allows to normalize them to one currency and explore on handy charts
+with ability to drill-down to details and tune categorization rules for your own needs.
 
 Results are:
 
@@ -60,13 +62,10 @@ Statistics for 2023-07-01..2023-07-31 (in AMD):
 <img src="docsdata/Beancount.png" alt="Beancount" width="300" onclick="window.open(this.src)"/>
 
 
-Some banks provide similar dashboards on their websites, but they can't assign good categories suitable for everyone.
-This application allows you to configure categorization for your personal set of groups and completely automatically.
-
 ## List of supported banks, file formats and relevant notes
 
 In short supported: Inecobank individual accounts (haven't tried with legal account though),
-Ameriabank both individual and legal accounts.
+Ameriabank both individual and legal accounts, pre-formatted CSV files with transactions.
 
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (click on account, choose dates range, icon to download in right bottom corner).
@@ -78,15 +77,16 @@ Ameriabank both individual and legal accounts.
   is more light and predictable format for parsing.
 - [PARTIAL] Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
   Don't have Reciever/Payer account number so resulting Beancount report won't be full.
-  To allow app use such files need to unprotect them first (
-  [MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
+  To allow app use such files need to remove password protection first
+  ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
   [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
   In `config.yaml` is referenced by `inecobankStatementXlsxFilesGlob` setting.
   Parsed by [ineco_excel_parser.go](/ineco_excel_parser.go).
 - [FULL] AmeriaBank for Businesses CSV (.CSV) files downloaded per-account from
   https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Statement,
   chose period (for custom use "FromDate" and "To" date pickers),
-  set "Show equivalent in AMD" checkbox, press "Export to CSV" icon is placed at right top corner.
+  set "Show equivalent in AMD" checkbox (to have exchange rates),
+  press "Export to CSV" icon is placed at right top corner.
   Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `ameriaCsvFilesGlob` setting.
   Parsed by [ameria_csv_parser.go](/ameria_csv_parser.go).
@@ -97,11 +97,6 @@ Ameriabank both individual and legal accounts.
 - [OUTDATED] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
   https://myameria.am/cards-and-accounts/account-statement/******.
   THIS PAGE IS NOT AVAILABLE ANYMORE - use "MyAmeria History Excel" instead.
-  On the web site choose Cards and Accounts -> Current account -> Statement,
-  here select period (last option usually), if available the set "In AMD" (under "Show also"),
-  choose "Excel" format, press "Download". Almost the same in mobile app.
-  Default file name "<account_number> account statement.xls".
-  Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
 - [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/history.
@@ -109,24 +104,28 @@ Ameriabank both individual and legal accounts.
   Note that it should be accompanied by `myAmeriaMyAccounts` map because files
   don't have account number and currency so it is required to specify it.
   If transactions would have account number not specified parser would fail.
+  Supports features native to app and Beancount reports except for exchange rates
+  (exchange rates should be specified in other transaction files).
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
 - [FULL] Generic CSV files with transactions from the any source.
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
-  Supported fields:
-  - Date - string with date of the transaction `YYYY-MM-DD` format.
+  Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
+  Supports all features native to app and Beancount reports.
+  Required fields/headers (first row in file):
+  - Date - string with date of the transaction in `YYYY-MM-DD` format.
   - FromAccount - string with account number of the sender.
   - ToAccount - string with account number of the receiver.
-  - IsExpense - boolean value, true if the transaction is an expense, false if it is an income.
-  - Amount - string with amount of the transaction.
-  - Details - string with details of the transaction.
-  - AccountCurrency - string with currency of the account.
-  - OriginCurrency - string with currency of the transaction before conversion.
+  - IsExpense - boolean value, true if the transaction is an expense
+    (i.e, 'FromAccount' is your account), false if it is an income (i.e, 'ToAccount' is your account).
+  - Amount - string (like "1,500.30" for 1500 dollars and 30 cents) with amount of the transaction.
+  - Details - string with details/comments of the transaction.
+  - AccountCurrency - 3 chars ISO code of the currency of the account.
+  - OriginCurrency - 3 chars ISO code of the currency of the transaction before conversion.
   - OriginCurrencyAmount - string with amount of the transaction in origin currency.
-  Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
 
-To add new bank support please provide file with transactions
-(in private or with obfuscsated data, because it contains sensitive information)
-downloaded from the bank application and instructions how you got this file.
+To add new bank support please create an issue in repository with example of file
+with transactions downloaded from the bank application and instructions how you got this file.
+File may have values changes to hide sensitive information but of same format/length/character set.
 
 # How to use
 
@@ -150,15 +149,15 @@ downloaded from the bank application and instructions how you got this file.
     нажмите "Search", проскролльте страницу вниз, найдите в правом нижнем углу
     5 значков, нажмите на значок "XML" чтобы загрузить файл.
   - Для индивидуальных счетов Ameria откройте [My Ameria сайт](https://myameria.am/),
-    выберите нужный счет, выберите опцию "Statement" (справа),
-    задайте необходимый диапазон, установите флажок "In AMD" (чтобы получить курсы обмена),
-    выберите "Excel", нажмите "Download" чтобы загрузить файл.
+    выберите нужный счет, выберите опцию "Выписка" (справа),
+    задайте необходимый диапазон ("Выбрать период"),
+    выберите "Excel", нажмите "Скачать" чтобы загрузить файл.
   - Для юридических счетов Ameria откройте [Online Ameriabank сайт](https://online.ameriabank.am/),
-    выберите "Accounts" в левом меню, выберите нужный счет,
-    нажмите кнопку "Statement" вверху, в появившемся диалоговом окне задайте требуемый период,
-    установите флажок "Show equivalent in AMD" (чтобы получить курсы обмена),
-    нажмите "ОК", на новой вкладке "Account Statement" найдите 5 значков в правой средней части,
-    нажмите на значок "Export to CSV" чтобы загрузить файл.
+    выберите "Счета" в левом меню, выберите нужный счет,
+    нажмите кнопку "Выписка" вверху, в появившемся диалоговом окне задайте требуемый период,
+    установите флажок "Показать эквивалент в AMD" (чтобы получить курсы обмена),
+    нажмите "ОК", на новой вкладке "Выписка со счета" найдите 5 значков в правой средней части,
+    нажмите на значок "Экспорт в CSV" чтобы загрузить файл.
   - Для "INECOBANK Statement" XLSL файлов которые Inecobank присылает для
     индивидуальных счетов - 
     (учтите что эти файлы не содержат "Reciever/Payer" номера счёта поэтому часть
@@ -168,7 +167,7 @@ downloaded from the bank application and instructions how you got this file.
     [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
 3. Запустите приложение ("am-budget-view-\*-\*").
   Если все в порядке то через пару секунд откроется новая вкладка в браузере
-  с агрегированными данными из банковских транзакций, которые были предоставлены через "Statement" файлы.
+  с агрегированными данными из банковских транзакций, которые были предоставлены через "Выписка" файлы.
   В противном случае откроется текстовый файл с описанием ошибки.
   В случае ошибки необходимо ее исправить чтобы продолжить работу.
   Самая распространенная ошибка — это когда файлы банковских транзакций, загруженные на шаге № 2,
@@ -204,8 +203,8 @@ downloaded from the bank application and instructions how you got this file.
 6. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
   с новыми транзакциями и снова запустить приложение.
   Возможно потребуется добавить новые правила категоризации для новых транзакций.
-  Важно сохранять конфигурационный файл "config.yaml" чтобы не потерять Ваши
-  персональные правила категоризации.
+  Конфигурационный файл "config.yaml" будет обновляться приложением и содержит все
+  Ваши персональные правила категоризации.
 </details>
 
 Script in English:
@@ -229,7 +228,7 @@ Script in English:
      press XML icon to download the file.
    - For Ameria individual accounts open [My Ameria main page](https://myameria.am/),
      click on the required account, choose "Statement" option at right,
-     set required period, set "In AMD" checkbox (to have exchange rates),
+     set required period (via "Select period" option),
      select "Excel", press "Download" to download the file.
    - For Ameria legal accounts open [Ameriabank main page](https://online.ameriabank.am/),
      select "Accounts" in left menu, select on the required account,
@@ -280,18 +279,20 @@ Script in English:
 6. With time it is enough to add new or update old "Statement" files with new transactions
    and run application again.
    It may be required to add new categorization rules for new transactions.
-   It is important to save "config.yaml" file to not lose your personal categorization rules.
+   File "config.yaml" would be updated by application and contains all your personal categorization rules.
 
 ### Notes:
-1. For remained formats and banks steps are near the same as for Inecobank.
-2. Files which banks are sending in emails not always have all required information.
-3. It is a command line application and may work completely in the terminal.
+1. Files which banks are sending in emails not always have all required information.
+2. It is a command line application and may work completely in the terminal.
    Run it with `-h` for details.
    It would explain how to work with multiple configuration files and see information directly in terminal.
-4. Application automatically starts in "local HTTP server mode" and opens in a default browser.
-5. Application supports 3 "reporting" modes: 'web' - default, 'file' - to open text report in default TXT files veiwer,
-   'none' - only STDOUT.
-6. Application supports one more "categorization" mode - need to set `categorizeMode: true` in configuration file.
+3. Application automatically starts in "local HTTP server mode" and opens in a default browser.
+   No external requests are made.
+4. Application supports 3 "reporting" modes: 'web' - default,
+   'file' - to open text report in TXT files veiwer,
+   'none' - only STDOUT (appeared first historically).
+5. In "not web" mode application also supports "categorization" in interactive mode
+   - need to set `categorizeMode: true` in configuration file.
    This mode is useful to find transactions without categories.
 
 # Use with Beancount and Fava UI
