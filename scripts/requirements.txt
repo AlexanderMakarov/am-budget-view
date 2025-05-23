@@ -1,0 +1,4 @@
+faker==24.9.0
+pandas==2.2.1
+openpyxl==3.1.2
+pyyaml==6.0.1 
