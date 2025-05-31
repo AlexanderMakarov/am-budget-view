@@ -2,32 +2,31 @@
 language: en
 # Flag to ensure that application is started with dedicated terminal window.
 # Required to have "a window" for user to close app and don't duplicate processes.
-ensureTerminal: true
+ensureTerminal: false
 # Write "glob" template to your Inecobank "Statement" XML files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-inecobankStatementXmlFilesGlob: Statement*.xml
+inecobankStatementXmlFilesGlob: demo/Statement*.xml
 # Write "glob" template to your Inecobank "statement" XLSX (Excel) files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-inecobankStatementXlsxFilesGlob: statement*.xlsx
+inecobankStatementXlsxFilesGlob: demo/statement*.xlsx
 # Write "glob" template to your Ameriabank Business "AccountStatement" CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-ameriaCsvFilesGlob: AccountStatement*.csv
+ameriaCsvFilesGlob: demo/AccountStatement*.csv
 # Write "glob" template to your MyAmeria "Statement" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-myAmeriaAccountStatementXlsxFilesGlob: '* account statement *.xls'
+myAmeriaAccountStatementXlsxFilesGlob: demo/* account statement *.xls
 # Write "glob" template to your MyAmeria "History" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-myAmeriaHistoryXlsFilesGlob: History *.xls
+myAmeriaHistoryXlsFilesGlob: demo/History *.xls
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
-genericCsvFilesGlob: generic*.csv
+genericCsvFilesGlob: demo/generic*.csv
 # Due to MyAmeria "History" files don't provide any information about accounts
 # you need to specify map of your account(s) number (16 digits number) and
 # relevant currency 3 letter code.
 # Thus all transactions with "Beneficiary account" from this list would be
 # understood as an income and amount in account currency would be set.
 myAmeriaMyAccounts:
-  "1234567890123456": "AMD"
 # List of currencies to unconditionally convert transactions into.
 # Note that if transactions files don't have enough information about exchange rates
 # totals would be incorrect!
@@ -43,6 +42,9 @@ monthStartDayNumber: 1
 # Flag to aggregate all transactions with "Details" not matched with "substrings"
 # from 'groupNamesToSubstrings' below into single group with name "Unknown".
 # Otherwise unknown transactions create new categories with "Details" value name.
+timeZoneLocation: Asia/Yerevan
+# Which day of month use as start of the month.
+# Sometimes it makes sense to analyze month from the "salary day. 
 groupAllUnknownTransactions: true
 # Groups of categories to match transactions by.
 # May contain following keys:

@@ -74,9 +74,10 @@ Ameriabank both individual and legal accounts, pre-formatted CSV files with tran
   Parsed by [ineco_xml_parser.go](/ineco_xml_parser.go).
 - [NONE] Inecobank Excel (.xls) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (the same place as XML above) - ARE NOT SUPPORTED because XML downloaded from the same place
-  is more light and predictable format for parsing.
+  is simpler format for parsing.
 - [PARTIAL] Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
-  Don't have Reciever/Payer account number so resulting Beancount report won't be full.
+  Don't have Reciever/Payer account number so account-based categorization won't work
+  and resulting Beancount report won't be full.
   To allow app use such files need to remove password protection first
   ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
   [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
@@ -92,8 +93,8 @@ Ameriabank both individual and legal accounts, pre-formatted CSV files with tran
   Parsed by [ameria_csv_parser.go](/ameria_csv_parser.go).
 - [NONE] AmeriaBank for Businesses XML (.XML) files downloaded per-account from
   https://online.ameriabank.am/InternetBank/MainForm.wgx
-  (the same place as CSV above) - ARE NOT SUPPORTED
-  XML files from "Transactions" tab - they don't contain own Reciever/Payer account number and currency.
+  (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain
+  own Reciever/Payer account number and currency.
 - [OUTDATED] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
   https://myameria.am/cards-and-accounts/account-statement/******.
   THIS PAGE IS NOT AVAILABLE ANYMORE - use "MyAmeria History Excel" instead.
@@ -102,8 +103,9 @@ Ameriabank both individual and legal accounts, pre-formatted CSV files with tran
 - [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/history.
   In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
   Note that it should be accompanied by `myAmeriaMyAccounts` map because files
-  don't have account number and currency so it is required to specify it.
-  If transactions would have account number not specified parser would fail.
+  don't have own account number and currency and to make most of application features
+  working it is required to specify this data.
+  If transactions would have account number not specified then parser would fail.
   Supports features native to app and Beancount reports except for exchange rates
   (exchange rates should be specified in other transaction files).
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
@@ -111,13 +113,16 @@ Ameriabank both individual and legal accounts, pre-formatted CSV files with tran
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
   Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
   Supports all features native to app and Beancount reports.
+  Own account number and currency deduced from fields below.
   Required fields/headers (first row in file):
   - Date - string with date of the transaction in `YYYY-MM-DD` format.
   - FromAccount - string with account number of the sender.
   - ToAccount - string with account number of the receiver.
   - IsExpense - boolean value, true if the transaction is an expense
-    (i.e, 'FromAccount' is your account), false if it is an income (i.e, 'ToAccount' is your account).
-  - Amount - string (like "1,500.30" for 1500 dollars and 30 cents) with amount of the transaction.
+     (i.e, 'FromAccount' is your account),
+     false if it is an income (i.e, 'ToAccount' is your account).
+  - Amount - string with dot and 2 digits precision (like "1,500.30" for
+     1500 dollars and 30 cents) with amount of the transaction.
   - Details - string with details/comments of the transaction.
   - AccountCurrency - 3 chars ISO code of the currency of the account.
   - OriginCurrency - 3 chars ISO code of the currency of the transaction before conversion.
@@ -346,6 +351,13 @@ me with pretty mediocre translation but my Armenian knowledge is not enough to m
 Merge to "master", next push tag with name "releaseX.X.X" and some comment to put into release log.
 CI will do the rest.
 
+## Demo data
+
+To generate demo data setup "main" function in [generate_demo.py](/scripts/generate_demo.py)
+and run it (`make generate-demo`; needs Python 3.12).
+It would generate files in `demo` folder.
+To run application with demo data execute `go run . config-demo.yaml`.
+
 ## TODO/Roadmap
 
 - [x] Fail if wrong field in config found.
@@ -376,7 +388,8 @@ CI will do the rest.
 - [x] In "Transactions" page show rule which categorized transaction with ability to delete it.
 - [x] Collect more details about accounts.
 - [x] Handle currencies on "Categorization" page (now "Amount" in different currencies).
-- [ ] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
+- [x] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
+- [ ] Add way (button) to re-read statement files.
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.
