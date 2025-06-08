@@ -8,7 +8,7 @@
     "Parsing file with parser": "Анализирую '{{file}}' файл используя {{parser}} парсер.",
     "can't parse transactions from file f": "не могу найти транзакции в файле '{{f}}': {{err, error}}",
     "Can't parse all n files": "Не могу найти транзакции во всех {{n}} файлах: {{warning}}",
-    "can't find transactions in f file": "Не могу найти транзакции в '{{f}}' файле.",
+    "Can't find transactions in f file": "Не могу найти транзакции в '{{f}}' файле.",
     "can't find account number for raw transaction t": "Не могу найти номер аккаунта для транзакции '{{t, object}}'",
     "Found n transactions in f file": "Найдено {{n}} транзакций в '{{f}}' файле.",
     "empty details for transaction from f t": "пустые пометки для транзакции из '{{f}}': {{t, object}}",

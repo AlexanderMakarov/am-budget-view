@@ -192,7 +192,7 @@
             const valueInput = document.getElementById("categorySubstring");
 
             if (byMethod === "substring") {
-                valueInput.value = currentTransaction.querySelector("td:nth-child(5)").textContent.trim(); // Details
+                valueInput.value = currentTransaction.querySelector("td:nth-child(6)").textContent.trim(); // Details
             } else if (byMethod === "fromAccount") {
                 valueInput.value = currentTransaction.querySelector("td:nth-child(2)").textContent.trim(); // From Account
             } else if (byMethod === "toAccount") {

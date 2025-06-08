@@ -8,7 +8,7 @@
     "file parsing first sheet s from n sheets": "'{{file}}': parsing first sheet '{{s}}' from {{n}} sheets.",
     "can't parse transactions from file f": "can't parse transactions from file '{{f}}': {{err, error}}",
     "Can't parse all n files": "Can't parse all {{n}} files: {{warning}}",
-    "can't find transactions in f file": "Can't find transactions in '{{f}}' file.",
+    "Can't find transactions in f file": "Can't find transactions in '{{f}}' file.",
     "can't find account number for raw transaction t": "Can't find account number for raw transaction '{{t, object}}'",
     "Found n transactions in f file": "Found {{n}} transactions in '{{f}}' file.",
     "empty details for transaction from f t": "empty details for transaction from '{{f}}': {{t, object}}",
