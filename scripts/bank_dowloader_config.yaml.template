@@ -1,0 +1,28 @@
+# Login into https://account.myameria.am and open cards and accounts pages.
+# Next see URL in browser and open developer tools too see response headers.
+# Some headers values would be needed to fill in this file.
+my_ameria:
+  # "Client-Id" request header value.
+  client_id: "e1cca45d-f2e6-463e-fe84-97f0c1c51315"
+  # "Authorization" token request header value, starts with "Bearer " and expires in ~10 minutes.
+  auth_token: "Bearer <long_token>"
+  accounts:
+    # Just convenient name for account/card.
+    - name: "MyAmeria Digital AMD card"
+      # type: "card" or "account", pre-last part of URL.
+      type: "card"
+      # Account number 16 digits (from page itself).
+      account_number: "1570045942569400"
+      # Inner account number, ~9 digits, last part of URL.
+      inner_account_number: "791409392"
+      # Start date for statement in DD-MM-YYYY format.
+      since-DD-MM-YYYY: "01-04-2024"
+      # Path to save statement, should match `myAmeriaAccountStatementXlsxFilesGlob`
+      # in `config.yaml`, will be replaced each successful run.
+      path: "../MyAmeria Digital AMD card account statement since 2024-04-01.xls"
+    - name: "MyAmeria AMD account"
+      type: "account"
+      account_number: "1570069591515920"
+      inner_account_number: "69531815800"
+      since-DD-MM-YYYY: "01-04-2024"
+      path: "../MyAmeria AMD account statement since 2024-04-01.xls"

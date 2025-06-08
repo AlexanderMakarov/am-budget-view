@@ -13,6 +13,9 @@ coverage:
 generate-demo:
 	python3.12 scripts/generate_demo.py
 
+bank-downloader:
+	python3 scripts/bank_downloader.py
+
 build:
 	go build
 

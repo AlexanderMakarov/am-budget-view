@@ -12,6 +12,7 @@ AM Budget View.txt
 # Local data
 tmp**
 demo**
+bank_dowloader_config.yaml
 *.xml
 History *.xls
 AccountTransactions*.csv
