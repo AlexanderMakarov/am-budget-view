@@ -23,7 +23,7 @@ type ExchangeRate struct {
 	// ExchangeRate = CurrencyFrom / CurrencyTo.
 	exchangeRate float64
 	// Source is a source of the exchange rate.
-	source string
+	source *TransactionsSource
 }
 
 // CurrencyStatistics is a struct representing data about a currency found in transactions.
@@ -110,7 +110,7 @@ var currencyRegex = regexp.MustCompile(`\s[A-Z]{3}\W`)
 // - "330000 AMD / 4.4 = 75000 RUB"
 // - "1550 EUR * 410.84 = 636802 AMD"
 // - "1085500 AMD / 417.5 = 2600 EUR"
-func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency1, targetCurrency2 string, source string) *ExchangeRate {
+func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency1, targetCurrency2 string, source *TransactionsSource) *ExchangeRate {
 	// Try to find both currencies in details.
 	currency1Index := strings.Index(details, targetCurrency1)
 	currency2Index := strings.Index(details, targetCurrency2)
@@ -210,7 +210,7 @@ func buildConversionPath(
 	currencyTo string,
 	exchangeRate float64,
 	date time.Time,
-	source string,
+	source *TransactionsSource,
 ) string {
 	return fmt.Sprintf(
 		"%s/%s=%f (at %s by '%s')",
@@ -517,7 +517,7 @@ func BuildDataMart(
 					}
 					currencies[t.AccountCurrency] = accountCurrency
 				}
-				accountCurrency.MetInSources[t.SourceType] = struct{}{}
+				accountCurrency.MetInSources[t.Source.FilePath] = struct{}{}
 				accountCurrency.MetTimes++
 				accountCurrency.To = t.Date
 				// Check origin currency is present in transaction.
@@ -568,7 +568,7 @@ func BuildDataMart(
 					}
 					currencies[t.OriginCurrency] = originCurrency
 				}
-				originCurrency.MetInSources[t.SourceType] = struct{}{}
+				originCurrency.MetInSources[t.Source.FilePath] = struct{}{}
 				originCurrency.MetTimes++
 				originCurrency.To = t.Date
 				// Check that transaction has account currency.
@@ -649,15 +649,9 @@ func BuildDataMart(
 		// Handle destination account.
 		if len(t.ToAccount) > 0 {
 			if account, ok := accounts[t.ToAccount]; !ok {
-				sourceType := ""
-				// Income transaction's "ToAccount" is my own account.
-				if !t.IsExpense && len(t.SourceType) > 0 {
-					sourceType = t.SourceType
-				}
 				accounts[t.ToAccount] = &AccountStatistics{
 					Number:                   t.ToAccount,
 					IsTransactionAccount:     !t.IsExpense,
-					SourceType:               sourceType,
 					Source:                   t.Source,
 					From:                     t.Date,
 					To:                       t.Date,
@@ -665,16 +659,15 @@ func BuildDataMart(
 					SourceOccurrences:        make(map[string]int),
 				}
 				// Initialize source occurrences for this account
-				accounts[t.ToAccount].SourceOccurrences[t.Source] = 1
+				accounts[t.ToAccount].SourceOccurrences[fmt.Sprintf("[%s] %s", t.Source.Tag, t.Source.FilePath)] = 1
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
 				account.OccurencesInTransactions++
 				// Update source occurrences
-				account.SourceOccurrences[t.Source]++
+				account.SourceOccurrences[fmt.Sprintf("[%s] %s", t.Source.Tag, t.Source.FilePath)]++
 				if !t.IsExpense {
-					if len(t.SourceType) > 0 {
-						account.SourceType = t.SourceType
+					if t.Source != nil {
 						account.Source = t.Source
 					}
 					account.IsTransactionAccount = true
@@ -684,15 +677,9 @@ func BuildDataMart(
 		// Handle source account.
 		if len(t.FromAccount) > 0 {
 			if account, ok := accounts[t.FromAccount]; !ok {
-				sourceType := ""
-				// Expense transaction's "FromAccount" is my own account.
-				if t.IsExpense && len(t.SourceType) > 0 {
-					sourceType = t.SourceType
-				}
 				accounts[t.FromAccount] = &AccountStatistics{
 					Number:                   t.FromAccount,
 					IsTransactionAccount:     t.IsExpense,
-					SourceType:               sourceType,
 					Source:                   t.Source,
 					From:                     t.Date,
 					To:                       t.Date,
@@ -700,16 +687,15 @@ func BuildDataMart(
 					SourceOccurrences:        make(map[string]int),
 				}
 				// Initialize source occurrences for this account
-				accounts[t.FromAccount].SourceOccurrences[t.Source] = 1
+				accounts[t.FromAccount].SourceOccurrences[fmt.Sprintf("[%s] %s", t.Source.Tag, t.Source.FilePath)] = 1
 			} else {
 				// Expect transactions are sorted by date.
 				account.To = t.Date
 				account.OccurencesInTransactions++
 				// Update source occurrences
-				account.SourceOccurrences[t.Source]++
+				account.SourceOccurrences[fmt.Sprintf("[%s] %s", t.Source.Tag, t.Source.FilePath)]++
 				if t.IsExpense {
-					if len(t.SourceType) > 0 {
-						account.SourceType = t.SourceType
+					if t.Source != nil {
 						account.Source = t.Source
 					}
 					account.IsTransactionAccount = true
@@ -976,7 +962,6 @@ func buildJournalEntries(
 		entry := JournalEntry{
 			Date:                  t.Date,
 			IsExpense:             t.IsExpense,
-			SourceType:            t.SourceType,
 			Source:                t.Source,
 			Details:               t.Details,
 			Category:              category.Name,

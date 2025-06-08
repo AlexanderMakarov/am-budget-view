@@ -133,7 +133,7 @@ func main() {
 	parsingWarnings := []string{}
 	inecoXmlTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.InecobankStatementXmlFilesGlob,
-		"Inecobank XML statements",
+		"Inecobank XML statement",
 		InecoXmlParser{},
 		&parsingWarnings,
 	)
@@ -146,7 +146,7 @@ func main() {
 	// Ineco XLSX
 	inecoXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.InecobankStatementXlsxFilesGlob,
-		"Inecobank XLSX statements",
+		"Inecobank XLSX statement",
 		InecoExcelFileParser{},
 		&parsingWarnings,
 	)
@@ -159,7 +159,7 @@ func main() {
 	// MyAmeria Excel account statements and history.
 	myAmeriaStatementsXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.MyAmeriaAccountStatementXlsFilesGlob,
-		"MyAmeria Account Statements Excel",
+		"MyAmeria XLS statement",
 		MyAmeriaExcelStmtFileParser{},
 		&parsingWarnings,
 	)
@@ -169,7 +169,7 @@ func main() {
 	transactions = append(transactions, myAmeriaStatementsXlsTransactions...)
 	myAmeriaHistoryXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.MyAmeriaHistoryXlsFilesGlob,
-		"MyAmeria History Excel",
+		"MyAmeria History XLS",
 		MyAmeriaExcelFileParser{
 			MyAccounts: config.MyAmeriaMyAccounts,
 		},
@@ -184,7 +184,7 @@ func main() {
 	// Ameria CSV
 	ameriaCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.AmeriaCsvFilesGlob,
-		"Ameria CSV",
+		"AmeriaBank CSV statement",
 		AmeriaCsvFileParser{},
 		&parsingWarnings,
 	)
@@ -197,7 +197,7 @@ func main() {
 	// Generic CSV
 	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
 		config.GenericCsvFilesGlob,
-		"Generic CSV",
+		"Generic CSV with transactions",
 		GenericCsvFileParser{},
 		&parsingWarnings,
 	)
@@ -329,12 +329,13 @@ func main() {
 
 // FileInfo represents information about a parsed transaction file.
 type FileInfo struct {
-	Path              string    `json:"path"`
-	Type              string    `json:"type"`
-	TransactionsCount int       `json:"transactionsCount"`
-	ModifiedTime      time.Time `json:"modifiedTime"`
-	FromDate          time.Time `json:"fromDate"`
-	ToDate            time.Time `json:"toDate"`
+	Path              string              `json:"path"`
+	Source            *TransactionsSource `json:"source"`
+	TransactionsCount int                 `json:"transactionsCount"`
+	AccountNumber     string              `json:"accountNumber"`
+	ModifiedTime      time.Time           `json:"modifiedTime"`
+	FromDate          time.Time           `json:"fromDate"`
+	ToDate            time.Time           `json:"toDate"`
 }
 
 // DataHandler is a handler for data.

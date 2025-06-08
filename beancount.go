@@ -35,7 +35,12 @@ const beancountOutputTimeFormat = "2006-01-02"
 
 // buildBeancountFile creates a beancount file with journal entries.
 // Returns number of journal entries and error if any.
-func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*CurrencyStatistics, accounts map[string]*AccountStatistics, outputFileName string) (int, error) {
+func buildBeancountFile(
+	journalEntries []JournalEntry,
+	currencies map[string]*CurrencyStatistics,
+	accounts map[string]*AccountStatistics,
+	outputFileName string,
+) (int, error) {
 
 	// Create accounts.beancount file.
 	file, err := os.Create(outputFileName)
@@ -58,12 +63,12 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 	// Check all found accounts and dump "open accounts" for my own accounts.
 	fmt.Fprintln(file, ";; Open accounts")
 	for _, account := range accounts {
-		if account.SourceType != "" {
+		if account.Source != nil {
 			fmt.Fprintf(
 				file,
 				"%s open Assets:%s:%s\n",
 				account.From.Format(beancountOutputTimeFormat),
-				account.SourceType,
+				account.Source.Tag,
 				account.Number,
 			)
 		}
@@ -97,7 +102,7 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 		if !je.IsExpense {
 			name = "income"
 		}
-		sb.WriteString(fmt.Sprintf("\n; %s from %s '%s'\n", name, je.SourceType, je.Source))
+		sb.WriteString(fmt.Sprintf("\n; %s from %s '%s'\n", name, je.Source.Tag, je.Source.FilePath))
 		// 2014-05-05 * "Some details"
 		sb.WriteString(fmt.Sprintf("%s * \"%s\"\n", je.Date.Format(beancountOutputTimeFormat), je.Details))
 		// FYI: transaction (source of journal entry) may be provided in different currencies:
@@ -113,7 +118,7 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 		if je.IsExpense {
 			source := ""
 			if account, ok := accounts[je.FromAccount]; ok {
-				source = fmt.Sprintf("Assets:%s:%s", account.SourceType, account.Number)
+				source = fmt.Sprintf("Assets:%s:%s", account.Source.Tag, account.Number)
 			} else {
 				// Expense from unknown account should not happen.
 				return 0, errors.New(
@@ -123,8 +128,8 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 				)
 			}
 			destination := ""
-			if account, ok := accounts[je.ToAccount]; ok && account.SourceType != "" {
-				destination = fmt.Sprintf("Expenses:%s:%s", account.SourceType, account.Number)
+			if account, ok := accounts[je.ToAccount]; ok && account.Source != nil {
+				destination = fmt.Sprintf("Expenses:%s:%s", account.Source.Tag, account.Number)
 			} else {
 				destination = fmt.Sprintf("Expenses:%s:%s", categoryName, je.ToAccount)
 			}
@@ -189,14 +194,14 @@ func buildBeancountFile(journalEntries []JournalEntry, currencies map[string]*Cu
 			}
 		} else { // Income
 			source := ""
-			if account, ok := accounts[je.FromAccount]; ok && account.SourceType != "" {
-				source = fmt.Sprintf("Income:%s:%s", account.SourceType, account.Number)
+			if account, ok := accounts[je.FromAccount]; ok && account.Source != nil {
+				source = fmt.Sprintf("Income:%s:%s", account.Source.Tag, account.Number)
 			} else {
 				source = fmt.Sprintf("Income:%s:%s", categoryName, je.FromAccount)
 			}
 			destination := ""
 			if account, ok := accounts[je.ToAccount]; ok {
-				destination = fmt.Sprintf("Assets:%s:%s", account.SourceType, account.Number)
+				destination = fmt.Sprintf("Assets:%s:%s", account.Source.Tag, account.Number)
 			} else {
 				// Income to unknown account should not happen.
 				return 0, errors.New(

@@ -56,10 +56,10 @@ type AmeriaCsvFileParser struct {
 
 func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	filePath string,
-) ([]Transaction, string, error) {
+) ([]Transaction, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -91,7 +91,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	for i := 0; i < giveUpFindHeaderInAmeriaCsvAfterNoHeaderLines && !headerFound; i++ {
 		record, err := reader.Read()
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to read line %d: %w", i, err)
+			return nil, fmt.Errorf("failed to read line %d: %w", i, err)
 		}
 
 		// Check for currency and account number in the initial lines
@@ -113,7 +113,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	}
 
 	if !headerFound || len(currency) < 1 || len(accountNumber) < 1 {
-		return nil, "", fmt.Errorf(
+		return nil, fmt.Errorf(
 			"header/currency/account not found after scanning %d lines",
 			giveUpFindHeaderInAmeriaCsvAfterNoHeaderLines,
 		)
@@ -124,7 +124,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	withAmd := headerStr == csvHeadersWithAmdStr
 	if !withAmd {
 		if headerStr != csvHeadersStr {
-			return nil, "", fmt.Errorf("unexpected header: %s", headerStr)
+			return nil, fmt.Errorf("unexpected header: %s", headerStr)
 		}
 	}
 	transactionLength := len(header)
@@ -134,10 +134,10 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
-			return nil, "", fmt.Errorf("wrong file format - EOF reached before empty line and 'Days count': %w", err)
+			return nil, fmt.Errorf("wrong file format - EOF reached before empty line and 'Days count': %w", err)
 		}
 		if err != nil {
-			return nil, "", fmt.Errorf("error reading record: %w", err)
+			return nil, fmt.Errorf("error reading record: %w", err)
 		}
 		if len(record) < transactionLength {
 			break // Not a transaction row, stop processing.
@@ -157,7 +157,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		// Parse date
 		date, err := time.Parse(AmeriaBusinessDateFormat, record[0])
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to parse date: %w", err)
+			return nil, fmt.Errorf("failed to parse date: %w", err)
 		}
 
 		// Parse credit and debit.
@@ -167,10 +167,10 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		// Real transaction with both Debit!=0 and Debit(AMD)!=0 goes below with Type=CEX.
 		var credit, debit MoneyWith2DecimalPlaces
 		if err := credit.UnmarshalText([]byte(record[6])); err != nil {
-			return nil, "", fmt.Errorf("failed to parse credit %v: %w", record, err)
+			return nil, fmt.Errorf("failed to parse credit %v: %w", record, err)
 		}
 		if err := debit.UnmarshalText([]byte(record[5])); err != nil {
-			return nil, "", fmt.Errorf("failed to parse debit from %v: %w", record, err)
+			return nil, fmt.Errorf("failed to parse debit from %v: %w", record, err)
 		}
 
 		// Skip no-amount rows - these are Type=CEX adjustments for not-AMD accounts.
@@ -192,18 +192,24 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		if currency != "AMD" {
 			var creditAmd, debitAmd MoneyWith2DecimalPlaces
 			if err := debitAmd.UnmarshalText([]byte(record[8])); err != nil {
-				return nil, "", fmt.Errorf("failed to parse debit(AMD) %v: %w", record, err)
+				return nil, fmt.Errorf("failed to parse debit(AMD) %v: %w", record, err)
 			}
 			transaction.DebitAmd = debitAmd
 			if err := creditAmd.UnmarshalText([]byte(record[9])); err != nil {
-				return nil, "", fmt.Errorf("failed to parse credit(AMD) %v: %w", record, err)
+				return nil, fmt.Errorf("failed to parse credit(AMD) %v: %w", record, err)
 			}
 			transaction.CreditAmd = creditAmd
 		}
 		csvTransactions = append(csvTransactions, transaction)
 	}
 
-	sourceType := fmt.Sprintf("AmeriaCsv:%s", currency)
+	sourceType := TransactionsSource{
+		TypeName:        "AmeriaBank CSV statement",
+		Tag:             "AmeriaCsv:" + currency,
+		FilePath:        filePath,
+		AccountNumber:   accountNumber,
+		AccountCurrency: currency,
+	}
 
 	// Convert CSV rows to unified transactions and separate expenses from incomes.
 	transactions := make([]Transaction, len(csvTransactions))
@@ -222,14 +228,13 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		}
 		// Eventually check that transaction is not empty.
 		if amount.int == 0 {
-			return nil, "", fmt.Errorf("unexpected transaction values parsed on %d line: %+v", i+1, t)
+			return nil, fmt.Errorf("unexpected transaction values parsed on %d line: %+v", i+1, t)
 		}
 		transactions[i] = Transaction{
 			IsExpense:       isExpense,
 			Date:            t.Date,
 			Details:         t.Details,
-			SourceType:      sourceType,
-			Source:          filePath,
+			Source:          &sourceType,
 			Amount:          amount,
 			AccountCurrency: currency,
 			FromAccount:     from,
@@ -246,7 +251,7 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		}
 	}
 
-	return transactions, sourceType, nil
+	return transactions, nil
 }
 
 func rowCellsToString(rowCells []string) string {
@@ -259,3 +264,5 @@ func rowCellsToString(rowCells []string) string {
 	}
 	return strings.Join(rowCells, "")
 }
+
+var _ FileParser = AmeriaCsvFileParser{}

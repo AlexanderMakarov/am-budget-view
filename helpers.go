@@ -78,7 +78,7 @@ func openFileInOS(url string) error {
 // Updates parsingWarnings slice with warnings were found.
 // Returns list of transactions, list of file infos and error if it is fatal.
 func parseTransactionsOfOneType(
-	glob,
+	glob string,
 	nameOfFilesUnderGlob string,
 	parser FileParser,
 	parsingWarnings *[]string,
@@ -114,7 +114,7 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 
 	for _, file := range files {
 		log.Println(i18n.T("Parsing file with parser", "file", file, "parser", parser))
-		rawTransactions, sourceType, err := parser.ParseRawTransactionsFromFile(file)
+		rawTransactions, err := parser.ParseRawTransactionsFromFile(file)
 		if err != nil {
 			notFatalError = i18n.T("can't parse transactions from file f", "f", file, "err", err)
 			if len(rawTransactions) < 1 {
@@ -153,7 +153,7 @@ func parseTransactionFiles(glob string, parser FileParser) ([]Transaction, strin
 		}
 		fileInfos = append(fileInfos, FileInfo{
 			Path:              file,
-			Type:              sourceType,
+			Source:            rawTransactions[0].Source,
 			TransactionsCount: len(rawTransactions),
 			ModifiedTime:      fileInfo.ModTime(),
 			FromDate:          fileFromDate,

@@ -37,10 +37,10 @@ type MyAmeriaExcelStmtFileParser struct {
 
 func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 	filePath string,
-) ([]Transaction, string, error) {
+) ([]Transaction, error) {
 	f, err := xlsx.OpenFile(filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 
 	// Find first sheet.
@@ -59,7 +59,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 	for i, row := range firstSheet.Rows {
 		cells := row.Cells
 		if len(cells) < len(xlsHeaders) {
-			return nil, "", fmt.Errorf(
+			return nil, fmt.Errorf(
 				"%d row has only %d cells while need to find information for headers %v",
 				i, len(cells), xlsHeaders,
 			)
@@ -67,7 +67,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 		// Find header row.
 		if !isHeaderRowFound {
 			if i > giveUpFindHeaderInAmeriaExcelStmtAfterRows {
-				return nil, "", fmt.Errorf(
+				return nil, fmt.Errorf(
 					"after scanning %d rows can't find headers %v",
 					i, xlsHeaders,
 				)
@@ -119,7 +119,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 					}
 				}
 				if creditColumnIndex == -1 && debitColumnIndex == -1 {
-					return nil, "", fmt.Errorf("%d row has no credit or debit columns", i)
+					return nil, fmt.Errorf("%d row has no credit or debit columns", i)
 				}
 			}
 
@@ -135,7 +135,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 		// Parse date and amounts.
 		date, err := time.Parse(MyAmeriaStmtDateFormat, cells[0].String())
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
+			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
 		}
 		var creditAmount MoneyWith2DecimalPlaces
 		var creditAmdAmount MoneyWith2DecimalPlaces
@@ -144,25 +144,25 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 		if creditColumnIndex != -1 && cells[creditColumnIndex].String() != "" {
 			creditAmount, err = parseAmountWithoutLetters(cells[creditColumnIndex])
 			if err != nil {
-				return nil, "", fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", creditColumnIndex+1, i+1, err)
+				return nil, fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", creditColumnIndex+1, i+1, err)
 			}
 		}
 		if creditAmdColumnIndex != -1 && cells[creditAmdColumnIndex].String() != "" {
 			creditAmdAmount, err = parseAmountWithoutLetters(cells[creditAmdColumnIndex])
 			if err != nil {
-				return nil, "", fmt.Errorf("failed to parse credit AMD amount from cell %d of %d row: %w", creditAmdColumnIndex+1, i+1, err)
+				return nil, fmt.Errorf("failed to parse credit AMD amount from cell %d of %d row: %w", creditAmdColumnIndex+1, i+1, err)
 			}
 		}
 		if debitColumnIndex != -1 && cells[debitColumnIndex].String() != "" {
 			debitAmount, err = parseAmountWithoutLetters(cells[debitColumnIndex])
 			if err != nil {
-				return nil, "", fmt.Errorf("failed to parse debit amount from cell %d of %d row: %w", debitColumnIndex+1, i+1, err)
+				return nil, fmt.Errorf("failed to parse debit amount from cell %d of %d row: %w", debitColumnIndex+1, i+1, err)
 			}
 		}
 		if debitAmdColumnIndex != -1 && cells[debitAmdColumnIndex].String() != "" {
 			debitAmdAmount, err = parseAmountWithoutLetters(cells[debitAmdColumnIndex])
 			if err != nil {
-				return nil, "", fmt.Errorf("failed to parse debit AMD amount from cell %d of %d row: %w", debitAmdColumnIndex+1, i+1, err)
+				return nil, fmt.Errorf("failed to parse debit AMD amount from cell %d of %d row: %w", debitAmdColumnIndex+1, i+1, err)
 			}
 		}
 		// Build MyAmeria Statement transaction.
@@ -178,6 +178,14 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 			DebitOriginCurrency:  debitAmount,
 			DebitAMD:             debitAmdAmount,
 		})
+	}
+
+	source := TransactionsSource{
+		TypeName:        "MyAmeria XLS statement",
+		Tag:             "MyAmeriaXls:" + accountCurrency,
+		FilePath:        filePath,
+		AccountNumber:   accountNumber,
+		AccountCurrency: accountCurrency,
 	}
 
 	// Convert MyAmeria rows to unified transactions and separate expenses from incomes.
@@ -205,8 +213,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 			IsExpense:            isExpense,
 			Date:                 t.Date,
 			Details:              t.Purpose,
-			SourceType:           "MyAmeriaExcelStatement",
-			Source:               filePath,
+			Source:               &source,
 			AccountCurrency:      accountCurrency,
 			Amount:               amount,
 			OriginCurrency:       t.Currency,
@@ -216,7 +223,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 		})
 	}
 
-	return transactions, "MyAmeriaExcelStatement", nil
+	return transactions, nil
 }
 
 // parseAmountWithoutLetters parses the amount from the cell value containing currency.

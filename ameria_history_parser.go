@@ -48,10 +48,10 @@ type MyAmeriaExcelFileParser struct {
 
 func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	filePath string,
-) ([]Transaction, string, error) {
+) ([]Transaction, error) {
 	f, err := xlsx.OpenFile(filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 
 	// Find first sheet.
@@ -64,7 +64,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	for i, row := range firstSheet.Rows {
 		cells := row.Cells
 		if len(cells) < len(xlsxHeaders) {
-			return nil, "", fmt.Errorf(
+			return nil, fmt.Errorf(
 				"%d row has only %d cells while need to find information for headers %v",
 				i, len(cells), xlsxHeaders,
 			)
@@ -72,7 +72,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		// Find header row.
 		if !isHeaderRowFound {
 			if i > giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells {
-				return nil, "", fmt.Errorf(
+				return nil, fmt.Errorf(
 					"after scanning %d rows can't find headers %v",
 					i, xlsxHeaders,
 				)
@@ -100,11 +100,11 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		// Parse date and amount.
 		date, err := time.Parse(MyAmeriaHistoryDateFormat, cells[0].String())
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
+			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
 		}
 		var amount MoneyWith2DecimalPlaces
 		if err := amount.UnmarshalText([]byte(cells[9].String())); err != nil {
-			return nil, "", fmt.Errorf("failed to parse amount from 10th cell of %d row: %w", i, err)
+			return nil, fmt.Errorf("failed to parse amount from 10th cell of %d row: %w", i, err)
 		}
 
 		transaction := MyAmeriaTransaction{
@@ -123,6 +123,11 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		myAmeriaTransactions = append(myAmeriaTransactions, transaction)
 	}
 
+	source := TransactionsSource{
+		TypeName:        "MyAmeria History XLS",
+		FilePath:        filePath,
+	}
+
 	// Convert MyAmeria rows to unified transactions and separate expenses from incomes.
 	var ok bool
 	zeroAmount := MoneyWith2DecimalPlaces{
@@ -135,10 +140,20 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		accountCurrency := ""
 		if accountCurrency, ok = p.MyAccounts[t.BeneficiaryAccount]; ok {
 			isExpense = false
+			if source.AccountNumber == "" {
+				source.AccountNumber = t.BeneficiaryAccount
+			}
 		} else if accountCurrency, ok = p.MyAccounts[t.OutgoingAccount]; ok {
 			isExpense = true
+			if source.AccountNumber == "" {
+				source.AccountNumber = t.OutgoingAccount
+			}
 		} else {
-			return nil, "", fmt.Errorf("can't find account number for raw transaction %s", t)
+			return nil, fmt.Errorf("can't find account number for raw transaction %s", t)
+		}
+		if source.AccountCurrency == "" {
+			source.AccountCurrency = accountCurrency
+			source.Tag = "MyAmeriaXls:" + accountCurrency
 		}
 		// Ameria History XLS files show only original currency amount.
 		originCurrency := t.Currency
@@ -154,8 +169,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 			IsExpense:            isExpense,
 			Date:                 t.Date,
 			Details:              t.Details,
-			SourceType:           fmt.Sprintf("MyAmeriaExcel:%s", accountCurrency),
-			Source:               filePath,
+			Source:               &source,
 			Amount:               accountCurrencyAmount,
 			AccountCurrency:      accountCurrency,
 			OriginCurrency:       originCurrency,
@@ -165,5 +179,7 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 		}
 	}
 
-	return transactions, "MyAmeriaExcel", nil
+	return transactions, nil
 }
+
+var _ FileParser = MyAmeriaExcelFileParser{}

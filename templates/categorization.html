@@ -40,7 +40,7 @@
                         <td class="amount">{{.Amount}}</td>
                         <td>{{.AccountCurrency}}</td>
                         <td>{{.Details}}</td>
-                        <td class="source-cell">[{{.SourceType}}] <a href="/open-file?path={{.Source}}" class="source-link" data-source="{{.Source}}">{{.Source}}</a></td>
+                        <td class="source-cell">[{{.Source.Tag}}] <a href="/open-file?path={{.Source.FilePath}}" class="source-link" data-source="{{.Source.FilePath}}">{{.Source.FilePath}}</a></td>
                         <td>
                             <button onclick="showCategoryActions(this)" class="action-button">
                                 {{localize "Categorize"}}

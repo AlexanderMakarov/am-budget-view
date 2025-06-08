@@ -85,14 +85,18 @@ const (
 	RuleTypeSubstring RuleType = "Substring"
 )
 
-// CategoryMatch represents the result of transaction categorization.
-type CategoryMatch struct {
-	// Name is a name of the group.
-	Name string
-	// RuleType is a type of rule that matched (FromAccount, ToAccount, or Substring).
-	RuleType RuleType
-	// RuleValue is the actual value that matched (account name or substring).
-	RuleValue string
+// TransactionsSource represents supported types of files with transactions.
+type TransactionsSource struct {
+	// Name is a human-friendly name of the file type.
+	TypeName string
+	// Tag is a Beancount-compatible short no-spaces tag of the file type.
+	Tag string
+	// FilePath is a path to the file.
+	FilePath string
+	// AccountNumber is a number of the account.
+	AccountNumber string
+	// AccountCurrency is a currency of the account. ISO 3-character code.
+	AccountCurrency string
 }
 
 // Transaction represents a single transaction with data available in the source file.
@@ -109,10 +113,8 @@ type Transaction struct {
 	Amount MoneyWith2DecimalPlaces
 	// Details is a description of the transaction.
 	Details string
-	// SourceType is a type of the source of the transaction. No spaces.
-	SourceType string
-	// Source identifier, usually file path.
-	Source string
+	// Source explanation
+	Source *TransactionsSource
 	// AccountCurrency is a currency of the account. ISO 3-character code.
 	AccountCurrency string
 	// OriginCurrency is a currency of the transaction before conversion. ISO 3-character code.
@@ -130,10 +132,8 @@ type AccountStatistics struct {
 	// IsTransactionAccount flag that account is "from" in expense or "to" in income.
 	// I.e. flag that this is an account of the source (file).
 	IsTransactionAccount bool
-	// SourceType is copied from Transaction.SourceType.
-	SourceType string
 	// Source is copied from Transaction.Source.
-	Source string
+	Source *TransactionsSource
 	// From is a first transaction date with this account.
 	From time.Time
 	// To is a last transaction date with this account.
@@ -167,10 +167,8 @@ type JournalEntry struct {
 	Date time.Time
 	// IsExpense is true if transaction is an expense, false if it is an income.
 	IsExpense bool
-	// SourceType is a type of the source of the transaction. No spaces.
-	SourceType string
-	// Source identifier, usually file path.
-	Source string
+	// Source is a type of the source of the transaction.
+	Source *TransactionsSource
 	// Details is a description of the transaction.
 	Details string
 	// Category is a user-defined and evaluated category of the transaction.
@@ -195,14 +193,14 @@ type JournalEntry struct {
 	RuleValue string
 }
 
+// FileParser is an interface to parse raw/unified transactions from a file.
 type FileParser interface {
 	// ParseRawTransactionsFromFile parses raw/unified transactions
 	// from the specified by path file.
 	// Returns:
 	// - list of parsed transactions,
-	// - file type (source type, no spaces),
 	// - error if can't parse.
-	ParseRawTransactionsFromFile(filePath string) ([]Transaction, string, error)
+	ParseRawTransactionsFromFile(filePath string) ([]Transaction, error)
 }
 
 // Group is a struct representing a group of journal entries.
@@ -214,6 +212,16 @@ type Group struct {
 	Total MoneyWith2DecimalPlaces
 	// JournalEntries is a list of all journal entries in the group.
 	JournalEntries []JournalEntry
+}
+
+// CategoryMatch represents the result of transaction categorization.
+type CategoryMatch struct {
+	// Name is a name of the group.
+	Name string
+	// RuleType is a type of rule that matched (FromAccount, ToAccount, or Substring).
+	RuleType RuleType
+	// RuleValue is the actual value that matched (account name or substring).
+	RuleValue string
 }
 
 // IntervalStatistics is a struct representing a list of journal entries for time interval, usually month.

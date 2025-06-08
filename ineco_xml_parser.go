@@ -72,28 +72,28 @@ func (xd *XmlDate) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 type InecoXmlParser struct {
 }
 
-func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) (
-	[]Transaction, string, error,
-) {
+func (InecoXmlParser) ParseRawTransactionsFromFile(
+	filePath string,
+) ([]Transaction, error) {
 
 	// Open XML file.
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("error opening file: %w", err)
+		return nil, fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	// Read the file content
 	xmlData, err := io.ReadAll(file)
 	if err != nil {
-		return nil, "", fmt.Errorf("error reading file: %w", err)
+		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
 	// Unmarshal XML.
 	var stmt Statement
 	err = xml.Unmarshal(xmlData, &stmt)
 	if err != nil {
-		return nil, "", fmt.Errorf("error unmarshalling XML: %w", err)
+		return nil, fmt.Errorf("error unmarshalling XML: %w", err)
 	}
 
 	// Validate that all fields are set.
@@ -101,10 +101,18 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) (
 	for i, operation := range stmt.Operations.Transactions {
 		err = validate.Struct(operation)
 		if err != nil {
-			return nil, "", fmt.Errorf("error in %d transaction: %w", i+1, err)
+			return nil, fmt.Errorf("error in %d transaction: %w", i+1, err)
 		}
 	}
-	sourceType := fmt.Sprintf("InecoXml:%s", stmt.Currency)
+
+	// Create source.
+	source := TransactionsSource{
+		TypeName:        "Inecobank XML statement",
+		Tag:             fmt.Sprintf("InecoXml:%s", stmt.Currency),
+		FilePath:        filePath,
+		AccountNumber:   stmt.AccountNumber,
+		AccountCurrency: stmt.Currency,
+	}
 
 	// Conver Inecobank rows to unified transactions.
 	transactions := make([]Transaction, 0, len(stmt.Operations.Transactions))
@@ -127,14 +135,13 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(filePath string) (
 			Details:   t.Details,
 			// Ineco XML shows amounts only in account currency.
 			Amount:          MoneyWith2DecimalPlaces{amount},
-			SourceType:      sourceType,
-			Source:          filePath,
+			Source:          &source,
 			AccountCurrency: t.Currency,
 			FromAccount:     from,
 			ToAccount:       to,
 		})
 	}
-	return transactions, sourceType, nil
+	return transactions, nil
 }
 
 var _ FileParser = InecoXmlParser{}

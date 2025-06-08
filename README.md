@@ -95,27 +95,31 @@ Ameriabank both individual and legal accounts, pre-formatted CSV files with tran
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain
   own Reciever/Payer account number and currency.
-- [FULL] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
-  https://myameria.am/cards-and-accounts/card-statement/******
+- [PARTIAL] MyAmeria History Excel (.xls) file downloaded from https://myameria.am/history.
+  Press on "Filter" button at right, set dates, press "Excel" button
+  in "Actions" section at right.
+  Only one file is needed because contains transactions for all accounts and cards.
+  In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
+  Note that it should be accompanied by `myAmeriaMyAccounts` map because file
+  doesn't provide owner's account numbers and currencies and to make most of application
+  features working it is required to specify this data.
+  If transactions would have account number or currency not specified then parser would fail.
+  Supports features native to app and Beancount reports except for exchange rates
+  (exchange rates should be specified in other transaction files).
+  Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
+- [ONLY ACCOUNTS] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
   or https://myameria.am/cards-and-accounts/account-statement/******.
-  Open https://myameria.am/cards-and-accounts, select card/account,
+  Note that it doesn't work for card, only for accounts - use 
+  "MyAmeria History Excel" option above instead.
+  Open https://myameria.am/cards-and-accounts, select account,
   press "Statement" button at right, set dates, press "Download" button.
   In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
-  !!! No there is an option to **download such files automatically** via
+  !!! There is an option to **download such files automatically** via
   [bank_downloader.py](/scripts/bank_downloader.py) script.
   Copy [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_configak.yaml.template)
   into new file `bank_dowloader_config.yaml` in "scripts" folder and fill in your data.
   Run `python scripts/bank_downloader.py` (or `make bank-downloader`) to download statements.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
-- [PARTIAL] MyAmeria History Excel (.xls) files downloaded from https://myameria.am/history.
-  In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
-  Note that it should be accompanied by `myAmeriaMyAccounts` map because files
-  don't have own account number and currency and to make most of application features
-  working it is required to specify this data.
-  If transactions would have account number not specified then parser would fail.
-  Supports features native to app and Beancount reports except for exchange rates
-  (exchange rates should be specified in other transaction files).
-  Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
 - [FULL] Generic CSV files with transactions from the any source.
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
   Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
@@ -396,9 +400,11 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Collect more details about accounts.
 - [x] Handle currencies on "Categorization" page (now "Amount" in different currencies).
 - [x] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
-- [x] Download account statements from MyAmeria.
-- [ ] Download account statements from Ameria Business and Inecobank. Make them user-friendly.
+- [x] ~~Download account statements from MyAmeria~~ (appears useless because doesn't work for cards).
 - [ ] Add way (button) to re-read statement files.
+- [ ] Add switcher to "Transactions" page to hide "between my accounts" transactions.
+- [ ] Download MyAmeria History Excel files.
+- [ ] Download account statements from Ameria Business and Inecobank. Make them user-friendly.
 - [ ] Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from other bank accounts.
       b) transaction between banks may happen under different account.

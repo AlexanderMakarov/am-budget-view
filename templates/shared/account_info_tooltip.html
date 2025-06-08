@@ -7,7 +7,7 @@
         const tooltip = document.getElementById('accountTooltip');
         // Prepare localized strings
         const localizedStrings = {
-            transactionAccount: '{{localize "Transaction Account"}}',
+            myAccount: '{{localize "My Account"}}',
             unknownAccount: '{{localize "Unknown Account"}}',
             type: '{{localize "type"}}',
             source: '{{localize "Source"}}',
@@ -37,13 +37,13 @@
                 const isTransaction = accountInfo.IsTransactionAccount;
                 const from = accountInfo.From;
                 const to = accountInfo.To;
-                const sourceType = accountInfo.SourceType || '';
-                const source = accountInfo.Source || '';
+                const sourceType = `${accountInfo.Source.Tag}`;
+                const source = accountInfo.Source.FilePath;
                 const sourceOccurrences = accountInfo.SourceOccurrences || {};
                 const occurrences = accountInfo.OccurencesInTransactions || 0;
                 let tooltipContent = '<table>';
                 tooltipContent += `
-                    <tr><td><b>${isTransaction ? localizedStrings.transactionAccount : localizedStrings.unknownAccount}</b></td></tr>
+                    <tr><td><b>${isTransaction ? localizedStrings.myAccount : localizedStrings.unknownAccount}</b></td></tr>
                     <tr><td>${localizedStrings.type}:</td><td>${sourceType}</td></tr>
                     <tr><td>${localizedStrings.source}:</td><td>${source}</td></tr>
                     <tr><td>${localizedStrings.firstAppeared}:</td><td>${from}</td></tr>

@@ -25,6 +25,7 @@
                     <tr>
                         <th>{{localize "File Name"}}</th>
                         <th>{{localize "type"}}</th>
+                        <th>{{localize "Account Number"}}</th>
                         <th>{{localize "Number of Transactions"}}</th>
                         <th>{{localize "From"}}</th>
                         <th>{{localize "To"}}</th>
@@ -35,7 +36,8 @@
                     {{range .Files}}
                     <tr>
                         <td><a href="#" class="file-link" data-path="{{.Path}}">{{.Path}}</a></td>
-                        <td>{{.Type}}</td>
+                        <td>{{.Source.Tag}}</td>
+                        <td>{{.Source.AccountNumber}}</td>
                         <td>{{.TransactionsCount}}</td>
                         <td>{{.FromDate | formatDate}}</td>
                         <td>{{.ToDate | formatDate}}</td>
