@@ -99,6 +99,10 @@ type TransactionsSource struct {
 	AccountCurrency string
 }
 
+func (s *TransactionsSource) String() string {
+	return s.FilePath
+}
+
 // Transaction represents a single transaction with data available in the source file.
 type Transaction struct {
 	// Date of the transaction.

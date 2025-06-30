@@ -5,10 +5,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestGenericCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *testing.T) {
-	_, _, err := GenericCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, err := GenericCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/generic/not_existing_path.csv",
 	)
 	if !strings.Contains(err.Error(), "failed to open file") {
@@ -36,13 +38,16 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_Success(t *testing.T)
 	}
 
 	// Test the parser
-	transactions, sourceType, err := GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
+	source := &TransactionsSource{
+		TypeName:        "Generic CSV with transactions",
+		Tag:             "GenericCsv:USD",
+		FilePath:        tmpfile.Name(),
+		AccountNumber:   "123456",
+		AccountCurrency: "USD",
+	}
+	transactions, err := GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
-	}
-
-	if sourceType != "GenericCsv" {
-		t.Errorf("expected source type GenericCsv, but got %s", sourceType)
 	}
 
 	expectedTransactions := []Transaction{
@@ -54,8 +59,7 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_Success(t *testing.T)
 			Amount:          MoneyWith2DecimalPlaces{int: 250},
 			Details:         "Coffee purchase",
 			AccountCurrency: "USD",
-			SourceType:      "GenericCsv",
-			Source:          tmpfile.Name(),
+			Source:          source,
 		},
 		{
 			Date:                 time.Date(2024, time.March, 21, 0, 0, 0, 0, time.UTC),
@@ -67,8 +71,7 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_Success(t *testing.T)
 			AccountCurrency:      "EUR",
 			OriginCurrency:       "USD",
 			OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 110000},
-			SourceType:           "GenericCsv",
-			Source:               tmpfile.Name(),
+			Source:               source,
 		},
 	}
 
@@ -77,8 +80,8 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_Success(t *testing.T)
 	}
 
 	for i, transaction := range transactions {
-		if transaction != expectedTransactions[i] {
-			t.Errorf("transaction %d mismatch:\nexpected: %+v\ngot: %+v", i, expectedTransactions[i], transaction)
+		if diff := cmp.Diff(expectedTransactions[i], transaction, moneyComparer, diffOnlyTransformer); diff != "" {
+			t.Errorf("transaction %d mismatch (-expected +got):\n%s", i, diff)
 		}
 	}
 }
@@ -118,7 +121,7 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_InvalidHeaders(t *tes
 				t.Fatal(err)
 			}
 
-			_, _, err = GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
+			_, err = GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
 			if err == nil {
 				t.Error("expected error, got nil")
 			} else if !strings.Contains(err.Error(), tt.wantErr) {
@@ -181,7 +184,7 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_InvalidData(t *testin
 				t.Fatal(err)
 			}
 
-			_, _, err = GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
+			_, err = GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
 			if err == nil {
 				t.Error("expected error, got nil")
 			} else if !strings.Contains(err.Error(), tt.wantErr) {
@@ -208,7 +211,7 @@ func TestGenericCsvFileParser_ParseRawTransactionsFromFile_EmptyFile(t *testing.
 		t.Fatal(err)
 	}
 
-	_, _, err = GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
+	_, err = GenericCsvFileParser{}.ParseRawTransactionsFromFile(tmpfile.Name())
 	if err == nil {
 		t.Error("expected error for empty file, got nil")
 	} else if !strings.Contains(err.Error(), "no transactions found") {

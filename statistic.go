@@ -39,7 +39,7 @@ func (je *JournalEntry) String() string {
 		je.FromAccount,
 		je.ToAccount,
 		je.Source.TypeName,
-		je.Source,
+		je.Source.FilePath,
 		je.Details,
 		amounts,
 	)

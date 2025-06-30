@@ -107,7 +107,7 @@ Ameriabank both individual and legal accounts, pre-formatted CSV files with tran
   Supports features native to app and Beancount reports except for exchange rates
   (exchange rates should be specified in other transaction files).
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
-- [ONLY ACCOUNTS] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
+- [ONLY ACCOUNTS, NOT CARDS] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
   or https://myameria.am/cards-and-accounts/account-statement/******.
   Note that it doesn't work for card, only for accounts - use 
   "MyAmeria History Excel" option above instead.
@@ -402,17 +402,18 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
 - [x] ~~Download account statements from MyAmeria~~ (appears useless because doesn't work for cards).
 - [ ] Add way (button) to re-read statement files.
-- [ ] Add switcher to "Transactions" page to hide "between my accounts" transactions.
+- [ ] Add switcher to "Categorization" page to hide "between my accounts" transactions.
+- [ ] Record new video(s) with instructions.
+- [ ] Add zoom to main diagrams (when multiple years are shown).
 - [ ] Download MyAmeria History Excel files.
 - [ ] Download account statements from Ameria Business and Inecobank. Make them user-friendly.
-- [ ] Support group to ignore some transactions as "to me". Because:
-      a) user may have transactions from other bank accounts.
-      b) transaction between banks may happen under different account.
-      c) currency exchange inside the same bank may happen under different account.
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
-- [ ] Record new video(s) with instructions.
 - [ ] Fix folders structure, see https://appliedgo.com/blog/go-project-layout
+- [ ] (? confusing) Support group to ignore some transactions as "to me". Because:
+      a) user may have transactions from not-provided bank accounts.
+      b) transaction between banks may happen under different account.
+      c) currency exchange inside the same bank may happen under different account.
 - [ ] (? small value) Add translation to all parsers and set right Russian declensions.
 - [ ] (? value vs complexity) Allow to choose "transactions" files in UI.
 - [ ] (? unclear value) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD

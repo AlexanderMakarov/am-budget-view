@@ -2,14 +2,29 @@ package main
 
 import (
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 	validFileRegularPath := filepath.Join("testdata", "ineco", "valid_regular.xlsx")
 	validFileCardPath := filepath.Join("testdata", "ineco", "valid_card.xlsx")
+	sourceRegular := &TransactionsSource{
+		TypeName:        "Inecobank XLSX statement",
+		Tag:             "InecoExcelRegular:AMD",
+		FilePath:        validFileRegularPath,
+		AccountNumber:   "2050205020502050",
+		AccountCurrency: "AMD",
+	}
+	sourceCard := &TransactionsSource{
+		TypeName:        "Inecobank XLSX statement",
+		Tag:             "InecoExcelCard:AMD",
+		FilePath:        validFileCardPath,
+		AccountNumber:   "1234567890121234",
+		AccountCurrency: "AMD",
+	}
 
 	tests := []struct {
 		name                  string
@@ -28,8 +43,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.June, 3, 0, 0, 0, 0, time.UTC),
 					Details:              "Միջբանկային փոխանցում",
-					SourceType:           "InecoExcelRegular:AMD",
-					Source:               validFileRegularPath,
+					Source:               sourceRegular,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 400000},
 					OriginCurrency:       "",
@@ -41,8 +55,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.June, 7, 0, 0, 0, 0, time.UTC),
 					Details:              "Փոխանցում իմ հաշիվների միջև, Account replenishment, InecoOnline, 07/06/2023 11:38:58",
-					SourceType:           "InecoExcelRegular:AMD",
-					Source:               validFileRegularPath,
+					Source:               sourceRegular,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 7800010},
 					OriginCurrency:       "",
@@ -62,8 +75,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.June, 5, 0, 0, 0, 0, time.UTC),
 					Details:              "Անկանխիկ գործարք - WILDBERRIES - YEREVAN",
-					SourceType:           "InecoExcelCard:AMD",
-					Source:               validFileCardPath,
+					Source:               sourceCard,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 35000},
 					OriginCurrency:       "",
@@ -75,8 +87,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.June, 1, 0, 0, 0, 0, time.UTC),
 					Details:              "Անկանխիկ գործարք – CLOUD",
-					SourceType:           "InecoExcelCard:AMD",
-					Source:               validFileCardPath,
+					Source:               sourceCard,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 784},
 					OriginCurrency:       "USD",
@@ -88,8 +99,7 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.June, 7, 0, 0, 0, 0, time.UTC),
 					Details:              "Գումարի ետ վերադարձ քարտապանին",
-					SourceType:           "InecoExcelCard:AMD",
-					Source:               validFileCardPath,
+					Source:               sourceCard,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 99999999999},
 					OriginCurrency:       "",
@@ -133,16 +143,14 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.fileName, func(t *testing.T) {
 			parser := InecoExcelFileParser{}
-			filePath := filepath.Join("testdata", "ineco", tt.fileName+".xlsx")
-			actual, returnedSourceType, err := parser.ParseRawTransactionsFromFile(filePath)
+			testName := tt.fileName + ".xlsx"
+			filePath := filepath.Join("testdata", "ineco", testName)
+			actual, err := parser.ParseRawTransactionsFromFile(filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error=%+v, wantErr=%+v", err, tt.wantErr)
 			}
-			if !reflect.DeepEqual(actual, tt.expectedResult) {
-				t.Errorf("actual=%+v, expected=%+v", actual, tt.expectedResult)
-			}
-			if returnedSourceType != tt.expectedSourceType {
-				t.Errorf("ParseRawTransactionsFromFile() returned source type = %+v, expected=%+v", returnedSourceType, tt.expectedSourceType)
+			if diff := cmp.Diff(tt.expectedResult, actual, moneyComparer, diffOnlyTransformer); diff != "" {
+				t.Errorf("transaction %s mismatch (-expected +got):\n%s", testName, diff)
 			}
 		})
 	}

@@ -11,6 +11,7 @@ import (
 var testDate = time.Now()
 
 func TestParseExchangeRateFromDetails(t *testing.T) {
+	source := &TransactionsSource{TypeName: "TestParseExchangeRateFromDetails", FilePath: "TestParseExchangeRateFromDetails"}
 	tests := []struct {
 		name            string
 		date            time.Time
@@ -30,7 +31,7 @@ func TestParseExchangeRateFromDetails(t *testing.T) {
 				currencyFrom: "AMD",
 				currencyTo:   "RUB",
 				exchangeRate: 4.4,
-				source:       "TestParseExchangeRateFromDetails",
+				source:       source,
 			},
 		},
 		{
@@ -44,7 +45,7 @@ func TestParseExchangeRateFromDetails(t *testing.T) {
 				currencyFrom: "AMD",
 				currencyTo:   "RUB",
 				exchangeRate: 4.4,
-				source:       "TestParseExchangeRateFromDetails",
+				source:       source,
 			},
 		},
 		{
@@ -58,7 +59,7 @@ func TestParseExchangeRateFromDetails(t *testing.T) {
 				currencyFrom: "RUB",
 				currencyTo:   "AMD",
 				exchangeRate: 0.22727272727272727,
-				source:       "TestParseExchangeRateFromDetails",
+				source:       source,
 			},
 		},
 		{
@@ -72,7 +73,7 @@ func TestParseExchangeRateFromDetails(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := parseExchangeRateFromDetails(test.date, test.details, test.targetCurrency1, test.targetCurrency2, "TestParseExchangeRateFromDetails")
+			actual := parseExchangeRateFromDetails(test.date, test.details, test.targetCurrency1, test.targetCurrency2, source)
 			if test.expected == nil {
 				if actual != nil {
 					t.Errorf("Expected nil, got %+v", actual)

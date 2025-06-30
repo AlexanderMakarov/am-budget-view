@@ -68,79 +68,79 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 }
 
 func Test_groupExtractorByCategories_HandleJournalEntry(t *testing.T) {
+	source := &TransactionsSource{TypeName: "t1", FilePath: "s1"}
 	a1Mine := &AccountStatistics{Number: "a1", IsTransactionAccount: true}
 	a1NotMine := &AccountStatistics{Number: "a1", IsTransactionAccount: false}
 	a2NotMine := &AccountStatistics{Number: "a2", IsTransactionAccount: false}
 	a3NotMine := &AccountStatistics{Number: "a3", IsTransactionAccount: false}
 	jesVariousCategories := []JournalEntry{
-		newUsdJE(1, false, "a", "a1", "a2"),
-		newUsdJE(2, false, "a", "a3", "a1"),
-		newUsdJE(3, true, "b", "a1", "a3"),
-		newUsdJE(4, true, "b", "a2", "a3"),
-		newUsdJE(5, true, "b", "a2", "a3"),
-		newUsdJE(6, false, "b", "a1", "a2"),
-		newUsdJE(7, false, "c", "a2", "a3"),
-		newUsdJE(8, true, "c", "a1", "a3"),
-		newUsdJE(9, false, "c", "a3", "a1"),
-		newUsdJE(10, true, "c", "a2", "a1"),
-		newUsdJE(11, false, "c", "a3", "a1"),
-		newUsdJE(12, false, "e", "a2", "a1"),
-		newUsdJE(13, true, "e", "a3", "a2"),
+		newUsdJE(1, false, "a", "a1", "a2", source),
+		newUsdJE(2, false, "a", "a3", "a1", source),
+		newUsdJE(3, true, "b", "a1", "a3", source),
+		newUsdJE(4, true, "b", "a2", "a3", source),
+		newUsdJE(5, true, "b", "a2", "a3", source),
+		newUsdJE(6, false, "b", "a1", "a2", source),
+		newUsdJE(7, false, "c", "a2", "a3", source),
+		newUsdJE(8, true, "c", "a1", "a3", source),
+		newUsdJE(9, false, "c", "a3", "a1", source),
+		newUsdJE(10, true, "c", "a2", "a1", source),
+		newUsdJE(11, false, "c", "a3", "a1", source),
+		newUsdJE(12, false, "e", "a2", "a1", source),
+		newUsdJE(13, true, "e", "a3", "a2", source),
 	}
 	expectedVariousCategoriesFull := `USD amounts:
 Statistics for        2024-10-27..2024-10-28 (in    USD):
   Income  (total  4 groups, filtered sum           0.48):
     c                                    :         0.27, from 3 transaction(s):
-      2024-10-27	Income	        0.07 	c	a2->a3			'+7c'	0.07 USD (0)
-      2024-10-27	Income	        0.09 	c	a3->a1			'+9c'	0.09 USD (0)
-      2024-10-27	Income	        0.11 	c	a3->a1			'+11c'	0.11 USD (0)
+      2024-10-27	Income	        0.07 	c	a2->a3	t1	s1	'+7c'	0.07 USD (0)
+      2024-10-27	Income	        0.09 	c	a3->a1	t1	s1	'+9c'	0.09 USD (0)
+      2024-10-27	Income	        0.11 	c	a3->a1	t1	s1	'+11c'	0.11 USD (0)
     e                                    :         0.12, from 1 transaction(s):
-      2024-10-27	Income	        0.12 	e	a2->a1			'+12e'	0.12 USD (0)
+      2024-10-27	Income	        0.12 	e	a2->a1	t1	s1	'+12e'	0.12 USD (0)
     b                                    :         0.06, from 1 transaction(s):
-      2024-10-27	Income	        0.06 	b	a1->a2			'+6b'	0.06 USD (0)
+      2024-10-27	Income	        0.06 	b	a1->a2	t1	s1	'+6b'	0.06 USD (0)
     a                                    :         0.03, from 2 transaction(s):
-      2024-10-27	Income	        0.01 	a	a1->a2			'+1a'	0.01 USD (0)
-      2024-10-27	Income	        0.02 	a	a3->a1			'+2a'	0.02 USD (0)
+      2024-10-27	Income	        0.01 	a	a1->a2	t1	s1	'+1a'	0.01 USD (0)
+      2024-10-27	Income	        0.02 	a	a3->a1	t1	s1	'+2a'	0.02 USD (0)
   Expenses (total  3 groups, filt-ed sum           0.43):
     c                                    :         0.18, from 2 transaction(s):
-      2024-10-27	Expense	        0.08 	c	a1->a3			'-8c'	0.08 USD (0)
-      2024-10-27	Expense	        0.10 	c	a2->a1			'-10c'	0.10 USD (0)
+      2024-10-27	Expense	        0.08 	c	a1->a3	t1	s1	'-8c'	0.08 USD (0)
+      2024-10-27	Expense	        0.10 	c	a2->a1	t1	s1	'-10c'	0.10 USD (0)
     e                                    :         0.13, from 1 transaction(s):
-      2024-10-27	Expense	        0.13 	e	a3->a2			'-13e'	0.13 USD (0)
+      2024-10-27	Expense	        0.13 	e	a3->a2	t1	s1	'-13e'	0.13 USD (0)
     b                                    :         0.12, from 3 transaction(s):
-      2024-10-27	Expense	        0.03 	b	a1->a3			'-3b'	0.03 USD (0)
-      2024-10-27	Expense	        0.04 	b	a2->a3			'-4b'	0.04 USD (0)
-      2024-10-27	Expense	        0.05 	b	a2->a3			'-5b'	0.05 USD (0)
+      2024-10-27	Expense	        0.03 	b	a1->a3	t1	s1	'-3b'	0.03 USD (0)
+      2024-10-27	Expense	        0.04 	b	a2->a3	t1	s1	'-4b'	0.04 USD (0)
+      2024-10-27	Expense	        0.05 	b	a2->a3	t1	s1	'-5b'	0.05 USD (0)
 `
 	expectedVariousCategoriesA1Mine := `USD amounts:
 Statistics for        2024-10-27..2024-10-28 (in    USD):
   Income  (total  3 groups, filtered sum           0.41):
     c                                    :         0.27, from 3 transaction(s):
-      2024-10-27	Income	        0.07 	c	a2->a3			'+7c'	0.07 USD (0)
-      2024-10-27	Income	        0.09 	c	a3->a1			'+9c'	0.09 USD (0)
-      2024-10-27	Income	        0.11 	c	a3->a1			'+11c'	0.11 USD (0)
+      2024-10-27	Income	        0.07 	c	a2->a3	t1	s1	'+7c'	0.07 USD (0)
+      2024-10-27	Income	        0.09 	c	a3->a1	t1	s1	'+9c'	0.09 USD (0)
+      2024-10-27	Income	        0.11 	c	a3->a1	t1	s1	'+11c'	0.11 USD (0)
     e                                    :         0.12, from 1 transaction(s):
-      2024-10-27	Income	        0.12 	e	a2->a1			'+12e'	0.12 USD (0)
+      2024-10-27	Income	        0.12 	e	a2->a1	t1	s1	'+12e'	0.12 USD (0)
     a                                    :         0.02, from 2 transaction(s):
-      2024-10-27	Income	        0.01 	a	a1->a2			'+1a'	0.01 USD (0)
-      2024-10-27	Income	        0.02 	a	a3->a1			'+2a'	0.02 USD (0)
+      2024-10-27	Income	        0.01 	a	a1->a2	t1	s1	'+1a'	0.01 USD (0)
+      2024-10-27	Income	        0.02 	a	a3->a1	t1	s1	'+2a'	0.02 USD (0)
   Expenses (total  3 groups, filt-ed sum           0.33):
     e                                    :         0.13, from 1 transaction(s):
-      2024-10-27	Expense	        0.13 	e	a3->a2			'-13e'	0.13 USD (0)
+      2024-10-27	Expense	        0.13 	e	a3->a2	t1	s1	'-13e'	0.13 USD (0)
     b                                    :         0.12, from 3 transaction(s):
-      2024-10-27	Expense	        0.03 	b	a1->a3			'-3b'	0.03 USD (0)
-      2024-10-27	Expense	        0.04 	b	a2->a3			'-4b'	0.04 USD (0)
-      2024-10-27	Expense	        0.05 	b	a2->a3			'-5b'	0.05 USD (0)
+      2024-10-27	Expense	        0.03 	b	a1->a3	t1	s1	'-3b'	0.03 USD (0)
+      2024-10-27	Expense	        0.04 	b	a2->a3	t1	s1	'-4b'	0.04 USD (0)
+      2024-10-27	Expense	        0.05 	b	a2->a3	t1	s1	'-5b'	0.05 USD (0)
     c                                    :         0.08, from 2 transaction(s):
-      2024-10-27	Expense	        0.08 	c	a1->a3			'-8c'	0.08 USD (0)
-      2024-10-27	Expense	        0.10 	c	a2->a1			'-10c'	0.10 USD (0)
+      2024-10-27	Expense	        0.08 	c	a1->a3	t1	s1	'-8c'	0.08 USD (0)
+      2024-10-27	Expense	        0.10 	c	a2->a1	t1	s1	'-10c'	0.10 USD (0)
 `
 	jesVariousCurrencies := []JournalEntry{
 		{
 			IsExpense:             true,
 			Date:                  date1,
-			SourceType:            "t1",
-			Source:                "s1",
+			Source:                source,
 			Details:               "expense, all in USD",
 			Category:              "a",
 			FromAccount:           "a1",
@@ -157,8 +157,7 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 		{
 			IsExpense:             true,
 			Date:                  date1,
-			SourceType:            "t1",
-			Source:                "s1",
+			Source:                source,
 			Details:               "expense, account USD, paid in AMD",
 			Category:              "a",
 			FromAccount:           "a1",
@@ -175,8 +174,7 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 		{
 			IsExpense:             true,
 			Date:                  date1,
-			SourceType:            "t1",
-			Source:                "s1",
+			Source:                source,
 			Details:               "expense, account AMD, paid in USD",
 			Category:              "a",
 			FromAccount:           "a1",
@@ -193,8 +191,7 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 		{
 			IsExpense:             true,
 			Date:                  date1,
-			SourceType:            "t1",
-			Source:                "s1",
+			Source:                source,
 			Details:               "expense, account AMD",
 			Category:              "a",
 			FromAccount:           "a1",
@@ -209,8 +206,7 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 		{
 			IsExpense:             false,
 			Date:                  date1,
-			SourceType:            "t1",
-			Source:                "s1",
+			Source:                source,
 			Details:               "income, account is AMD, paid in USD",
 			Category:              "a",
 			FromAccount:           "a1",
@@ -301,7 +297,7 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 	}
 }
 
-func newUsdJE(amount int, isExpense bool, category, from, to string) JournalEntry {
+func newUsdJE(amount int, isExpense bool, category, from, to string, source *TransactionsSource) JournalEntry {
 	sign := "+"
 	if isExpense {
 		sign = "-"
@@ -309,6 +305,7 @@ func newUsdJE(amount int, isExpense bool, category, from, to string) JournalEntr
 	return JournalEntry{
 		IsExpense:             isExpense,
 		Date:                  date1,
+		Source:                source,
 		Category:              category,
 		Details:               fmt.Sprintf("%s%d%s", sign, amount, category),
 		AccountCurrencyAmount: MoneyWith2DecimalPlaces{amount},

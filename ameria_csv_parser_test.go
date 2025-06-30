@@ -4,10 +4,26 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
+var moneyComparer = cmp.Comparer(func(x, y MoneyWith2DecimalPlaces) bool {
+	return x.int == y.int
+})
+
+var diffOnlyTransformer = cmpopts.AcyclicTransformer("diffOnly", func(x Transaction) map[string]interface{} {
+	// Create a map with only the fields that differ
+	result := make(map[string]interface{})
+	if x.Source != nil {
+		result["Source"] = x.Source
+	}
+	return result
+})
+
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *testing.T) {
-	_, _, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/ameria/not_existing_path.csv",
 	)
 	if !strings.Contains(err.Error(), "failed to open file") {
@@ -17,23 +33,25 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidFilePath(t *tes
 
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing.T) {
 	filePath := "testdata/ameria/with_bom_header.csv"
-	sourceType := "AmeriaCsv:AMD"
-	transactions, returnedSourceType, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
+	source := &TransactionsSource{
+		TypeName:        "AmeriaBank CSV statement",
+		Tag:             "AmeriaCsv:AMD",
+		FilePath:        filePath,
+		AccountNumber:   "9999999999999999",
+		AccountCurrency: "AMD",
+	}
+	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	if returnedSourceType != sourceType {
-		t.Errorf("expected source type %s, but got %s", sourceType, returnedSourceType)
-	}
 	expectedTransactions := []Transaction{
 		{
 			IsExpense:       false,
 			Date:            time.Date(2024, time.May, 17, 0, 0, 0, 0, time.UTC),
 			Details:         "Ք: Քարտից քարտ փոխանցում\\",
 			Amount:          MoneyWith2DecimalPlaces{int: 20000000},
-			SourceType:      sourceType,
-			Source:          filePath,
+			Source:          source,
 			AccountCurrency: "AMD",
 			FromAccount:     "1234567890123456",
 			ToAccount:       "9999999999999999",
@@ -43,8 +61,7 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 			Date:            time.Date(2024, time.May, 20, 0, 0, 0, 0, time.UTC),
 			Details:         "Ք: SOME TEXT",
 			Amount:          MoneyWith2DecimalPlaces{int: 55000},
-			SourceType:      sourceType,
-			Source:          filePath,
+			Source:          source,
 			AccountCurrency: "AMD",
 			FromAccount:     "9999999999999999",
 			ToAccount:       "123456",
@@ -52,8 +69,8 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 	}
 
 	for i, transaction := range transactions {
-		if transaction != expectedTransactions[i] {
-			t.Errorf("expected transaction %+v, but got %+v", expectedTransactions[i], transaction)
+		if diff := cmp.Diff(expectedTransactions[i], transaction, moneyComparer, diffOnlyTransformer); diff != "" {
+			t.Errorf("transaction %d mismatch (-expected +got):\n%s", i, diff)
 		}
 	}
 }
@@ -61,7 +78,7 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidHeader(t *testing.T) {
 
 	// Act
-	_, _, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
+	_, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(
 		"testdata/ameria/invalid_header.csv",
 	)
 

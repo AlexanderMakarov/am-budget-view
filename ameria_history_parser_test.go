@@ -7,10 +7,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 	validFilePath := filepath.Join("testdata", "ameria", "valid_file.xls")
+	source := &TransactionsSource{
+		TypeName:        "MyAmeria History XLS",
+		Tag:             "MyAmeriaXls:AMD",
+		FilePath:        validFilePath,
+		AccountNumber:   "1234567890123456",
+		AccountCurrency: "AMD",
+	}
 	tests := []struct {
 		name               string
 		filePath           string
@@ -31,8 +40,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.April, 20, 0, 0, 0, 0, time.UTC),
 					Details:              "ԱԱՀ այդ թվում` 16.67%",
-					SourceType:           "MyAmeriaExcel:AMD",
-					Source:               validFilePath,
+					Source:               source,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 10010},
 					OriginCurrency:       "",
@@ -44,8 +52,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            true,
 					Date:                 time.Date(2024, time.April, 21, 0, 0, 0, 0, time.UTC),
 					Details:              "Payment for services",
-					SourceType:           "MyAmeriaExcel:AMD",
-					Source:               validFilePath,
+					Source:               source,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 0},
 					OriginCurrency:       "USD",
@@ -57,8 +64,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.April, 22, 0, 0, 0, 0, time.UTC),
 					Details:              "Transfer to myself",
-					SourceType:           "MyAmeriaExcel:AMD",
-					Source:               validFilePath,
+					Source:               source,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 0},
 					OriginCurrency:       "USD",
@@ -70,8 +76,7 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 					IsExpense:            false,
 					Date:                 time.Date(2024, time.April, 19, 0, 0, 0, 0, time.UTC),
 					Details:              "Բանկի ձևանմուշից տարբերվող տեղեկա",
-					SourceType:           "MyAmeriaExcel:AMD",
-					Source:               validFilePath,
+					Source:               source,
 					AccountCurrency:      "AMD",
 					Amount:               MoneyWith2DecimalPlaces{int: 99999999999},
 					OriginCurrency:       "",
@@ -117,18 +122,15 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			parser := MyAmeriaExcelFileParser{
 				MyAccounts: tt.myAccounts,
 			}
-			actual, returnedSourceType, err := parser.ParseRawTransactionsFromFile(tt.filePath)
+			actual, err := parser.ParseRawTransactionsFromFile(tt.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseRawTransactionsFromFile() error = %+v, wantErr %+v", err, tt.wantErr)
+				return
 			}
-			if !reflect.DeepEqual(actual, tt.expectedResult) {
-				t.Errorf("ParseRawTransactionsFromFile() actual=%+v\n\nexpected=%+v\n\ndiff:\n%s",
-					actual,
-					tt.expectedResult,
-					formatTransactionDiff(actual, tt.expectedResult))
-			}
-			if returnedSourceType != tt.expectedSourceType {
-				t.Errorf("ParseRawTransactionsFromFile() returned source type = %+v, expected=%+v", returnedSourceType, tt.expectedSourceType)
+			if err == nil {
+				if diff := cmp.Diff(tt.expectedResult, actual, moneyComparer, diffOnlyTransformer); diff != "" {
+					t.Errorf("ParseRawTransactionsFromFile() mismatch (-expected +got):\n%s", diff)
+				}
 			}
 		})
 	}
@@ -153,9 +155,6 @@ func formatTransactionDiff(actual, expected []Transaction) string {
 			}
 			if a.Details != e.Details {
 				diff.WriteString(fmt.Sprintf("  Details: actual=%q, expected=%q\n", a.Details, e.Details))
-			}
-			if a.SourceType != e.SourceType {
-				diff.WriteString(fmt.Sprintf("  SourceType: actual=%q, expected=%q\n", a.SourceType, e.SourceType))
 			}
 			if a.Source != e.Source {
 				diff.WriteString(fmt.Sprintf("  Source: actual=%q, expected=%q\n", a.Source, e.Source))
