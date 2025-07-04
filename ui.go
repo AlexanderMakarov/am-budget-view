@@ -89,6 +89,7 @@ func ListenAndServe(dataHandler *DataHandler) error {
 	http.HandleFunc("/groups", handleGroups(dataHandler))
 	http.HandleFunc("/files", handleFiles(dataHandler))
 	http.HandleFunc("/open-file", handleOpenFile(dataHandler))
+	http.HandleFunc("/refresh-files", handleRefreshFiles(dataHandler))
 
 	// Serve static files based on DEV_MODE
 	if devMode {
@@ -413,6 +414,27 @@ func handleOpenFile(dataHandler *DataHandler) http.HandlerFunc {
 			return
 		}
 
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func handleRefreshFiles(dataHandler *DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		log.Println("Refreshing files - re-parsing all transaction files...")
+
+		err := dataHandler.RebuildFromFiles()
+		if err != nil {
+			log.Printf("Error refreshing files: %v", err)
+			logAndReturnError(w, err)
+			return
+		}
+
+		log.Println("Files refreshed successfully")
 		w.WriteHeader(http.StatusOK)
 	}
 }

@@ -145,7 +145,10 @@
     "Modified Date": "Дата изменения",
     "Number of Transactions": "Количество транзакций",
     "Appearances by source": "Появлялся в источниках",
-    "Conversion Path": "Путь конвертации"
+    "Conversion Path": "Путь конвертации",
+    "Refresh Files": "Обновить файлы",
+    "Refreshing...": "Обновляю...",
+    "Error refreshing files": "Ошибка при обновлении файлов"
 }
 
 

@@ -9,6 +9,9 @@
         <header>
             <h1>{{localize "Files Used in Report Generation"}}</h1>
             <div class="header-right">
+            <button onclick="refreshFiles()" class="primary-button" id="refresh-button">
+                {{localize "Refresh Files"}}
+            </button>
                 <button onclick="window.location.href='/'" class="back-button">
                     {{localize "Back to Dashboard"}}
                 </button>
@@ -64,6 +67,36 @@
                 });
             });
         });
+
+        // Refresh files function
+        function refreshFiles() {
+            const refreshButton = document.getElementById('refresh-button');
+            const originalText = refreshButton.textContent;
+            // Disable button and show loading state
+            refreshButton.disabled = true;
+            refreshButton.textContent = '{{localize "Refreshing..."}}';
+            fetch('/refresh-files', {
+                method: 'POST'
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Reload the page to show updated file list
+                    window.location.reload();
+                } else {
+                    // Get error message from server response
+                    return response.text().then(errorText => {
+                        throw new Error(errorText || 'Failed to refresh files');
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Error refreshing files:', err);
+                alert('{{localize "Error refreshing files"}}: ' + err.message);
+                // Restore button state
+                refreshButton.disabled = false;
+                refreshButton.textContent = originalText;
+            });
+        }
     </script>
 </body>
 </html>

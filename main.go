@@ -125,101 +125,13 @@ func main() {
 	// Log settings.
 	log.Println(i18n.T("Using configuration", "config", config))
 
-	var allFileInfos []FileInfo
-
-	// Parse files to unified Transaction-s.
-	// Ineco XML
-	transactions := make([]Transaction, 0)
-	parsingWarnings := []string{}
-	inecoXmlTransactions, fileInfos, err := parseTransactionsOfOneType(
-		config.InecobankStatementXmlFilesGlob,
-		"Inecobank XML statement",
-		InecoXmlParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
+	// Create data handler and parse files.
+	dataHandler := &DataHandler{
+		ConfigPath: args.ConfigPath,
+		Config:     config,
+		TimeZone:   timeZone,
 	}
-	transactions = append(transactions, inecoXmlTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Ineco XLSX
-	inecoXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
-		config.InecobankStatementXlsxFilesGlob,
-		"Inecobank XLSX statement",
-		InecoExcelFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
-	}
-	transactions = append(transactions, inecoXlsxTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// MyAmeria Excel account statements and history.
-	myAmeriaStatementsXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
-		config.MyAmeriaAccountStatementXlsFilesGlob,
-		"MyAmeria XLS statement",
-		MyAmeriaExcelStmtFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
-	}
-	transactions = append(transactions, myAmeriaStatementsXlsTransactions...)
-	myAmeriaHistoryXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
-		config.MyAmeriaHistoryXlsFilesGlob,
-		"MyAmeria History XLS",
-		MyAmeriaExcelFileParser{
-			MyAccounts: config.MyAmeriaMyAccounts,
-		},
-		&parsingWarnings,
-	)
-	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
-	}
-	transactions = append(transactions, myAmeriaHistoryXlsTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Ameria CSV
-	ameriaCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
-		config.AmeriaCsvFilesGlob,
-		"AmeriaBank CSV statement",
-		AmeriaCsvFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
-	}
-	transactions = append(transactions, ameriaCsvTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Generic CSV
-	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
-		config.GenericCsvFilesGlob,
-		"Generic CSV with transactions",
-		GenericCsvFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
-	}
-	transactions = append(transactions, genericCsvTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	if len(transactions) < 1 {
-		fatalError(
-			errors.New(
-				i18n.T("can't find transactions, parsing warnings w", "w", parsingWarnings),
-			),
-			isWriteToFile,
-			isOpenFileWithResult,
-		)
-	}
-	log.Println(i18n.T("Total found n transactions", "n", len(transactions)))
-
-	// Create initial Categorization.
-	categorization, err := NewCategorization(config)
+	transactions, allFileInfos, parsingWarnings, categorization, err := dataHandler.parseAllFiles()
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
@@ -233,7 +145,7 @@ func main() {
 		return
 	}
 
-	// Create data handler.
+	// Build DataMart and complete DataHandler setup
 	dataMart, err := BuildDataMart(transactions, config)
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
@@ -242,7 +154,12 @@ func main() {
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
-	dataHandler := NewDataHandler(args.ConfigPath, config, timeZone, dataMart, groupExtractorFactory, categorization, allFileInfos)
+
+	// Complete the DataHandler setup
+	dataHandler.DataMart = dataMart
+	dataHandler.GroupExtractorFactory = groupExtractorFactory
+	dataHandler.categorization = categorization
+	dataHandler.FileInfos = allFileInfos
 
 	// Build journal entries.
 	journalEntries, err := dataHandler.GetJournalEntries()
@@ -453,5 +370,158 @@ func (dh *DataHandler) UpdateGroups(groups map[string]*GroupConfig) error {
 	dh.journalEntries = nil
 	dh.uncategorizedTransactions = nil
 	dh.monthlyStatistics = nil
+	return nil
+}
+
+// parseAllFiles parses all transaction files from the current configuration.
+// Returns transactions, file infos, parsing warnings, categorization, and error.
+func (dh *DataHandler) parseAllFiles() ([]Transaction, []FileInfo, []string, *Categorization, error) {
+	var allFileInfos []FileInfo
+	transactions := make([]Transaction, 0)
+	parsingWarnings := []string{}
+
+	// Parse files to unified Transaction-s.
+	// Ineco XML
+	inecoXmlTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.InecobankStatementXmlFilesGlob,
+		"Inecobank XML statement",
+		InecoXmlParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, inecoXmlTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
+	// Ineco XLSX
+	inecoXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.InecobankStatementXlsxFilesGlob,
+		"Inecobank XLSX statement",
+		InecoExcelFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, inecoXlsxTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
+	// MyAmeria Excel account statements and history.
+	myAmeriaStatementsXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.MyAmeriaAccountStatementXlsFilesGlob,
+		"MyAmeria XLS statement",
+		MyAmeriaExcelStmtFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, myAmeriaStatementsXlsTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+	myAmeriaHistoryXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.MyAmeriaHistoryXlsFilesGlob,
+		"MyAmeria History XLS",
+		MyAmeriaExcelFileParser{
+			MyAccounts: dh.Config.MyAmeriaMyAccounts,
+		},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, myAmeriaHistoryXlsTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
+	// Ameria CSV
+	ameriaCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.AmeriaCsvFilesGlob,
+		"AmeriaBank CSV statement",
+		AmeriaCsvFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, ameriaCsvTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
+	// Generic CSV
+	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.GenericCsvFilesGlob,
+		"Generic CSV with transactions",
+		GenericCsvFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, genericCsvTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
+	if len(transactions) < 1 {
+		return nil, nil, nil, nil, errors.New(
+			i18n.T("can't find transactions, parsing warnings w", "w", parsingWarnings),
+		)
+	}
+	log.Println(i18n.T("Total found n transactions", "n", len(transactions)))
+
+	// Create initial Categorization.
+	categorization, err := NewCategorization(dh.Config)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return transactions, allFileInfos, parsingWarnings, categorization, nil
+}
+
+// RebuildFromFiles rebuilds the DataHandler by re-reading the config file and re-parsing all transaction files.
+// This method is useful for the UI to refresh all data when files or config have been updated.
+func (dh *DataHandler) RebuildFromFiles() error {
+	// Re-read configuration file to catch any user changes.
+	config, err := readConfig(dh.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("configuration file '%s' is wrong: %w", dh.ConfigPath, err)
+	}
+
+	// Update stored config
+	dh.Config = config
+
+	// Re-parse all files using the updated config
+	transactions, allFileInfos, parsingWarnings, categorization, err := dh.parseAllFiles()
+	if err != nil {
+		return err
+	}
+
+	// Log parsing warnings if any
+	if len(parsingWarnings) > 0 {
+		for _, warning := range parsingWarnings {
+			log.Println("Parsing warning:", warning)
+		}
+	}
+
+	// Rebuild DataMart with new transactions
+	newDataMart, err := BuildDataMart(transactions, config)
+	if err != nil {
+		return err
+	}
+
+	// Update DataHandler with new data
+	dh.DataMart = newDataMart
+	dh.categorization = categorization
+	dh.FileInfos = allFileInfos
+
+	// Clear cached data to force recalculation
+	dh.journalEntries = nil
+	dh.uncategorizedTransactions = nil
+	dh.monthlyStatistics = nil
+
+	// Rebuild GroupExtractorFactory with new accounts
+	groupExtractorFactory, err := NewStatisticBuilderByCategories(dh.DataMart.Accounts)
+	if err != nil {
+		return err
+	}
+	dh.GroupExtractorFactory = groupExtractorFactory
+
 	return nil
 }

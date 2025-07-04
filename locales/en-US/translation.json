@@ -145,6 +145,9 @@
     "Modified Date": "Modified Date",
     "Number of Transactions": "Number of Transactions",
     "Appearances by source": "Appearances by source",
-    "Conversion Path": "Conversion Path"
+    "Conversion Path": "Conversion Path",
+    "Refresh Files": "Refresh Files",
+    "Refreshing...": "Refreshing...",
+    "Error refreshing files": "Error refreshing files"
 }
 
