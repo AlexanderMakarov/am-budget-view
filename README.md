@@ -401,7 +401,7 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Handle currencies on "Categorization" page (now "Amount" in different currencies).
 - [x] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
 - [x] ~~Download account statements from MyAmeria~~ (appears useless because doesn't work for cards).
-- [ ] Add way (button) to re-read statement files.
+- [x] Add way (button) to re-read statement files.
 - [ ] Add switcher to "Categorization" page to hide "between my accounts" transactions.
 - [ ] Record new video(s) with instructions.
 - [ ] Add zoom to main diagrams (when multiple years are shown).

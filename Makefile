@@ -13,6 +13,9 @@ coverage:
 generate-demo:
 	python3.12 scripts/generate_demo.py
 
+generate-demo-plots:
+	python3.12 scripts/generate_demo.py --plots
+
 bank-downloader:
 	python3 scripts/bank_downloader.py
 

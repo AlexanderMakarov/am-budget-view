@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
+import argparse
 import csv
 import dataclasses
 import datetime
 import enum
-import fnmatch
 import os
 import random
 import string
 from collections import namedtuple
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import List, Tuple, Optional, Type
+
+import glob
 import yaml
 import faker
-import glob
 from faker.providers import (
     bank, company, currency, date_time, person, phone_number
 )
 from openpyxl import Workbook
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+# Constants
+TRANSFER_BETWEEN_MY_ACCOUNTS = "Transfer between my accounts"
 
 
 def parse_config(path: str = "../config.yaml") -> tuple[dict, str]:
@@ -157,25 +164,20 @@ class TaskType(enum.Enum):
             "Subscriptions",
         ],
         income_categories=[
-            "Transfer between my accounts",
-            "Transfer between my accounts",
-            "Transfer between my accounts",
-            "Transfer between my accounts",
-            "Transfer between my accounts",
-            "Transfer between my accounts",
-            "Taxi",
-            "Online shopping",
+            "Taxi",  # Refund.
+            "Online shopping",  # Refund.
+            "Salary",  # Occasional salary from foreign company.
         ],
     )
     BIGEVENTS = TypeDesc(
         n_per_day=0.1,  # Sometimes
-        in_out_ratio=0.4,  # Less than 2 expenses per one income.
+        in_out_ratio=0.3,  # Less than 2 expenses per one income.
         average_sum_in_usd=1000,
         average_sum_out_usd=600,
         sum_variance=0.5,
         balance_min_usd=0,
         balance_max_usd=10000,
-        accounts_per_category=3,
+        accounts_per_category=2,
         new_accounts_per_transaction=0.8,  # Many new accounts per transaction.
         remove_accounts_ratio_per_transaction=0.1,  # Accounts disappear rarely.
         expense_my_to_foreign_accounts_ratio=0,  # All expenses to foreign accounts.
@@ -186,7 +188,7 @@ class TaskType(enum.Enum):
             "Health",
             "Online shopping",
         ],
-        income_categories=["Transfer between my accounts"],
+        income_categories=["Salary"],  # Foreign investment/income from abroad
     )
     CURCONVERSIONS = TypeDesc(
         n_per_day=0.15,  # More often than twice per month.
@@ -201,15 +203,15 @@ class TaskType(enum.Enum):
         remove_accounts_ratio_per_transaction=0,
         expense_my_to_foreign_accounts_ratio=1,  # All expenses to my accounts.
         income_my_to_foreign_accounts_ratio=1,  # All incomes from my accounts.
-        expense_categories=["Transfer between my accounts"],
-        income_categories=["Transfer between my accounts"],
+        expense_categories=[TRANSFER_BETWEEN_MY_ACCOUNTS],
+        income_categories=["Salary"],  # Foreign currency conversion income
     )
     SALARY = TypeDesc(
         n_per_day=0.2,  # 3 times per month to get stable rate.
         in_out_ratio=0.5,  # Payments are passed through the account 1:1.
         average_sum_in_usd=500,
         average_sum_out_usd=500,
-        sum_variance=0.2,
+        sum_variance=0.1,
         balance_min_usd=0,
         balance_max_usd=4000,
         accounts_per_category=2,
@@ -217,7 +219,7 @@ class TaskType(enum.Enum):
         remove_accounts_ratio_per_transaction=0.01,
         expense_my_to_foreign_accounts_ratio=1,  # All expenses to my accounts.
         income_my_to_foreign_accounts_ratio=0,  # Only from foreign accounts.
-        expense_categories=["Transfer between my accounts"],
+        expense_categories=[TRANSFER_BETWEEN_MY_ACCOUNTS],
         income_categories=["Salary"],
     )
     UTILITIES = TypeDesc(
@@ -225,7 +227,7 @@ class TaskType(enum.Enum):
         in_out_ratio=2 / 6.0,  # Put money twice and spend on rent, water, gas, phone, internet, etc.
         average_sum_in_usd=300,
         average_sum_out_usd=100,
-        sum_variance=0.5,
+        sum_variance=0.3,
         balance_min_usd=0,
         balance_max_usd=1000,
         accounts_per_category=3,
@@ -234,18 +236,28 @@ class TaskType(enum.Enum):
         expense_my_to_foreign_accounts_ratio=0,  # All expenses to foreign accounts.
         income_my_to_foreign_accounts_ratio=1,  # Only from my accounts.
         expense_categories=["Utilities and rent"],
-        income_categories=["Transfer between my accounts"],
+        income_categories=["Salary"],  # Refunds from utility companies
     )
 
 
 @dataclasses.dataclass(frozen=True)
 class Task:
-    generator_class: type["BaseGenerator"]
+    """Task is an separate bank account to generate transactions for."""
+    # FYI: don't rename to "Account" because it can change later.
+    generator_class: Type["BaseGenerator"]
     end_date: datetime.datetime = datetime.datetime.now()
+    """The yongest transaction date."""
     days_back: int = 30
+    """The number of days to generate transactions for (subtract from end_date)."""
     type: TaskType = TaskType.EVERYDAY
+    """Type of the task. Determines many settings."""
     currency: str = "AMD"
+    """The currency of the underlying account."""
     other_currencies: list[str] = dataclasses.field(default_factory=list)
+    """List of currencies which we may have transactions for.
+
+    Works both for income and expense transactions.
+    """
 
     def _to_suffix(self) -> str:
         return f"{self.type.name}_{self.currency}_{self.days_back}"
@@ -255,12 +267,12 @@ class Task:
 class TaskContext:
     task: Task
     account_number: str
-    other_my_account_numbers: list[str]
     account_currency: str
+    my_accounts: list[tuple[str, str]]  # (account_number, currency)
     income_categories: list[str]
     expense_categories: list[str]
-    income_accounts: list[str]
-    expense_accounts: list[str]
+    income_accounts: list[tuple[str, str]]  # (account_number, currency)
+    expense_accounts: list[tuple[str, str]]  # (account_number, currency)
     opening_balance: float
     current_balance: float
     transactions_count: int = 0
@@ -304,6 +316,21 @@ def format_date_to_dmy(date: datetime.datetime) -> str:
     return date.strftime("%d/%m/%Y")
 
 
+def calculate_exchange_rate(from_currency: str, to_currency: str) -> float:
+    """Calculate exchange rate from one currency to another.
+    
+    Returns rate such that: amount_in_to_currency = amount_in_from_currency * rate
+    """
+    if from_currency == to_currency:
+        return 1.0
+    # Get USD rates for both currencies
+    usd_amount = 1.0
+    from_rate = convert_usd_amount_to_currency(usd_amount, from_currency)
+    to_rate = convert_usd_amount_to_currency(usd_amount, to_currency)
+    # Calculate cross rate: from -> USD -> to
+    return to_rate / from_rate
+
+
 class ContextManager:
     def __init__(self, config: dict):
         self.config = config
@@ -326,8 +353,8 @@ class ContextManager:
         """Generate a 16-digit account number."""
         return "".join(self.random.choices(string.digits, k=16))
 
-    def generate_task_contexts(self, tasks: list[Task]) -> list[TaskContext]:
-        """Generate task context with accounts pool, categories, balances.
+    def generate_contexts_for_tasks(self, tasks: list[Task]) -> list[TaskContext]:
+        """Generate task contexts with accounts pool, categories, balances.
 
         Args:
             tasks: Tasks to generate the context for.
@@ -342,25 +369,46 @@ class ContextManager:
             v = task.type.value
             in_categories = self._filter_valid_categories(v.income_categories)
             out_categories = self._filter_valid_categories(v.expense_categories)
+            # Assert that we have valid categories.
+            assert in_categories, (
+                f"No valid income categories found for task type {task.type.name}. "
+                f"Categories {v.income_categories} don't exist in config groups. "
+                f"Check your config.yaml groups section."
+            )
+            assert out_categories, (
+                f"No valid expense categories found for task type {task.type.name}. "
+                f"Categories {v.expense_categories} don't exist in config groups. "
+                f"Check your config.yaml groups section."
+            )
             opening_balance = convert_usd_amount_to_currency(
                 v.balance_min_usd + self.random.random() * v.balance_max_usd,
                 task.currency,
             )
+            # Generate foreign accounts with appropriate currencies
+            income_accounts = []
+            expense_accounts = []
+            for _ in range(v.accounts_per_category - 1):
+                # Income accounts use task currency (where money comes from)
+                income_accounts.append((self.generate_account_number(), task.currency))
+                # Expense accounts use other_currencies if specified (where money goes to)
+                expense_currency = task.currency
+                if task.other_currencies:
+                    expense_currency = self.random.choice(task.other_currencies)
+                expense_accounts.append((self.generate_account_number(), expense_currency))
+            
             task_context = TaskContext(
                 task=task,
                 account_number=account_number,
-                other_my_account_numbers=other_my_account_numbers,
                 account_currency=task.currency,
+                my_accounts=[
+                    (acc_num, tasks[i].currency)
+                    for i, acc_num in enumerate(my_account_numbers)
+                    if acc_num != account_number
+                ],
                 income_categories=in_categories,
                 expense_categories=out_categories,
-                income_accounts=[
-                    self.generate_account_number()
-                    for _ in range(v.accounts_per_category - 1)
-                ],
-                expense_accounts=[
-                    self.generate_account_number()
-                    for _ in range(v.accounts_per_category - 1)
-                ],
+                income_accounts=income_accounts,
+                expense_accounts=expense_accounts,
                 opening_balance=opening_balance,
                 current_balance=opening_balance,
             )
@@ -372,6 +420,7 @@ class ContextManager:
         task_contexts: list[TaskContext],
         folder: str,
         remove_old: bool = False,
+        generate_plots: bool = False,
     ) -> list[str]:
         """Execute tasks and return list of generated file paths.
         
@@ -380,6 +429,7 @@ class ContextManager:
             folder: Path of the folder to save the statements to match globs
             in config.
             remove_old: Remove old files in the folder.
+            generate_plots: Whether to generate debug plots.
         """
         result = []
         seen_generator_classes = set()
@@ -395,6 +445,7 @@ class ContextManager:
                     folder,
                     task_context,
                     current_remove_old,
+                    generate_plots,
                 ),
             )
         return result
@@ -412,6 +463,10 @@ class BaseGenerator:
         self.fake.add_provider(date_time)
         self.fake.add_provider(person)
         self.fake.add_provider(phone_number)
+        # Plot data tracking
+        self.plot_data: List[Tuple[datetime.datetime, float, bool]] = []
+        self.account_count_data: List[Tuple[datetime.datetime, int]] = []
+        self.category_usage_data: List[Tuple[str, bool]] = []
 
     def _get_file_name(self, suffix: str) -> str:
         pattern = str(self.cm.config.get(self.glob_pattern))
@@ -424,6 +479,7 @@ class BaseGenerator:
         folder: str,
         task_context: TaskContext,
         remove_old: bool = False,
+        generate_plots: bool = False,
     ) -> str:
         """Generate a statement file for a given task.
 
@@ -431,6 +487,7 @@ class BaseGenerator:
             folder: Path of the folder to save the statement.
             task_context: Pre-generated task context with accounts pool.
             remove_old: Remove old files in the folder.
+            generate_plots: Whether to generate debug plots.
         Returns:
             str: File path of the generated statement.
         """
@@ -440,14 +497,151 @@ class BaseGenerator:
             full_glob = os.path.join(folder, pattern)
             for file_path in glob.glob(full_glob):
                 os.remove(file_path)
-                print(f"{self.glob_pattern}: Removed {os.path.basename(file_path)}")
-        file_path = os.path.join(folder, self._get_file_name(task._to_suffix()))
-        print(f"{self.glob_pattern}: Generating {file_path} for {task_context.task}")
+                print(f"{self.glob_pattern}: Removed "
+                      f"{os.path.basename(file_path)}")
+        file_path = os.path.join(folder, self._get_file_name(
+            task._to_suffix()))
+        print(f"{self.glob_pattern}: Generating {file_path} for "
+              f"{task_context.task}")
         # Generate datetimes.
         datetimes = self._generate_datetimes(task)
+        # Initialize plot data
+        self.plot_data = []
+        self.account_count_data = []
+        self.category_usage_data = []
         result = self._generate(file_path, task_context, datetimes)
+        # Generate plots if requested
+        if generate_plots:
+            self._generate_plots(folder, task_context)
         print(f"{self.glob_pattern}: ✓ {result} at {file_path}")
         return file_path
+
+    def _generate_plots(self, folder: str, task_context: TaskContext):
+        """Generate debug plots for the task."""
+        if not self.plot_data and not self.account_count_data and not self.category_usage_data:
+            return
+        # Create plots directory
+        plots_dir = os.path.join(folder, "tmp", "demo_plots")
+        os.makedirs(plots_dir, exist_ok=True)
+        task_suffix = task_context.task._to_suffix()
+        # Plot 1: Transaction amounts over time
+        if self.plot_data:
+            fig, ax = plt.subplots(figsize=(12, 6))
+            # Separate income and expense data
+            income_dates = []
+            income_amounts = []
+            expense_dates = []
+            expense_amounts = []
+            for date, amount, is_income in self.plot_data:
+                if is_income:
+                    income_dates.append(date)
+                    income_amounts.append(amount)
+                else:
+                    expense_dates.append(date)
+                    expense_amounts.append(-amount)  # Negative for expenses
+            # Plot income (blue) and expenses (red)
+            if income_dates:
+                ax.scatter(income_dates, income_amounts, color='blue',
+                           label='Income', alpha=0.7)
+            if expense_dates:
+                ax.scatter(expense_dates, expense_amounts, color='red',
+                           label='Expenses', alpha=0.7)
+            ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+            ax.set_xlabel('Date')
+            ax.set_ylabel(f'Amount ({task_context.account_currency})')
+            ax.set_title(f'Transactions Over Time - {task_suffix}')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+            # Format x-axis dates
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+            ax.xaxis.set_major_locator(mdates.MonthLocator())
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            plot_path = os.path.join(plots_dir, f'transactions_{task_suffix}.png')
+            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"Generated transaction plot: {plot_path}")
+        # Plot 2: Account count over time
+        if self.account_count_data:
+            fig, ax = plt.subplots(figsize=(12, 6))
+            dates = [d for d, _ in self.account_count_data]
+            counts = [c for _, c in self.account_count_data]
+            ax.plot(dates, counts, marker='o', linewidth=2, markersize=4)
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Number of Accounts')
+            ax.set_title(f'Account Count Over Time - {task_suffix}')
+            ax.grid(True, alpha=0.3)
+            # Format x-axis dates
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+            ax.xaxis.set_major_locator(mdates.MonthLocator())
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            plot_path = os.path.join(plots_dir, f'accounts_{task_suffix}.png')
+            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"Generated account count plot: {plot_path}")
+
+        # Plot 3: Category usage
+        if self.category_usage_data:
+            from collections import defaultdict
+            
+            # Aggregate category usage data
+            income_counts = defaultdict(int)
+            expense_counts = defaultdict(int)
+            
+            for category, is_income in self.category_usage_data:
+                if is_income:
+                    income_counts[category] += 1
+                else:
+                    expense_counts[category] += 1
+            
+            # Get all unique categories
+            all_categories = set(income_counts.keys()) | set(expense_counts.keys())
+            all_categories = sorted(all_categories)
+            
+            if all_categories:
+                fig, ax = plt.subplots(figsize=(12, 8))
+                
+                # Prepare data for plotting
+                income_values = [income_counts[cat] for cat in all_categories]
+                expense_values = [expense_counts[cat] for cat in all_categories]
+                
+                # Create bar positions
+                x = range(len(all_categories))
+                width = 0.35
+                
+                # Create bars
+                bars1 = ax.bar([i - width/2 for i in x], income_values, 
+                              width, label='Income', color='blue', alpha=0.7)
+                bars2 = ax.bar([i + width/2 for i in x], expense_values, 
+                              width, label='Expense', color='red', alpha=0.7)
+                
+                # Add value labels on bars
+                for bar in bars1:
+                    height = bar.get_height()
+                    if height > 0:
+                        ax.text(bar.get_x() + bar.get_width()/2., height,
+                               f'{int(height)}', ha='center', va='bottom')
+                
+                for bar in bars2:
+                    height = bar.get_height()
+                    if height > 0:
+                        ax.text(bar.get_x() + bar.get_width()/2., height,
+                               f'{int(height)}', ha='center', va='bottom')
+                
+                ax.set_xlabel('Categories')
+                ax.set_ylabel('Transaction Count')
+                ax.set_title(f'Category Usage - {task_suffix}')
+                ax.set_xticks(x)
+                ax.set_xticklabels(all_categories, rotation=45, ha='right')
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+                
+                plt.tight_layout()
+                plot_path = os.path.join(plots_dir, f'categories_{task_suffix}.png')
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"Generated category usage plot: {plot_path}")
 
     def _generate(
         self,
@@ -487,32 +681,16 @@ class BaseGenerator:
                 break
         return dates
 
-    def _choose_account(
-        self,
-        category: str,
-        my_account_numbers: list[str],
-        foreign_account_numbers: list[str],
-        my_to_foreign_ratio: float,
-    ) -> str:
-        if (
-            category == "Transfer between my accounts"
-            or self.random.random() < my_to_foreign_ratio
-        ):
-            accounts_list = my_account_numbers
-        else:
-            accounts_list = foreign_account_numbers
-        if len(accounts_list) == 1:
-            return accounts_list[0]
-        return self.random.choice(accounts_list)
-
     def _generate_transaction(
         self,
         task_context: TaskContext,
+        current_datetime: Optional[datetime.datetime] = None,
     ) -> Transaction:
         """Generate a transaction accounts, amount and description.
 
         Args:
             task_context: Task context.
+            current_datetime: Current datetime for plot tracking.
 
         Returns:
             A new `Transaction` instance.
@@ -550,14 +728,18 @@ class BaseGenerator:
         )
         # Check for min balance.
         if expected_balance < balance_min:
-            print(f"{self.glob_pattern}: Min balance exceeded: {expected_balance} < {balance_min}, is_income={is_income}")
+            print(f"{self.glob_pattern}: Min balance exceeded: "
+                  f"{expected_balance} < {balance_min}, "
+                  f"is_income={is_income}")
             if is_income:
                 amount = balance_min - current_balance
             else:
                 is_income = True
         # Check for max balance.
         if expected_balance > balance_max:
-            print(f"{self.glob_pattern}: Max balance exceeded: {expected_balance} > {balance_max}, is_income={is_income}")
+            print(f"{self.glob_pattern}: Max balance exceeded: "
+                  f"{expected_balance} > {balance_max}, "
+                  f"is_income={is_income}")
             if is_income:
                 is_income = False
             else:
@@ -568,23 +750,66 @@ class BaseGenerator:
 
         # Choose category and account for transaction.
         if is_income:
-            category = self.random.choice(task_context.income_categories)
-            payer_account = self._choose_account(
-                category,
-                task_context.other_my_account_numbers,
-                task_context.income_accounts,
-                task.type.value.income_my_to_foreign_accounts_ratio,
-            )
+            # Decide whether to use my accounts or foreign accounts for income.
+            use_my_accounts = self.random.random() < task.type.value.income_my_to_foreign_accounts_ratio
+            if use_my_accounts:
+                # Transfer between my accounts
+                category = TRANSFER_BETWEEN_MY_ACCOUNTS
+                assert task_context.my_accounts, (
+                    f"No 'my' accounts available for income transactions. "
+                    f"Check that another task is used."
+                )
+                payer_account, payer_currency = self.random.choice(task_context.my_accounts)
+            else:
+                # Income from foreign account - pick category from income_categories
+                category = self.random.choice(task_context.income_categories)
+                assert task_context.income_accounts, (
+                    f"No 'foreign' accounts available for income category '{category}'. "
+                    f"Check that accounts_per_category > 1 in task configuration."
+                )
+                payer_account, payer_currency = self.random.choice(task_context.income_accounts)
+            
             receiver_account = task_context.account_number
+            receiver_currency = task_context.account_currency
         else:
-            category = self.random.choice(task_context.expense_categories)
+            # Decide whether to use my accounts or foreign accounts for expense.
+            use_my_accounts = self.random.random() < task.type.value.expense_my_to_foreign_accounts_ratio
+            if use_my_accounts:
+                # Transfer to my accounts
+                category = TRANSFER_BETWEEN_MY_ACCOUNTS
+                assert task_context.my_accounts, (
+                    f"No 'my' accounts available for expense transactions. "
+                    f"Check that another task is used."
+                )
+                receiver_account, receiver_currency = self.random.choice(task_context.my_accounts)
+            else:
+                # Expense to foreign account - pick category from expense_categories
+                category = self.random.choice(task_context.expense_categories)
+                assert task_context.expense_accounts, (
+                    f"No 'foreign' accounts available for expense category '{category}'. "
+                    f"Check that accounts_per_category > 1 in task configuration."
+                )
+                receiver_account, receiver_currency = self.random.choice(task_context.expense_accounts)
+            
             payer_account = task_context.account_number
-            receiver_account = self._choose_account(
-                category,
-                task_context.other_my_account_numbers,
-                task_context.expense_accounts,
-                task.type.value.expense_my_to_foreign_accounts_ratio,
-            )
+            payer_currency = task_context.account_currency
+
+        # Determine currencies for the transaction
+        account_currency = task_context.account_currency
+        if is_income:
+            origin_currency = payer_currency
+        else:
+            origin_currency = receiver_currency
+        # Generate amount in origin currency.
+        origin_amount = convert_usd_amount_to_currency(usd_amount, origin_currency)
+        if origin_currency != account_currency:
+            exchange_rate = calculate_exchange_rate(origin_currency, account_currency)
+            account_amount = origin_amount * exchange_rate
+        else:
+            account_amount = origin_amount
+        
+        # Use account_amount for balance calculations since that's what affects the statement account
+        amount = account_amount
 
         # Get description from the category.
         descriptions = self.cm.substring_per_category.get(category, ["Payment"])
@@ -609,10 +834,15 @@ class BaseGenerator:
 
         # Recalculate accounts pool.
         if self.random.random() < task.type.value.new_accounts_per_transaction:
+            # Choose currency for new account - prefer other_currencies if available.
+            new_account_currency = task.currency
+            if task.other_currencies and self.random.random() < task.type.value.other_currencies_ratio:
+                new_account_currency = self.random.choice(task.other_currencies)
             task_context.income_accounts.append(
-                self.cm.generate_account_number()
+                (self.cm.generate_account_number(), new_account_currency)
             )
-        if self.random.random() < task.type.value.remove_accounts_ratio_per_transaction:
+        remove_ratio = task.type.value.remove_accounts_ratio_per_transaction
+        if self.random.random() < remove_ratio:
             accounts = (
                 task_context.income_accounts
                 if is_income
@@ -634,23 +864,22 @@ class BaseGenerator:
         task_context.transactions_count += 1
         task_context.current_balance += amount if is_income else -amount
 
-        # Decide if it's in other currency.
-        account_amount = amount
-        origin_currency = task.currency
-        origin_amount = usd_amount
-        if (
-            task.other_currencies
-            and self.random.random() < task.type.value.other_currencies_ratio
-        ):
-            origin_currency = self.random.choice(task.other_currencies)
-            origin_amount = convert_usd_amount_to_currency(usd_amount, origin_currency)
-            account_amount = convert_usd_amount_to_currency(usd_amount, task.currency)
+        # Track plot data.
+        if current_datetime:
+            self.plot_data.append((current_datetime, account_amount, is_income))
+            total_accounts = (
+                len(task_context.income_accounts) + 
+                len(task_context.expense_accounts) +
+                len(task_context.my_accounts)
+            )
+            self.account_count_data.append((current_datetime, total_accounts))
+            self.category_usage_data.append((category, is_income))
 
         return Transaction(
             is_income=is_income,
             payer_account=payer_account,
             receiver_account=receiver_account,
-            account_currency=task.currency,
+            account_currency=account_currency,
             account_amount=account_amount,
             origin_currency=origin_currency,
             origin_amount=origin_amount,
@@ -697,10 +926,12 @@ class InecobankXmlGenerator(BaseGenerator):
                 self.random.choices(string.digits, k=10)
             )
             ET.SubElement(operation, "Date").text = format_date_to_dmy(current_datetime)
-            ET.SubElement(operation, "Currency").text = task_context.account_currency
+            ET.SubElement(operation, "Currency").text = (
+                task_context.account_currency)
 
             # Generate transaction direction, amount, category, description.
-            transaction = self._generate_transaction(task_context)
+            transaction = self._generate_transaction(
+                task_context, current_datetime)
 
             # Set Income/Expense values based on direction.
             # FYI: amount is in account currency but description contains
@@ -726,14 +957,22 @@ class InecobankXmlGenerator(BaseGenerator):
             ET.SubElement(operation, "Receiver-Payer").text = receiver_payer
 
             # Create a more detailed transaction description
+            # origin_currency is always the "other" account's currency
             details = (
                 f"{transaction.description}, Անկանխիկ գործարք, "
                 f"{file_account_number[:4]}***{file_account_number[-3:]}, "
                 f"{receiver_payer}({transaction.origin_currency}), "
                 f"{current_datetime.strftime('%d/%m/%Y %H:%M:%S')}"
             )
-            if transaction.origin_currency != task_context.account_currency:
-                details += f" {transaction.origin_amount:,.2f} {transaction.origin_currency}"
+            
+            # Add exchange rate information in the format expected by the parser
+            if transaction.origin_currency != transaction.account_currency:
+                exchange_rate = transaction.account_amount / transaction.origin_amount
+                details += (
+                    f", {transaction.origin_amount:,.2f} "
+                    + f"{transaction.origin_currency} * {exchange_rate:.4f}"
+                    + " = " + f"{transaction.account_amount:,.2f} {transaction.account_currency}"
+                )
             ET.SubElement(operation, "Details").text = details
 
         closing_balance_node.text = f"{task_context.current_balance * 1000:,.2f}"
@@ -746,6 +985,8 @@ class InecobankXmlGenerator(BaseGenerator):
 
 
 class InecobankExcelGenerator(BaseGenerator):
+    """Inecobank Excel file."""
+
     def __init__(self, context_manager: ContextManager):
         super().__init__("inecobankStatementXlsxFilesGlob", context_manager)
 
@@ -804,7 +1045,8 @@ class InecobankExcelGenerator(BaseGenerator):
         # Generate and add transaction data
         transactions_count = 0
         for current_datetime in datetimes:
-            transaction = self._generate_transaction(task_context)
+            transaction = self._generate_transaction(
+                task_context, current_datetime)
             # Create transaction row with proper column placement
             trans_row = [""] * 18
             trans_row[0] = format_date_to_dmy(current_datetime)  # Date
@@ -816,7 +1058,12 @@ class InecobankExcelGenerator(BaseGenerator):
             else:
                 trans_row[5] = "0.00"  # Income  
                 trans_row[6] = f"{transaction.account_amount:.2f}"  # Expense
-            trans_row[7] = "1.0000"  # Exchange rate (default to 1)
+            # Calculate exchange rate only when currencies differ
+            if transaction.origin_currency != transaction.account_currency:
+                exchange_rate = transaction.account_amount / transaction.origin_amount
+                trans_row[7] = f"{exchange_rate:.4f}"  # Exchange rate
+            else:
+                trans_row[7] = ""  # No exchange rate for same currency
             # Amounts in account currency but description contains
             # information about amount in origin currency.
             details = transaction.description
@@ -837,6 +1084,8 @@ class InecobankExcelGenerator(BaseGenerator):
 
 
 class AmeriaCsvGenerator(BaseGenerator):
+    """Ameria bank CSV file. Doesn't provide exchange rate."""
+
     def __init__(self, context_manager: ContextManager):
         super().__init__("ameriaCsvFilesGlob", context_manager)
 
@@ -891,7 +1140,8 @@ class AmeriaCsvGenerator(BaseGenerator):
 
         for current_datetime in datetimes:
             # Generate transaction direction, amount, category, description
-            transaction = self._generate_transaction(task_context)
+            transaction = self._generate_transaction(
+                task_context, current_datetime)
 
             # Generate document number
             doc_no = "".join(self.random.choices(string.digits, k=6))
@@ -913,7 +1163,7 @@ class AmeriaCsvGenerator(BaseGenerator):
 
             # Create transaction description with Armenian text
             desc = transaction.description
-            if "Transfer between my accounts" in desc:
+            if TRANSFER_BETWEEN_MY_ACCOUNTS in desc:
                 if transaction.is_income:
                     desc = "Card Replenishment"
                 else:
@@ -1006,6 +1256,8 @@ class AmeriaCsvGenerator(BaseGenerator):
 
 
 class GenericCsvGenerator(BaseGenerator):
+    """Generic CSV file."""
+
     def __init__(self, context_manager: ContextManager):
         super().__init__("genericCsvFilesGlob", context_manager)
 
@@ -1023,14 +1275,15 @@ class GenericCsvGenerator(BaseGenerator):
             "Amount",
             "Details",
             "AccountCurrency",
-            "OriginCurrency", 
+            "OriginCurrency",
             "OriginCurrencyAmount",
         ]
         account_currency = task_context.account_currency
         # Generate transaction data
         transactions_data = []
         for current_datetime in datetimes:
-            transaction = self._generate_transaction(task_context)
+            transaction = self._generate_transaction(
+                task_context, current_datetime)
             # Create transaction row
             row = [
                 current_datetime.strftime("%Y-%m-%d"),  # Date in YYYY-MM-DD
@@ -1040,8 +1293,8 @@ class GenericCsvGenerator(BaseGenerator):
                 f"{transaction.account_amount:.2f}",  # Amount
                 transaction.description,  # Details
                 account_currency,  # AccountCurrency
-                "",  # OriginCurrency (empty for same currency)
-                "",  # OriginCurrencyAmount (empty for same currency)
+                transaction.origin_currency,  # OriginCurrency
+                f"{transaction.origin_amount:.2f}",  # OriginCurrencyAmount
             ]
             transactions_data.append(row)
         # Write CSV file
@@ -1056,25 +1309,61 @@ class GenericCsvGenerator(BaseGenerator):
 
 
 if __name__ == "__main__":
-    config_path = "config-demo.yaml"
+    parser = argparse.ArgumentParser(
+        description="Generate demo bank statements for testing")
+    parser.add_argument("--plots", action="store_true",
+                        help="Generate debug plots showing transaction "
+                             "amounts and account counts over time")
+    parser.add_argument("--config", default="config-demo.yaml",
+                        help="Path to config file (default: config-demo.yaml)")
+    args = parser.parse_args()
+
+    config_path = args.config
     config, target_folder = parse_config(config_path)
     print(f"Generating statements to match globs in '{config_path}'...")
     # Prepare tasks.
     now = datetime.datetime.now()
     tasks = [
-        Task(
+        Task(  # Salary from Europe company.
             generator_class=InecobankXmlGenerator,
             days_back=365,
             type=TaskType.SALARY,
-            currency="AMD",
+            currency="EUR",
+            other_currencies=["AMD"],
         ),
-        # Task(
+        # Task(  # Currency conversions EUR -> AMD.
+        #     generator_class=InecobankXmlGenerator,
+        #     days_back=365,
+        #     type=TaskType.CURCONVERSIONS,
+        #     currency="AMD",
+        #     other_currencies=["EUR"],
+        # ),
+        # Task(  # Salary from Russia company.
+        #     generator_class=GenericCsvGenerator,
+        #     days_back=365,
+        #     type=TaskType.SALARY,
+        #     currency="RUB",
+        # ),
+        # Task(  # Currency conversions RUB -> AMD.
         #     generator_class=GenericCsvGenerator,
         #     end_date=now - datetime.timedelta(days=90),
-        #     days_back=60,
-        #     type=TaskType.BIGEVENTS,
+        #     days_back=365,
+        #     type=TaskType.CURCONVERSIONS,
+        #     currency="AMD",
+        #     other_currencies=["RUB"],
+        # ),
+        # Task(  # Salary from RA company.
+        #     generator_class=AmeriaCsvGenerator,
+        #     days_back=365,
+        #     type=TaskType.SALARY,
         #     currency="AMD",
         # ),
+        Task(
+            generator_class=InecobankXmlGenerator,
+            days_back=365,
+            type=TaskType.UTILITIES,
+            currency="AMD",
+        ),
         Task(
             generator_class=AmeriaCsvGenerator,
             days_back=365,
@@ -1082,14 +1371,22 @@ if __name__ == "__main__":
             currency="AMD",
         ),
         Task(
-            generator_class=InecobankXmlGenerator,
-            days_back=365,
-            type=TaskType.UTILITIES,
+            generator_class=AmeriaCsvGenerator,
+            end_date=now - datetime.timedelta(days=90),
+            days_back=60,
+            type=TaskType.BIGEVENTS,
             currency="AMD",
         ),
     ]
 
     # Generate all contexts together to be linked on each other.
     context_manager = ContextManager(config)
-    contexts = context_manager.generate_task_contexts(tasks)
-    context_manager.execute_tasks(contexts, target_folder, remove_old=True)
+    contexts = context_manager.generate_contexts_for_tasks(tasks)
+    context_manager.execute_tasks(
+        contexts, target_folder,
+        remove_old=True,
+        generate_plots=args.plots,
+    )
+
+    if args.plots:
+        print("Debug plots generated successfully!")
