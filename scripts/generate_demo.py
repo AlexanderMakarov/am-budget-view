@@ -166,6 +166,7 @@ class TaskType(enum.Enum):
         income_categories=[
             "Taxi",  # Refund.
             "Online shopping",  # Refund.
+            "Entertainment",  # Refund.
             "Salary",  # Occasional salary from foreign company.
         ],
     )

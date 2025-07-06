@@ -26,34 +26,31 @@ Results are:
 
 Automatically opens browser with local UI:
 
-<img src="docsdata/main page v2.png" alt="main page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/dashboard AMD.png" alt="main page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/dashboard EUR RU income data view.png" alt="main page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/montly expenses per category percent.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/montly expenses per category percent ru.png" alt="Ежемесячные расходы по категориям" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/categorization.png" alt="Categorization page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/transactions.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/main page v2 ru.png" alt="главная страница USD + Expenses Data View" width="300" onclick="window.open(this.src)"/>
-TODO "Files" page
+<img src="docsdata/categorization.png" alt="Categorization page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/files.png" alt="Files page" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/montly expenses per category percent ru.png" alt="Ежемесячные расходы по категориям" width="300" onclick="window.open(this.src)"/>
 
 ### 2. Text report with most important and structured insights into your budget.
 
 See example (numbers are made up, sum may not match):
 ```
-Statistics for 2023-06-01..2023-06-30 (in AMD):
-  Income  (total  2 groups, filtered sum 3,428,455.00):
-    Salary                             : 1,935,000.00
-    Unknown                            : 1,493,455.00
-  Expenses (total 10 groups, filt-ed sum 1,027,553.69):
-    To other account                   :   467,000.00
-    Cash                               :   150,000.00
-    Unknown                            :   136,575.00
-    Groceries                          :   111,542.50
-    Yandex Taxi                        :    59,600.00
-    Health                             :    55,000.00
-    Pharmacies                         :    31,684.39
-    Wildberries                        :    11,110.00
-    Entertainment                      :     4,800.00
-    Subscriptions                      :       241.80
-Statistics for 2023-07-01..2023-07-31 (in AMD):
+Statistics for        2024-07-01..2024-07-31 (in    AMD):
+  Income  (total  1 groups, filtered sum     423,492.56):
+    Salary                               :   423,492.56
+  Expenses (total  8 groups, filt-ed sum     144,280.89):
+    Utilities and rent                   :    93,436.50
+    Subscriptions                        :    11,565.97
+    Groceries                            :     9,171.25
+    Entertainment                        :     7,964.78
+    Taxi                                 :     7,806.02
+    Pharmacies                           :     5,255.99
+    Health                               :     4,892.15
+    Online shopping                      :     4,188.23
+Statistics for        2024-08-01..2024-08-31 (in    AMD):
 ...
 ```
 
@@ -64,8 +61,9 @@ Statistics for 2023-07-01..2023-07-31 (in AMD):
 
 ## List of supported banks, file formats and relevant notes
 
-In short supported: Inecobank individual accounts (haven't tried with legal account though),
-Ameriabank both individual and legal accounts, pre-formatted CSV files with transactions.
+In short supported: Inecobank individual accounts,
+Ameriabank both individual and legal accounts,
+generic (manually/customly mapped) CSV files with transactions.
 
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (click on account, choose dates range, icon to download in right bottom corner).
@@ -217,7 +215,7 @@ File may have values changes to hide sensitive information but of same format/le
   Обратите внимание, что чем больше счетов будет предоставлено приложению,
   тем более полной будет финансовая картина.
 6. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
-  с новыми транзакциями и снова запустить приложение.
+  с новыми транзакциями и снова запустить приложение или нажать кнопку "Обновить файлы" в правом верхнем углу.
   Возможно потребуется добавить новые правила категоризации для новых транзакций.
   Конфигурационный файл "config.yaml" будет обновляться приложением и содержит все
   Ваши персональные правила категоризации.
@@ -278,22 +276,22 @@ Script in English:
    a new categorization rule.
    This window contains group (category) selection, rule type and value.
    Application supports the following categorization types (rule types):
-   - "Substring" - selected substring is searched in "Details" column.
+   - "Substring" - selected substring is searched in "Details" column. Most popular but lowest by priority.
    - "From Account" - selected account number is searched in "From Account" column.
    - "To Account" - selected account number is searched in "To Account" column.
    After pressing "Add" button new categorization rule would be added to
    "config.yaml" file and page would be updated with new rule applied.
-   So a big list of transactions could be categorized quickly.
+   Thus a big list of transactions could be categorized quickly if use wide enough rules.
    If you need to add a new category use "Create New Group" button at the top right.
    If you need to delete an existing category or see all categories and rules
    then press "Groups" button - it would open a separate page with a list of groups
-   (categories) and a "Delete" button for each of them.
+   (categories) with abilities to modify relevant rules.
 5. After you categorize all transactions you would get a ready and intuitive report
    about expenses and incomes, comparison of months, making financial decisions and so on.
    Note that more statement files are provided to the application, the more full financial
-   picture would be.
+   picture would be. So try to add all accounts you have.
 6. With time it is enough to add new or update old "Statement" files with new transactions
-   and run application again.
+   and run application again or press "Refresh Files" button at the top right.
    It may be required to add new categorization rules for new transactions.
    File "config.yaml" would be updated by application and contains all your personal categorization rules.
 
