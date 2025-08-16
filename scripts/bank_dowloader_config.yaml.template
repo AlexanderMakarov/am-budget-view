@@ -6,17 +6,7 @@ my_ameria:
   client_id: "e1cca45d-f2e6-463e-fe84-97f0c1c51315"
   # "Authorization" token request header value, starts with "Bearer " and expires in ~10 minutes.
   auth_token: "Bearer <long_token>"
-  accounts:
-    # Just convenient name for account/card.
-    - name: "MyAmeria AMD account"
-      # Only "account" type is supported for now.
-      type: "account"
-      # Account number 16 digits (from page itself).
-      account_number: "1570069591515920"
-      # Inner account number, ~9 digits, last part of URL.
-      inner_account_number: "69531815800"
-      # Start date for statement in DD-MM-YYYY format.
-      since-DD-MM-YYYY: "01-04-2024"
-      # Path to save statement, should match `myAmeriaAccountStatementXlsxFilesGlob`
-      # in `config.yaml`, will be replaced each successful run.
-      path: "../MyAmeria AMD account statement since 2024-04-01.xls"
+  # Start day to get statement. Always until today.
+  since-DD-MM-YYYY: "01-09-2024"
+  # How to name a resulting file. Should be matched by 'genericCsvFilesGlob' in config.yaml.
+  history_path: "../generic MyAmeria History since 2024-09-01.csv"

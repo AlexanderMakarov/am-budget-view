@@ -16,7 +16,10 @@ bank_dowloader_config.yaml
 *.xml
 History *.xls
 AccountTransactions*.csv
+generic*.csv
 * account statement *.xls
+scripts/*.csv
+scripts/*.json
 AccountStatement *.csv
 Income Statement *.xlsx
 Statement *.xls
