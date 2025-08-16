@@ -319,6 +319,48 @@ h1 {
     background-color: #218838;
 }
 
+.toggle-button {
+    padding: 2px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    background-color: #6c757d;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+    box-sizing: border-box;
+}
+
+.toggle-button:hover {
+    background-color: #5a6268;
+}
+
+.toggle-button.active {
+    background-color: #dc3545;
+}
+
+.toggle-button.active:hover {
+    background-color: #c82333;
+}
+
+.toggle-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.toggle-text {
+    white-space: normal;
+    line-height: 1.2;
+    text-align: left;
+    max-width: 140px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
 .help-text {
     display: block;
     color: #666;

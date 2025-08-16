@@ -148,6 +148,8 @@
     "Conversion Path": "Conversion Path",
     "Refresh Files": "Refresh Files",
     "Refreshing...": "Refreshing...",
-    "Error refreshing files": "Error refreshing files"
+    "Error refreshing files": "Error refreshing files",
+    "Hide transactions between my accounts": "Hide transactions between my accounts",
+    "Show transactions between my accounts": "Show transactions between my accounts"
 }
 

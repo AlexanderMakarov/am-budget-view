@@ -11,6 +11,10 @@
         <header>
             <h1>{{localize "Transaction Categorization"}}</h1>
             <div class="header-right">
+                <button id="hideInternalToggle" class="toggle-button" onclick="toggleHideInternal()">
+                    <span class="toggle-icon">☐</span>
+                    <span class="toggle-text">{{localize "Hide transactions between my accounts"}}</span>
+                </button>
                 <button class="primary-button" onclick="openNewGroupModal()">{{localize "Create New Group"}}</button>
                 <button onclick="window.location.href='/groups'" class="primary-button">{{localize "Groups"}}</button>
                 <button onclick="window.location.href='/'" class="back-button">{{localize "Back to Dashboard"}}</button>
@@ -121,9 +125,22 @@
         };
 
         let currentTransaction = null;
+        let hideInternalTransactions = false;
+        let countedAccounts = new Set();
 
         // Wait for DOM to be fully loaded
         document.addEventListener("DOMContentLoaded", function () {
+            // Initialize accounts data
+            const accountsScript = document.getElementById('accountsData');
+            if (accountsScript) {
+                try {
+                    const accountsData = JSON.parse(accountsScript.textContent);
+                    countedAccounts = new Set(Object.values(accountsData).filter(account => account.IsTransactionAccount).map(account => account.Number));
+                } catch (e) {
+                    console.error('Error parsing accounts data:', e);
+                }
+            }
+
             // Initialize group select options
             const groupSelect = document.getElementById("groupSelect");
             if (groupSelect && groupsData) {
@@ -147,6 +164,37 @@
                 });
             });
         });
+
+        function toggleHideInternal() {
+            hideInternalTransactions = !hideInternalTransactions;
+            const toggleButton = document.getElementById('hideInternalToggle');
+            const toggleIcon = toggleButton.querySelector('.toggle-icon');
+            const toggleText = toggleButton.querySelector('.toggle-text');
+            if (hideInternalTransactions) {
+                toggleButton.classList.add('active');
+                toggleIcon.textContent = '☑';
+                toggleText.textContent = '{{localize "Show transactions between my accounts"}}';
+            } else {
+                toggleButton.classList.remove('active');
+                toggleIcon.textContent = '☐';
+                toggleText.textContent = '{{localize "Hide transactions between my accounts"}}';
+            }
+            filterInternalTransactions();
+        }
+
+        function filterInternalTransactions() {
+            const tableRows = document.querySelectorAll('.transactions-table tbody tr');
+            tableRows.forEach(row => {
+                const fromAccount = row.querySelector('td:nth-child(2)').textContent.trim();
+                const toAccount = row.querySelector('td:nth-child(3)').textContent.trim();
+                const isInternalTransaction = countedAccounts.has(fromAccount) && countedAccounts.has(toAccount);
+                if (hideInternalTransactions && isInternalTransaction) {
+                    row.style.display = 'none';
+                } else {
+                    row.style.display = '';
+                }
+            });
+        }
 
         function getExistingGroupData(groupName) {
             if (!groupsData || !groupsData[groupName]) {

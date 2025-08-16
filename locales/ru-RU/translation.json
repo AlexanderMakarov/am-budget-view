@@ -148,7 +148,9 @@
     "Conversion Path": "Путь конвертации",
     "Refresh Files": "Обновить файлы",
     "Refreshing...": "Обновляю...",
-    "Error refreshing files": "Ошибка при обновлении файлов"
+    "Error refreshing files": "Ошибка при обновлении файлов",
+    "Hide transactions between my accounts": "Скрыть транзакции между моими счетами",
+    "Show transactions between my accounts": "Показать транзакции между моими счетами"
 }
 
 
