@@ -172,7 +172,7 @@ File may have values changes to hide sensitive information but of same format/le
     установите флажок "Показать эквивалент в AMD" (чтобы получить курсы обмена),
     нажмите "ОК", на новой вкладке "Выписка со счета" найдите 5 значков в правой средней части,
     нажмите на значок "Экспорт в CSV" чтобы загрузить файл.
-  - Для "INECOBANK Statement" XLSL файлов которые Inecobank присылает для
+  - Для "INECOBANK Statement" XLSL файлов которые Inecobank присылает на email для
     индивидуальных счетов - 
     (учтите что эти файлы не содержат "Reciever/Payer" номера счёта поэтому часть
     функционала не будет работать и лучше использовать "Statement" файлы с сайта)
@@ -398,16 +398,20 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Collect more details about accounts.
 - [x] Handle currencies on "Categorization" page (now "Amount" in different currencies).
 - [x] Add good demo data, write instruciton how to use it (speed up releases and build trust in app).
-- [x] ~~Download account statements from MyAmeria~~ (appears useless because doesn't work for cards).
 - [x] Add way (button) to re-read statement files.
-- [ ] Add switcher to "Categorization" page to hide "between my accounts" transactions.
+- [x] Add switcher to "Categorization" page to hide "between my accounts" transactions.
+- [x] Download MyAmeria History Excel files.
+- [ ] Fix editing rule on "Groups" page (e.g. edit substring to smaller).
+- [ ] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
+- [ ] Add ability to set "my accounts" in config.yaml. To don't count transactions to "not connected" banks/accounts.
 - [ ] Record new video(s) with instructions.
-- [ ] Add zoom to main diagrams (when multiple years are shown).
-- [ ] Download MyAmeria History Excel files.
-- [ ] Download account statements from Ameria Business and Inecobank. Make them user-friendly.
+- [ ] Download account statements from Ameria Business and Inecobank via Playwright.
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
 - [ ] Fix folders structure, see https://appliedgo.com/blog/go-project-layout
+- [ ] (? value vs complexity) Take manual transactions for "not connected" banks/accounts.
+- [ ] (? value vs complexity) Store notes per transaction and global.
+- [ ] (? small value) Search for overlapping rules.
 - [ ] (? confusing) Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from not-provided bank accounts.
       b) transaction between banks may happen under different account.
@@ -417,6 +421,7 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [ ] (? unclear value) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD
 - [ ] (? impossible) Support different schemas with parsing. Aka "parse anything".
 - [ ] (? not enough feedback) Improve tests coverage.
+- [x] ~~Download account statements from MyAmeria~~ Actually appears useless because doesn't work for cards and "History" contains all transactions.
 - [ ] ~~Build UI with Fyne and https://github.com/wcharczuk/go-chart
       (https://github.com/Jacalz/sparta/commit/f9927d8b502e388bda1ab21b3028693b939e9eb2).~~
-      There are issue with [performance and charts flexibility](https://github.com/fyne-io/fyne/issues/2228) this way.
+      There are issues with [performance and charts flexibility](https://github.com/fyne-io/fyne/issues/2228) this way.
