@@ -6,6 +6,7 @@
     "error on parsing transactions from name files": "error on parsing transactions from {{name}} files: {{err, error}}",
     "Parsing file with parser": "Parsing '{{file}}' file with {{parser}} parser.",
     "file parsing first sheet s from n sheets": "'{{file}}': parsing first sheet '{{s}}' from {{n}} sheets.",
+    "f parsing sheet s from n sheets": "'{{f}}': parsing sheet '{{s}}' from {{n}} sheets.",
     "can't parse transactions from file f": "can't parse transactions from file '{{f}}': {{err, error}}",
     "Can't parse all n files": "Can't parse all {{n}} files: {{warning}}",
     "Can't find transactions in f file": "Can't find transactions in '{{f}}' file.",

@@ -46,6 +46,7 @@ type Config struct {
 	AmeriaCsvFilesGlob                   string            `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaAccountStatementXlsFilesGlob string            `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
 	MyAmeriaHistoryXlsFilesGlob          string            `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
+	ArdshinbankCsvFilesGlob              string            `yaml:"ardshinbankXlsxFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	GenericCsvFilesGlob                  string            `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	MyAmeriaMyAccounts                   map[string]string `yaml:"myAmeriaMyAccounts,omitempty"`
 	ConvertToCurrencies                  []string          `yaml:"convertToCurrencies,omitempty"`

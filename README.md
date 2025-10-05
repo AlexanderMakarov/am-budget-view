@@ -118,6 +118,14 @@ generic (manually/customly mapped) CSV files with transactions.
   into new file `bank_dowloader_config.yaml` in "scripts" folder and fill in your data.
   Run `python scripts/bank_downloader.py` (or `make bank-downloader`) to download statements.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
+- [FULL] Ardshinbank XLSX files received via email. They could be monthly or yearly,
+  inside there are 3 sheets: English, Russian and Armenian.
+  Account number of a peer (receiver or sender) looks like could only be inner
+  Ardshinbank account number, which limits ability to track "transfer my own funds"
+  from other banks.
+  Supports all features native to app and Beancount reports.
+  In `config.yaml` is referenced by `ardshinbankXlsxFilesGlob` setting.
+  Parsed by [ardshin_xlsx_parser.go](/ardshin_xlsx_parser.go).
 - [FULL] Generic CSV files with transactions from the any source.
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
   Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
@@ -179,7 +187,9 @@ File may have values changes to hide sensitive information but of same format/le
     так как XLSL файлы защищены паролем то их нужно сохранить в папку приложения
     без защиты ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
     [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
-3. Запустите приложение ("am-budget-view-\*-\*").
+  - Для Ardshinbank просто поместите нужные XLSX файлы в папку приложения.
+    Обратите внимание что если положить годовые и месячные файлы вместе то транзакции будут дублироваться.
+1. Запустите приложение ("am-budget-view-\*-\*").
   Если все в порядке то через пару секунд откроется новая вкладка в браузере
   с агрегированными данными из банковских транзакций, которые были предоставлены через "Выписка" файлы.
   В противном случае откроется текстовый файл с описанием ошибки.
@@ -193,7 +203,7 @@ File may have values changes to hide sensitive information but of same format/le
   При успешном запуске страница браузера, скорее всего, будет содержать несколько
   начальных категорий и одну большую категорию "Unknown" созданную из еще не
   категоризированных транзакций.
-4. Для категоризации транзакций используйте кнопку "Категоризация транзакций" в правом
+1. Для категоризации транзакций используйте кнопку "Категоризация транзакций" в правом
   верхнем углу. Откроется страница со списком не категоризованных транзакций где
   у каждый строки справа будет кнопка "Категоризовать". При нажатии на неё откроется
   модальное окно для создания нового правила категоризации.
@@ -210,11 +220,11 @@ File may have values changes to hide sensitive information but of same format/le
   Если нужно удалить уже существующую категорию или посмотреть все категории и правила
   то нажмите кнопку "Категории" - откроется отдельная страница со список категорий и
   кнопкой "Удалить" для каждой из них.
-5. После того, как вы классифицируете все транзакции, вы получите готовый и интуитивно
+1. После того, как вы классифицируете все транзакции, вы получите готовый и интуитивно
   понятный отчет о расходах и доходах, сравнения месяцев, принятия финансовых решений и т.д.
   Обратите внимание, что чем больше счетов будет предоставлено приложению,
   тем более полной будет финансовая картина.
-6. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
+1. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
   с новыми транзакциями и снова запустить приложение или нажать кнопку "Обновить файлы" в правом верхнем углу.
   Возможно потребуется добавить новые правила категоризации для новых транзакций.
   Конфигурационный файл "config.yaml" будет обновляться приложением и содержит все
@@ -257,6 +267,8 @@ Script in English:
      since XLSL files are protected by password they need to be saved in the application folder
      without protection ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
      [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
+   - For Ardshinbank simply put required XLSX files in the application folder.
+     Note that if you put yearly and monthly files together then transactions would be duplicated.
 3. Run application ("am-budget-view-\*-\*" file).
    If everything is OK then after a couple of seconds it would open a new tab in browser
    with aggregated details from bank transactions which where provided via "Statement" files.
@@ -312,10 +324,9 @@ Script in English:
 # Use with Beancount and Fava UI
 
 Application by-default generates [Beancount](https://github.com/beancount/beancount) file
-which then may be used with [Fava UI](https://github.com/beancount/fava).
-Beancount report contains more data than usual TXT report, it allows to do full double-entry accounting.
-Fava UI is local and free accounting tool which allow to see these reports.
-But it also hard to understand for those who don't have solid accounting knowledge,
+which then could be viewed in [Fava UI](https://github.com/beancount/fava).
+Beancount report allows to do full double-entry accounting.
+It could be hard to understand for those who don't have solid accounting knowledge,
 so consider to use built-in HTML UI instead.
 
 To install Fava UI (built with Python) run something like `pip3 install fava`.
@@ -324,28 +335,27 @@ After getting log like `Built Beancount file 'AM Budget View.beancount' with 181
 from am-budget-view run in the same folder `fava AM\ Budget\ View.beancount` - it should print
 `Starting Fava on http://127.0.0.1:5000`. Open this link in browser and it would show
 graphs and other accounting visualization, financial statistic about your transactions.
-If run am-budget-view one more time (for example with corrected configuration) then
-Fava UI would catch up changes without restart (need press button on page).
+To regenerate Beancount report (for example with corrected configuration)
+need to re-run am-budget-view (it generates this file only once)
+while Fava UI would catch up changes by pressing relevant button in page.
 
 # Limitations
 
 - Application does not have currencies exchange rates source other than transactions files you provide to it.
-  But it allows to perform conversions even using those scarse information from transaction files.
+  Because it is designed to work completely offline.
+  While it performs quite precise conversions using only scarse information from transaction files.
   It converts currencies with direct exchange rates first, next with best multi-hop conversion option
   found by Dijkstra algorithm. Precision is measured as a number of days between current day and each
   exchange rate date used for conversion hop, with one exception - even if target date is the same date
   where we have direct exchange rate then precision would be 1, because precision 0 means "no conversion",
   i.e. transaction currency is a target currency.
-- Application does not support a way to categorize transactions in a different way for different accounts.
+- Application does not support a way to categorize transactions in a different way for different accounts/banks.
 
 # Contributions
 
 Feel free to contribute your features, fixes and so on.
 
 It is usual Go repo with some useful shortcuts in [Makefile](/Makefile).
-
-Also please help to fix Armenian subtitles in the [YouTube video](https://www.youtube.com/embed/4MZN-SK15HE?cc_load_policy=1) - I believe that Google Translator provided
-me with pretty mediocre translation but my Armenian knowledge is not enough to make subtitles better.
 
 # Development
 
@@ -363,7 +373,7 @@ CI will do the rest.
 ## Demo data
 
 To generate demo data setup "main" function in [generate_demo.py](/scripts/generate_demo.py)
-and run it (`make generate-demo`; needs Python 3.12).
+and run it (`make generate-demo`; needs exactly Python 3.12).
 It would generate files in `demo` folder.
 To run application with demo data execute `go run . config-demo.yaml`.
 
@@ -401,9 +411,10 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Add way (button) to re-read statement files.
 - [x] Add switcher to "Categorization" page to hide "between my accounts" transactions.
 - [x] Download MyAmeria History Excel files.
+- [x] Add Ardshinbank support. Update README.md.
 - [ ] Fix editing rule on "Groups" page (e.g. edit substring to smaller).
-- [ ] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
 - [ ] Add ability to set "my accounts" in config.yaml. To don't count transactions to "not connected" banks/accounts.
+- [ ] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
 - [ ] Record new video(s) with instructions.
 - [ ] Download account statements from Ameria Business and Inecobank via Playwright.
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
@@ -416,6 +427,7 @@ To run application with demo data execute `go run . config-demo.yaml`.
       a) user may have transactions from not-provided bank accounts.
       b) transaction between banks may happen under different account.
       c) currency exchange inside the same bank may happen under different account.
+- [ ] (? small value) Add ability to download as HTML report.
 - [ ] (? small value) Add translation to all parsers and set right Russian declensions.
 - [ ] (? value vs complexity) Allow to choose "transactions" files in UI.
 - [ ] (? unclear value) Add multi-currency support: call https://open.er-api.com/v6/latest/AMD

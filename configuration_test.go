@@ -16,6 +16,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+ardshinbankXlsxFilesGlob: "STATEMENT_*.xlsx"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   "Account1": "USD"
@@ -44,6 +45,7 @@ groupNamesToSubstrings:
 	}
 	if cfg == nil {
 		t.Error("Expected config, but got nil")
+		return
 	}
 	if cfg.InecobankStatementXmlFilesGlob != "*.xml" {
 		t.Errorf(
@@ -67,6 +69,12 @@ groupNamesToSubstrings:
 		t.Errorf(
 			"Expected MyAmeriaHistoryXlsFilesGlob to be 'History*.xls', got '%s'",
 			cfg.MyAmeriaHistoryXlsFilesGlob,
+		)
+	}
+	if cfg.ArdshinbankCsvFilesGlob != "STATEMENT_*.xlsx" {
+		t.Errorf(
+			"Expected ArdshinbankCsvFilesGlob to be 'STATEMENT_*.xlsx', got '%s'",
+			cfg.ArdshinbankCsvFilesGlob,
 		)
 	}
 	if cfg.GenericCsvFilesGlob != "generic*.csv" {
@@ -112,6 +120,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+ardshinbankXlsxFilesGlob: "STATEMENT_*.xlsx"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts
   - Account1
@@ -137,7 +146,7 @@ groupNamesToSubstrings:
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "yaml: line 7: could not find expected ':'")
+	checkErrorContainsSubstring(t, err, "yaml: line 8: could not find expected ':'")
 }
 
 func TestReadConfig_GroupsNotSpecified(t *testing.T) {
@@ -148,6 +157,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+ardshinbankXlsxFilesGlob: "STATEMENT_*.xlsx"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   Account1: USD
@@ -184,6 +194,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 myAmeriaCsvFilesGlob: "*.csv" # Should be ameriaCsvFilesGlob
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
+ardshinbankXlsxFilesGlob: "STATEMENT_*.xlsx"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   Account1: USD
@@ -284,6 +295,7 @@ groupNamesToSubstrings:
 	}
 	if cfg == nil {
 		t.Error("Expected config, but got nil")
+		return
 	}
 	if cfg.InecobankStatementXmlFilesGlob != "*.xml" {
 		t.Errorf(
@@ -376,6 +388,7 @@ inecobankStatementXlsxFilesGlob: "*.xlsx"
 ameriaCsvFilesGlob: '*.csv'
 myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
 myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+ardshinbankXlsxFilesGlob: "STATEMENT_*.xlsx"
 genericCsvFilesGlob: "generic*.csv"
 # Before group comment
 myAmeriaMyAccounts:
@@ -406,6 +419,7 @@ inecobankStatementXlsxFilesGlob: '*.xlsx'
 ameriaCsvFilesGlob: '*.csv'
 myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
 myAmeriaHistoryXlsFilesGlob: "1324657890123456"
+ardshinbankXlsxFilesGlob: STATEMENT_*.xlsx
 genericCsvFilesGlob: generic*.csv
 # Before group comment
 myAmeriaMyAccounts:
@@ -433,6 +447,7 @@ groups:
 	assertStringEqual(t, actualContent, expectedContent)
 }
 
+// FYI: don't need to update this test because input can't change.
 func TestWriteToFile_FromOldToNew(t *testing.T) {
 	// Arrange.
 	initialContent := `# Root comment

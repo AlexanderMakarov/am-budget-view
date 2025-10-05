@@ -14,7 +14,7 @@ const MyAmeriaStmtDateFormat = "02.01.2006"
 
 var (
 	// Headers which exists in all files. Doesn't include "Amount" which are different from file to file.
-	xlsHeaders = []string{
+	ameriaXlsHeaders = []string{
 		"Date", "Account", "Recipient/Sender", "Operation Type", "Purpose",
 	}
 )
@@ -58,10 +58,10 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 	var debitAmdColumnIndex = -1
 	for i, row := range firstSheet.Rows {
 		cells := row.Cells
-		if len(cells) < len(xlsHeaders) {
+		if len(cells) < len(ameriaXlsHeaders) {
 			return nil, fmt.Errorf(
 				"%d row has only %d cells while need to find information for headers %v",
-				i, len(cells), xlsHeaders,
+				i, len(cells), ameriaXlsHeaders,
 			)
 		}
 		// Find header row.
@@ -69,7 +69,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 			if i > giveUpFindHeaderInAmeriaExcelStmtAfterRows {
 				return nil, fmt.Errorf(
 					"after scanning %d rows can't find headers %v",
-					i, xlsHeaders,
+					i, ameriaXlsHeaders,
 				)
 			}
 
@@ -89,7 +89,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 			}
 
 			var isCellMatches = true
-			for cellIndex, header := range xlsHeaders {
+			for cellIndex, header := range ameriaXlsHeaders {
 				if strings.TrimSpace(cells[cellIndex].String()) != header {
 					isCellMatches = false
 					break
@@ -128,7 +128,7 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 		}
 
 		// Stop if row doesn't have enough cells or first cell is empty.
-		if len(cells) < len(xlsHeaders) || cells[0].String() == "" {
+		if len(cells) < len(ameriaXlsHeaders) || cells[0].String() == "" {
 			break
 		}
 

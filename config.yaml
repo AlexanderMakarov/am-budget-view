@@ -18,6 +18,9 @@ myAmeriaAccountStatementXlsxFilesGlob: '* account statement *.xls'
 # Write "glob" template to your MyAmeria "History" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 myAmeriaHistoryXlsFilesGlob: History *.xls
+# Write "glob" template to your Ardshinbank XLSX files received via email.
+# Glob supports wildcard "star" (*) which replaces any substring in the path.
+ardshinbankXlsxFilesGlob: STATEMENT_*.xlsx
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 genericCsvFilesGlob: generic*.csv
@@ -65,15 +68,16 @@ groups:
       - INSTITUTE OF BOTANY
   Groceries:
     substrings:
-      - CHEESE MARKET
       - YEREVAN  CITY
       - YEREVAN CITY
+      - CHEESE MARKET
       - EVRIKA
       - MARKET
       - FIESTA\19
       - FIX PRICE
       - MAQUR TUN
       - GRAND CANDY
+      - ZOVQ
   Health:
     substrings:
       - ARABKIR JMC

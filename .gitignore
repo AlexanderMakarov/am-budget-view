@@ -20,8 +20,10 @@ generic*.csv
 * account statement *.xls
 scripts/*.csv
 scripts/*.json
+scripts/*.txt
 AccountStatement *.csv
 Income Statement *.xlsx
 Statement *.xls
 statement*.xlsx
+STATEMENT*.xlsx
 *.beancount

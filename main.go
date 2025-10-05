@@ -446,6 +446,19 @@ func (dh *DataHandler) parseAllFiles() ([]Transaction, []FileInfo, []string, *Ca
 	transactions = append(transactions, ameriaCsvTransactions...)
 	allFileInfos = append(allFileInfos, fileInfos...)
 
+	// Arshinbank XLSX
+	ardshinbankXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.ArdshinbankCsvFilesGlob,
+		"Ardshinbank XLSX statement",
+		ArdshinXlsxFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, ardshinbankXlsxTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
 	// Generic CSV
 	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
 		dh.Config.GenericCsvFilesGlob,

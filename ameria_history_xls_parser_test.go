@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"path/filepath"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -134,50 +131,4 @@ func TestMyAmeriaExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			}
 		})
 	}
-}
-
-// formatTransactionDiff returns a string showing the differences between two transaction slices
-func formatTransactionDiff(actual, expected []Transaction) string {
-	if len(actual) != len(expected) {
-		return fmt.Sprintf("Different number of transactions: actual=%d, expected=%d", len(actual), len(expected))
-	}
-
-	var diff strings.Builder
-	for i, a := range actual {
-		e := expected[i]
-		if !reflect.DeepEqual(a, e) {
-			diff.WriteString(fmt.Sprintf("\nTransaction %d:\n", i+1))
-			if a.IsExpense != e.IsExpense {
-				diff.WriteString(fmt.Sprintf("  IsExpense: actual=%v, expected=%v\n", a.IsExpense, e.IsExpense))
-			}
-			if a.Date != e.Date {
-				diff.WriteString(fmt.Sprintf("  Date: actual=%v, expected=%v\n", a.Date, e.Date))
-			}
-			if a.Details != e.Details {
-				diff.WriteString(fmt.Sprintf("  Details: actual=%q, expected=%q\n", a.Details, e.Details))
-			}
-			if a.Source != e.Source {
-				diff.WriteString(fmt.Sprintf("  Source: actual=%q, expected=%q\n", a.Source, e.Source))
-			}
-			if a.Amount != e.Amount {
-				diff.WriteString(fmt.Sprintf("  Amount: actual=%v, expected=%v\n", a.Amount, e.Amount))
-			}
-			if a.AccountCurrency != e.AccountCurrency {
-				diff.WriteString(fmt.Sprintf("  AccountCurrency: actual=%q, expected=%q\n", a.AccountCurrency, e.AccountCurrency))
-			}
-			if a.OriginCurrency != e.OriginCurrency {
-				diff.WriteString(fmt.Sprintf("  OriginCurrency: actual=%q, expected=%q\n", a.OriginCurrency, e.OriginCurrency))
-			}
-			if a.OriginCurrencyAmount != e.OriginCurrencyAmount {
-				diff.WriteString(fmt.Sprintf("  OriginCurrencyAmount: actual=%v, expected=%v\n", a.OriginCurrencyAmount, e.OriginCurrencyAmount))
-			}
-			if a.FromAccount != e.FromAccount {
-				diff.WriteString(fmt.Sprintf("  FromAccount: actual=%q, expected=%q\n", a.FromAccount, e.FromAccount))
-			}
-			if a.ToAccount != e.ToAccount {
-				diff.WriteString(fmt.Sprintf("  ToAccount: actual=%q, expected=%q\n", a.ToAccount, e.ToAccount))
-			}
-		}
-	}
-	return diff.String()
 }
