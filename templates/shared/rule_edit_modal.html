@@ -26,11 +26,10 @@
 </div>
 
 <script>
-// Shared modal handling code
-let currentEditGroup = null;
-let currentEditType = null;
-let currentRuleValue = null;
+// Shared modal handling code.
 let currentGroupData = null;
+let currentEditGroup = null;
+let currentValue = null;
 
 // Define localized strings directly in the modal
 const modalLocalizedStrings = {
@@ -39,10 +38,10 @@ const modalLocalizedStrings = {
 };
 
 function openRuleModal(ruleType, ruleValue, groupName, groupData) {
-    currentEditGroup = groupName;
-    currentEditType = ruleType;
-    currentRuleValue = ruleValue;
+    // Remember values when opening modal.
     currentGroupData = groupData;
+    currentEditGroup = groupName;
+    currentValue = ruleValue;
 
     const modal = document.getElementById('ruleEditModal');
     const select = document.getElementById('ruleSelect');
@@ -62,27 +61,49 @@ function handleRuleSelect() {
 
 async function submitRuleEdit(event) {
     event.preventDefault();
-    const newType = document.getElementById('ruleSelect').value;
-    const newValue = document.getElementById('ruleValue').value.trim();
+    const ruleType = document.getElementById('ruleSelect').value;
+    const ruleValue = document.getElementById('ruleValue').value.trim();
 
-    if (newValue === '') {
+    if (ruleValue === '') {
         alert(modalLocalizedStrings.ruleValueEmpty);
         return;
     }
 
     try {
+        let updatedConfig = {
+            fromAccounts: [...(currentGroupData.FromAccounts || [])],
+            toAccounts: [...(currentGroupData.ToAccounts || [])],
+            substrings: [...(currentGroupData.Substrings || [])]
+        };
+
+        const replaceInArray = (arr, val, newVal) => arr.map(item => item === val ? newVal : item);
+
+        switch (ruleType) {
+            case 'FromAccount':
+                updatedConfig.fromAccounts = replaceInArray(updatedConfig.fromAccounts, currentValue, ruleValue);
+                break;
+            case 'ToAccount':
+                updatedConfig.toAccounts = replaceInArray(updatedConfig.toAccounts, currentValue, ruleValue);
+                break;
+            case 'Substring':
+                updatedConfig.substrings = replaceInArray(updatedConfig.substrings, currentValue, ruleValue);
+                break;
+        }
+
+        // Log the updated configuration for debugging
+        console.log('Sending updated config:', updatedConfig);
+
         const response = await fetch('/categorization', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                action: 'updateRule',
+                action: 'upsertGroup',
                 groupName: currentEditGroup,
-                oldType: currentEditType,
-                oldValue: currentRuleValue,
-                newType: newType,
-                newValue: newValue
+                fromAccounts: updatedConfig.fromAccounts,
+                toAccounts: updatedConfig.toAccounts,
+                substrings: updatedConfig.substrings
             })
         });
 
@@ -103,17 +124,17 @@ async function deleteRule() {
     }
 
     try {
-        const ruleValue = document.getElementById('ruleValue').value;
+        const ruleType = document.getElementById('ruleSelect').value;
+        const ruleValue = document.getElementById('ruleValue').value.trim();
         let updatedConfig = {
             fromAccounts: [...(currentGroupData.FromAccounts || [])],
             toAccounts: [...(currentGroupData.ToAccounts || [])],
             substrings: [...(currentGroupData.Substrings || [])]
         };
 
-        // Remove the rule from the appropriate array
         const removeFromArray = (arr, val) => arr.filter(item => item !== val);
 
-        switch (currentEditType) {
+        switch (ruleType) {
             case 'FromAccount':
                 updatedConfig.fromAccounts = removeFromArray(updatedConfig.fromAccounts, ruleValue);
                 break;

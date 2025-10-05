@@ -88,7 +88,7 @@ func ListenAndServe(dataHandler *DataHandler) error {
 	http.HandleFunc("/categorization", handleCategorization(dataHandler))
 	http.HandleFunc("/groups", handleGroups(dataHandler))
 	http.HandleFunc("/files", handleFiles(dataHandler))
-	http.HandleFunc("/open-file", handleOpenFile(dataHandler))
+	http.HandleFunc("/open-file", handleOpenFile())
 	http.HandleFunc("/refresh-files", handleRefreshFiles(dataHandler))
 
 	// Serve static files based on DEV_MODE
@@ -293,7 +293,7 @@ func handleCategorization(dataHandler *DataHandler) http.HandlerFunc {
 			switch request.Action {
 			case "upsertGroup":
 				if request.GroupName == "" {
-					logAndReturnError(w, fmt.Errorf("for 'upsertGroup' action 'groupName' is required"))
+					logAndReturnError(w, fmt.Errorf("for action 'upsertGroup' value in 'groupName' should be provided"))
 					return
 				}
 				if group, ok := dataHandler.Config.Groups[request.GroupName]; ok {
@@ -401,7 +401,7 @@ func handleFiles(dataHandler *DataHandler) http.HandlerFunc {
 	}
 }
 
-func handleOpenFile(dataHandler *DataHandler) http.HandlerFunc {
+func handleOpenFile() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		filePath := r.URL.Query().Get("path")
 		if filePath == "" {

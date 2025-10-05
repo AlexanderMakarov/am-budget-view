@@ -18,6 +18,9 @@ myAmeriaAccountStatementXlsxFilesGlob: demo/* account statement *.xls
 # Write "glob" template to your MyAmeria "History" XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 myAmeriaHistoryXlsFilesGlob: demo/History *.xls
+# Write "glob" template to your Ardshinbank XLSX files received via email.
+# Glob supports wildcard "star" (*) which replaces any substring in the path.
+ardshinbankXlsxFilesGlob: demo/STATEMENT_*.xlsx
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 genericCsvFilesGlob: demo/generic*.csv
