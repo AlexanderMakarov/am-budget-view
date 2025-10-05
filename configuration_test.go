@@ -71,10 +71,10 @@ groupNamesToSubstrings:
 			cfg.MyAmeriaHistoryXlsFilesGlob,
 		)
 	}
-	if cfg.ArdshinbankCsvFilesGlob != "STATEMENT_*.xlsx" {
+	if cfg.ArdshinbankXlsxFilesGlob != "STATEMENT_*.xlsx" {
 		t.Errorf(
 			"Expected ArdshinbankCsvFilesGlob to be 'STATEMENT_*.xlsx', got '%s'",
-			cfg.ArdshinbankCsvFilesGlob,
+			cfg.ArdshinbankXlsxFilesGlob,
 		)
 	}
 	if cfg.GenericCsvFilesGlob != "generic*.csv" {

@@ -448,7 +448,7 @@ func (dh *DataHandler) parseAllFiles() ([]Transaction, []FileInfo, []string, *Ca
 
 	// Arshinbank XLSX
 	ardshinbankXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.ArdshinbankCsvFilesGlob,
+		dh.Config.ArdshinbankXlsxFilesGlob,
 		"Ardshinbank XLSX statement",
 		ArdshinXlsxFileParser{},
 		&parsingWarnings,
