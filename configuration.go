@@ -49,6 +49,7 @@ type Config struct {
 	ArdshinbankXlsxFilesGlob             string            `yaml:"ardshinbankXlsxFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	GenericCsvFilesGlob                  string            `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	MyAmeriaMyAccounts                   map[string]string `yaml:"myAmeriaMyAccounts,omitempty"`
+	MyAccounts                           []string          `yaml:"myAccounts,omitempty"`
 	ConvertToCurrencies                  []string          `yaml:"convertToCurrencies,omitempty"`
 	MinCurrencyTimespanPercent           int               `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
 	MaxCurrencyTimespanGapsDays          int               `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`

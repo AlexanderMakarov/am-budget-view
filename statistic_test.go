@@ -19,11 +19,13 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 	tests := []struct {
 		name               string
 		accounts           map[string]*AccountStatistics
+		config             *Config
 		expectedMyAccounts map[string]struct{}
 	}{
 		{
 			"no_accounts",
 			map[string]*AccountStatistics{},
+			nil,
 			map[string]struct{}{},
 		},
 		{
@@ -31,6 +33,7 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 			map[string]*AccountStatistics{
 				"a": {Number: "a", IsTransactionAccount: false},
 			},
+			nil,
 			map[string]struct{}{},
 		},
 		{
@@ -40,7 +43,16 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 				"b": {Number: "b", IsTransactionAccount: false},
 				"c": {Number: "c", IsTransactionAccount: true},
 			},
+			nil,
 			map[string]struct{}{"a": {}, "c": {}},
+		},
+		{
+			"config_my_accounts_only",
+			map[string]*AccountStatistics{
+				"x": {Number: "x", IsTransactionAccount: false},
+			},
+			&Config{MyAccounts: []string{"m1", "m2"}},
+			map[string]struct{}{"m1": {}, "m2": {}},
 		},
 	}
 	const testName = "NewGroupExtractorByCategories()"
@@ -48,7 +60,7 @@ func Test_NewGroupExtractorByCategories(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Act
-			builder, err := NewStatisticBuilderByCategories(tt.accounts)
+			builder, err := NewStatisticBuilderByCategories(tt.accounts, tt.config)
 			actualGE := builder(date1, date2)
 
 			// Assert
@@ -247,30 +259,42 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 	tests := []struct {
 		name           string
 		accounts       map[string]*AccountStatistics
+		config         *Config
 		journalEntries []JournalEntry
 		expected       string
 	}{
 		{
 			name:           "various_groups_no_accounts",
 			accounts:       map[string]*AccountStatistics{},
+			config:         nil,
 			journalEntries: jesVariousCategories,
 			expected:       expectedVariousCategoriesFull,
 		},
 		{
 			name:           "various_groups_not_mine_accounts",
 			accounts:       map[string]*AccountStatistics{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			config:         nil,
 			journalEntries: jesVariousCategories,
 			expected:       expectedVariousCategoriesFull,
 		},
 		{
 			name:           "various_groups_a1_mine_account",
 			accounts:       map[string]*AccountStatistics{"a1": a1Mine},
+			config:         nil,
+			journalEntries: jesVariousCategories,
+			expected:       expectedVariousCategoriesA1Mine,
+		},
+		{
+			name:           "various_groups_config_a1_mine",
+			accounts:       map[string]*AccountStatistics{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			config:         &Config{MyAccounts: []string{"a1"}},
 			journalEntries: jesVariousCategories,
 			expected:       expectedVariousCategoriesA1Mine,
 		},
 		{
 			name:           "various_currencies",
 			accounts:       map[string]*AccountStatistics{"a1": a1NotMine, "a2": a2NotMine, "a3": a3NotMine},
+			config:         nil,
 			journalEntries: jesVariousCurrencies,
 			expected:       expectedVariousCurrenciesFull,
 		},
@@ -279,7 +303,7 @@ Statistics for        2024-10-27..2024-10-28 (in    USD):
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Arrange
-			factoryMethod, _ := NewStatisticBuilderByCategories(tt.accounts)
+			factoryMethod, _ := NewStatisticBuilderByCategories(tt.accounts, tt.config)
 			builder := factoryMethod(date1, date2)
 
 			// Act

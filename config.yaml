@@ -31,6 +31,12 @@ genericCsvFilesGlob: generic*.csv
 # understood as an income and amount in account currency would be set.
 myAmeriaMyAccounts:
   "1234567890123456": "AMD"
+# List of accounts to be treated as "my" accounts.
+# It means that expenses and incomes to/from these accounts won't be added
+# to total sums. Useful to get correct statistic if transactions from all
+# banks/accounts can't be provided.
+myAccounts:
+  - 1234567890123456
 # List of currencies to unconditionally convert transactions into.
 # Note that if transactions files don't have enough information about exchange rates
 # totals would be incorrect!

@@ -9,8 +9,8 @@ const (
 
 // File paths
 const (
-	DEFAULT_CONFIG_FILE_PATH    = "config.yaml"
+	DEFAULT_CONFIG_FILE_PATH   = "config.yaml"
 	RESULT_FILE_PATH           = "AM Budget View.txt"
 	RESULT_BEANCOUNT_FILE_PATH = "AM Budget View.beancount"
 	WEB_PORT                   = "8080"
-) 
+)

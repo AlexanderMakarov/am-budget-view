@@ -286,11 +286,20 @@ type StatisticBuilderFactory func(start, end time.Time) IntervalStatisticsBuilde
 // NewStatisticBuilderByCategories returns
 // [github.com/AlexanderMakarov/am-budget-view.main.GroupExtractorBuilder] which builds
 // [github.com/AlexanderMakarov/am-budget-view.main.groupExtractorByCategories] in a safe way.
-func NewStatisticBuilderByCategories(accounts map[string]*AccountStatistics) (StatisticBuilderFactory, error) {
+func NewStatisticBuilderByCategories(accounts map[string]*AccountStatistics, config *Config) (StatisticBuilderFactory, error) {
 	myAccounts := make(map[string]struct{})
 	for _, account := range accounts {
 		if account.IsTransactionAccount {
 			myAccounts[account.Number] = struct{}{}
+		}
+	}
+	// Merge with explicitly configured account numbers.
+	if config != nil {
+		for _, acc := range config.MyAccounts {
+			if acc == "" {
+				continue
+			}
+			myAccounts[acc] = struct{}{}
 		}
 	}
 	keys := make([]string, 0, len(myAccounts))

@@ -413,7 +413,7 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Download MyAmeria History Excel files.
 - [x] Add Ardshinbank support. Update README.md.
 - [x] Fix editing rule on "Groups" page (e.g. edit substring to smaller).
-- [ ] Add ability to set "my accounts" in config.yaml. To don't count transactions to "not connected" banks/accounts.
+- [x] Add ability to set "my accounts" in config.yaml. To don't count transactions to "not connected" banks/accounts.
 - [ ] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
 - [ ] Record new video(s) with instructions.
 - [ ] Download account statements from Ameria Business and Inecobank via Playwright.

@@ -70,7 +70,7 @@ type currencyState struct {
 	exchangeRateIndexesPerCurrency map[string]int
 }
 
-// findAmountNearCurrency searches a number before specified index in details.
+// findAmountNearCurrency searches a number in a string before specified index.
 // Returns amount as integer with 2 decimal places.
 func findAmountNearCurrency(details string, currencyIndex int) int {
 	// Search for a number before specified index. Skip first space.
@@ -883,7 +883,8 @@ func buildJournalEntries(
 		),
 	)
 	log.Println(
-		i18n.T("Building journal entries with using exchange rates from alln currencies and converting to these n currencies",
+		i18n.T(
+			"Building journal entries with using exchange rates from alln currencies and converting to these n currencies",
 			"alln", len(curStates),
 			"n", len(dataMart.ConvertibleCurrencies),
 		),
@@ -923,8 +924,10 @@ func buildJournalEntries(
 			// Such transactions are used to check that card can be charged in general.
 			if amountAccCur.int == 0 && amountOrgCur.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
 				return nil, nil, errors.New(
-					i18n.T("transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
-						"t", t, "c", curStatistic.Name,
+					i18n.T(
+						"transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
+						"t", t,
+						"c", curStatistic.Name,
 					),
 				)
 			}
@@ -953,8 +956,10 @@ func buildJournalEntries(
 				amount = convertedAmount.Amount
 			} else {
 				return nil, nil, errors.New(
-					i18n.T("transaction t amount in account currency c can't be set because both origin file doesn't provide it and currency haven't choosen for conversion into",
-						"t", t, "c", t.AccountCurrency,
+					i18n.T(
+						"transaction t amount in account currency c can't be set because both origin file doesn't provide it and currency haven't choosen for conversion into",
+						"t", t,
+						"c", t.AccountCurrency,
 					),
 				)
 			}

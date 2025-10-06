@@ -131,12 +131,12 @@ func main() {
 		Config:     config,
 		TimeZone:   timeZone,
 	}
-	transactions, allFileInfos, parsingWarnings, categorization, err := dataHandler.parseAllFiles()
+	transactions, fileInfos, parsingWarnings, categorization, err := dataHandler.parseAllFiles()
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 
-	// Just show uncategorized transactions if in "CategorizeMode" and not WEB mode.
+	// Just show uncategorized transactions if in "CategorizeMode" and not WEB result mode.
 	if config.CategorizeMode && args.ResultMode != OPEN_MODE_WEB {
 		err = categorization.PrintUncategorizedTransactions(transactions)
 		if err != nil {
@@ -145,21 +145,21 @@ func main() {
 		return
 	}
 
-	// Build DataMart and complete DataHandler setup
+	// Build DataMart and StatisticBuilderFactory.
 	dataMart, err := BuildDataMart(transactions, config)
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
-	groupExtractorFactory, err := NewStatisticBuilderByCategories(dataMart.Accounts)
+	statisticBuilderFactory, err := NewStatisticBuilderByCategories(dataMart.Accounts, config)
 	if err != nil {
 		fatalError(err, isWriteToFile, isOpenFileWithResult)
 	}
 
-	// Complete the DataHandler setup
+	// Complete the DataHandler setup.
 	dataHandler.DataMart = dataMart
-	dataHandler.GroupExtractorFactory = groupExtractorFactory
-	dataHandler.categorization = categorization
-	dataHandler.FileInfos = allFileInfos
+	dataHandler.StatisticBuilderFactory = statisticBuilderFactory
+	dataHandler.Categorization = categorization
+	dataHandler.FileInfos = fileInfos
 
 	// Build journal entries.
 	journalEntries, err := dataHandler.GetJournalEntries()
@@ -196,15 +196,13 @@ func main() {
 		}
 
 		currency := ""
-		if !config.DetailedOutput {
-			// For text report use first from ConvertToCurrencies or just first currency.
-			if len(config.ConvertToCurrencies) > 0 {
-				currency = config.ConvertToCurrencies[0]
-			} else {
-				currency = journalEntries[0].AccountCurrency
-				if currency == "" {
-					currency = journalEntries[0].OriginCurrency
-				}
+		// For text report use first currency from ConvertToCurrencies or just first available currency.
+		if len(config.ConvertToCurrencies) > 0 {
+			currency = config.ConvertToCurrencies[0]
+		} else {
+			currency = journalEntries[0].AccountCurrency
+			if currency == "" {
+				currency = journalEntries[0].OriginCurrency
 			}
 		}
 		for _, oneMonthStatistics := range monthlyStatistics {
@@ -266,10 +264,10 @@ type DataHandler struct {
 	TimeZone *time.Location
 	// DataMart is a set of data to build journal entries.
 	DataMart *DataMart
-	// GroupExtractorFactory is a factory to create statistic builders by categories.
-	GroupExtractorFactory StatisticBuilderFactory
-	// categorization is a cached struct to categorize transactions.
-	categorization *Categorization
+	// StatisticBuilderFactory is a factory to create statistic builders by categories.
+	StatisticBuilderFactory StatisticBuilderFactory
+	// Categorization is a cached struct to categorize transactions.
+	Categorization *Categorization
 	// journalEntries is a list of cached journal entries.
 	journalEntries []JournalEntry
 	// uncategorizedTransactions is a list of cached uncategorized transactions.
@@ -282,25 +280,25 @@ type DataHandler struct {
 
 func NewDataHandler(configPath string, initialConfig *Config, timeZone *time.Location, dataMart *DataMart, groupExtractorFactory StatisticBuilderFactory, initialCategorization *Categorization, fileInfos []FileInfo) *DataHandler {
 	return &DataHandler{
-		ConfigPath:            configPath,
-		Config:                initialConfig,
-		TimeZone:              timeZone,
-		DataMart:              dataMart,
-		GroupExtractorFactory: groupExtractorFactory,
-		categorization:        initialCategorization,
-		FileInfos:             fileInfos,
+		ConfigPath:              configPath,
+		Config:                  initialConfig,
+		TimeZone:                timeZone,
+		DataMart:                dataMart,
+		StatisticBuilderFactory: groupExtractorFactory,
+		Categorization:          initialCategorization,
+		FileInfos:               fileInfos,
 	}
 }
 
 func (dh *DataHandler) rebuildJournalEntriesAndUncategorizedTransactions() error {
 	var err error
-	if dh.categorization == nil {
-		dh.categorization, err = NewCategorization(dh.Config)
+	if dh.Categorization == nil {
+		dh.Categorization, err = NewCategorization(dh.Config)
 		if err != nil {
 			return err
 		}
 	}
-	dh.journalEntries, dh.uncategorizedTransactions, err = buildJournalEntries(dh.DataMart, dh.categorization)
+	dh.journalEntries, dh.uncategorizedTransactions, err = buildJournalEntries(dh.DataMart, dh.Categorization)
 	if err != nil {
 		return err
 	}
@@ -339,7 +337,7 @@ func (dh *DataHandler) rebuildMonthlyStatistics() error {
 	}
 	dh.monthlyStatistics, err = BuildMonthlyStatistics(
 		journalEntries,
-		dh.GroupExtractorFactory,
+		dh.StatisticBuilderFactory,
 		dh.Config.MonthStartDayNumber,
 		dh.TimeZone,
 	)
@@ -366,7 +364,7 @@ func (dh *DataHandler) UpdateGroups(groups map[string]*GroupConfig) error {
 		return err
 	}
 	// Clear caches.
-	dh.categorization = nil
+	dh.Categorization = nil
 	dh.journalEntries = nil
 	dh.uncategorizedTransactions = nil
 	dh.monthlyStatistics = nil
@@ -374,6 +372,7 @@ func (dh *DataHandler) UpdateGroups(groups map[string]*GroupConfig) error {
 }
 
 // parseAllFiles parses all transaction files from the current configuration.
+// Doesn't update DataHandler fields.
 // Returns transactions, file infos, parsing warnings, categorization, and error.
 func (dh *DataHandler) parseAllFiles() ([]Transaction, []FileInfo, []string, *Categorization, error) {
 	var allFileInfos []FileInfo
@@ -501,7 +500,7 @@ func (dh *DataHandler) RebuildFromFiles() error {
 	dh.Config = config
 
 	// Re-parse all files using the updated config
-	transactions, allFileInfos, parsingWarnings, categorization, err := dh.parseAllFiles()
+	transactions, fileInfos, parsingWarnings, categorization, err := dh.parseAllFiles()
 	if err != nil {
 		return err
 	}
@@ -521,8 +520,8 @@ func (dh *DataHandler) RebuildFromFiles() error {
 
 	// Update DataHandler with new data
 	dh.DataMart = newDataMart
-	dh.categorization = categorization
-	dh.FileInfos = allFileInfos
+	dh.Categorization = categorization
+	dh.FileInfos = fileInfos
 
 	// Clear cached data to force recalculation
 	dh.journalEntries = nil
@@ -530,11 +529,11 @@ func (dh *DataHandler) RebuildFromFiles() error {
 	dh.monthlyStatistics = nil
 
 	// Rebuild GroupExtractorFactory with new accounts
-	groupExtractorFactory, err := NewStatisticBuilderByCategories(dh.DataMart.Accounts)
+	groupExtractorFactory, err := NewStatisticBuilderByCategories(dh.DataMart.Accounts, dh.Config)
 	if err != nil {
 		return err
 	}
-	dh.GroupExtractorFactory = groupExtractorFactory
+	dh.StatisticBuilderFactory = groupExtractorFactory
 
 	return nil
 }
