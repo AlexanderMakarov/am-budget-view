@@ -69,7 +69,7 @@
     "Failed to open browser": "Failed to open browser: {{err, error}}",
     "failed to start web server, probably app is already running": "failed to start web server, probably app is already running: {{err, error}}",
     "unsupported platform": "unsupported platform",
-    "See on GitHub": "See on GitHub",
+    "Details on GitHub": "Details on GitHub",
     "Transaction Categorization": "Transaction Categorization",
     "note_bars_clickable": "Monthly Expenses per Category and Monthly Income per Category charts are clickable. Clicking on a category bar will open 'Transactions' page for the selected month and category.",
     "Notes": "Notes:",
@@ -151,6 +151,10 @@
     "Refreshing...": "Refreshing...",
     "Error refreshing files": "Error refreshing files",
     "Hide transactions between my accounts": "Hide transactions between my accounts",
-    "Show transactions between my accounts": "Show transactions between my accounts"
+    "Show transactions between my accounts": "Show transactions between my accounts",
+    "All time": "All time",
+    "2 years": "2 years",
+    "1 year": "1 year",
+    "6 months": "6 months",
+    "3 months": "3 months"
 }
-

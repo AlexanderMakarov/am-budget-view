@@ -160,7 +160,7 @@ File may have values changes to hide sensitive information but of same format/le
   Используйте версию "arm", только если у вас ARM процессор.
 - Для Mac OS X с процессором M1+ используйте "am-budget-view-darwin-arm64".
   Для старых Macbook (до 2020 года) используйте "am-budget-view-darwin-amd64".
-- Для большинства Linux-es выберите "am-budget-view-linux-amd64".
+- Для большинства Linux-ов выберите "am-budget-view-linux-amd64".
 2. Загрузите "Statement" файлы с банковских сайтов за требуемый период и
   поместите их рядом с исполняемым файлом ("am-budget-view-...").
   Подробности см. на [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes).
@@ -414,7 +414,7 @@ To run application with demo data execute `go run . config-demo.yaml`.
 - [x] Add Ardshinbank support. Update README.md.
 - [x] Fix editing rule on "Groups" page (e.g. edit substring to smaller).
 - [x] Add ability to set "my accounts" in config.yaml. To don't count transactions to "not connected" banks/accounts.
-- [ ] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
+- [x] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
 - [ ] Record new video(s) with instructions.
 - [ ] Download account statements from Ameria Business and Inecobank via Playwright.
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).

@@ -12,11 +12,18 @@
         <header>
             <h1>AM Budget View</h1>
             <div class="header-right">
-                <select id="localeSelector" class="locale-selector">
+                <select id="timelineSelector" class="inheader-selector">
+                    <option value="all">{{localize "All time"}}</option>
+                    <option value="24">{{localize "2 years"}}</option>
+                    <option value="12" selected="selected">{{localize "1 year"}}</option>
+                    <option value="6">{{localize "6 months"}}</option>
+                    <option value="3">{{localize "3 months"}}</option>
+                </select>
+                <select id="localeSelector" class="inheader-selector">
                     <option value="en-US" {{if eq .Locale "en-US"}}selected="selected"{{end}}>English</option>
                     <option value="ru-RU" {{if eq .Locale "ru-RU"}}selected="selected"{{end}}>Русский</option>
                 </select>
-                <select id="currencySelector" class="currency-selector">
+                <select id="currencySelector" class="inheader-selector">
                     {{range .Currencies}}
                         <option value="{{.}}">{{.}}</option>
                     {{end}}
@@ -27,7 +34,7 @@
                 <button onclick="window.location.href='/categorization'" class="primary-button">
                     {{localize "Transaction Categorization"}}
                 </button>
-                <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">{{localize "See on GitHub"}}</a>
+                <a href="https://github.com/AlexanderMakarov/am-budget-view" target="_blank" class="github-link">{{localize "Details on GitHub"}}</a>
             </div>
         </header>
         <div id="expensesVsIncome" class="chart"></div>
@@ -65,6 +72,238 @@
             percentage: "{{localize "Percentage"}}"
         };
     </script>
-    <script src="/static/js/charts.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const data = JSON.parse(document.getElementById("interval-statistics").textContent);
+            console.log(data);
+            const currencySelector = document.getElementById("currencySelector");
+            const timelineSelector = document.getElementById("timelineSelector");
+            let currentCurrency = currencySelector.value;
+            const localeSelector = document.getElementById("localeSelector");
+            if (!localeSelector) {
+                console.error("Locale selector not found!");
+                return;
+            }
+            console.log("Current locale from server:", localeSelector.value);
+            localeSelector.addEventListener("change", function (event) {
+                const newLocale = this.value;
+                console.log("Locale changed to:", newLocale);
+                const url = new URL(window.location.href);
+                url.searchParams.set("locale", newLocale);
+                const newUrl = url.toString();
+                console.log("Redirecting to:", newUrl);
+                window.location.replace(newUrl);
+            });
+            function sliceByTimeline(array, monthsValue) {
+                if (!monthsValue || monthsValue === "all") return array;
+                const months = parseInt(monthsValue, 10);
+                if (Number.isNaN(months)) return array;
+                return array.slice(-months);
+            }
+            function updateCharts(currency) {
+                const monthsValue = timelineSelector ? timelineSelector.value : "all";
+                const currencyDataFull = data.map((stat) => stat[currency]);
+                const currencyData = sliceByTimeline(currencyDataFull, monthsValue);
+                const labels = currencyData.map((stat) => stat.Start.substring(0, 7));
+                const incomeData = [];
+                const expenseData = [];
+                const incomeGroups = new Set();
+                const expenseGroups = new Set();
+                function parseMoneyString(str) {
+                    return parseFloat(str.replace(/\s/g, ""));
+                }
+                currencyData.forEach((stat) => {
+                    let totalIncome = 0;
+                    let totalExpense = 0;
+                    Object.entries(stat.Income).forEach(([group, data]) => {
+                        totalIncome += parseMoneyString(data.Total);
+                        incomeGroups.add(group);
+                    });
+                    Object.entries(stat.Expense).forEach(([group, data]) => {
+                        totalExpense += parseMoneyString(data.Total);
+                        expenseGroups.add(group);
+                    });
+                    incomeData.push(Number(totalIncome.toFixed(2)));
+                    expenseData.push(Number(totalExpense.toFixed(2)));
+                });
+                const expensesVsIncome = echarts.init(document.getElementById("expensesVsIncome"));
+                const expensesVsIncomeOption = {
+                    title: { text: window.localizedStrings.expensesVsIncome },
+                    tooltip: { trigger: "axis", axisPointer: { type: "cross", label: { backgroundColor: "#6a7985" } } },
+                    legend: { data: [window.localizedStrings.expenses, window.localizedStrings.incomes] },
+                    toolbox: { feature: { saveAsImage: {}, magicType: { type: ["line", "bar"] }, dataView: {} } },
+                    xAxis: { type: "category", data: labels },
+                    yAxis: { type: "value" },
+                    series: [
+                        { name: window.localizedStrings.expenses, color: "red", type: "line", data: expenseData },
+                        { name: window.localizedStrings.incomes, color: "blue", type: "line", data: incomeData },
+                    ],
+                };
+                expensesVsIncome.setOption(expensesVsIncomeOption);
+                const totalExpenses = echarts.init(document.getElementById("totalExpenses"));
+                const totalExpensesOption = {
+                    title: { text: window.localizedStrings.totalExpensesPerCategory },
+                    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                    legend: { show: false },
+                    toolbox: { show: true, feature: { saveAsImage: {}, dataView: {}, restore: {} } },
+                    grid: { left: "3%", right: "4%", bottom: "10%", top: "40px", containLabel: true },
+                    xAxis: { type: "value", name: window.localizedStrings.amount, nameLocation: "middle", nameGap: 30, nameRotate: 0, nameTextStyle: { padding: [10, 0, 0, 0] } },
+                    yAxis: { type: "category", data: Array.from(expenseGroups), interval: 0 },
+                    series: [
+                        {
+                            name: window.localizedStrings.expenses,
+                            color: "red",
+                            type: "bar",
+                            data: Array.from(expenseGroups).map((group) => ({
+                                value: currencyData.reduce(
+                                    (sum, stat) => Number((sum + parseMoneyString(stat.Expense[group]?.Total || "0")).toFixed(2)),
+                                    0
+                                ),
+                                name: group,
+                            })),
+                        },
+                    ],
+                };
+                const chartHeight = Math.max(400, Math.max(expenseGroups.size, incomeGroups.size) * 20 + 100);
+                const totalExpensesEl = document.getElementById("totalExpenses");
+                totalExpensesEl.style.height = chartHeight + "px";
+                totalExpenses.setOption(totalExpensesOption);
+                totalExpenses.resize();
+                const totalIncome = echarts.init(document.getElementById("totalIncome"));
+                const totalIncomeOption = {
+                    title: { text: window.localizedStrings.totalIncomePerCategory },
+                    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                    legend: { show: false },
+                    toolbox: { show: true, feature: { saveAsImage: {}, dataView: {}, restore: {} } },
+                    grid: { left: "3%", right: "4%", bottom: "10%", top: "40px", containLabel: true },
+                    xAxis: { type: "value", name: window.localizedStrings.amount, nameLocation: "middle", nameGap: 30, nameRotate: 0, nameTextStyle: { padding: [10, 0, 0, 0] } },
+                    yAxis: { type: "category", data: Array.from(incomeGroups), interval: 0 },
+                    series: [
+                        {
+                            name: window.localizedStrings.incomes,
+                            color: "blue",
+                            type: "bar",
+                            data: Array.from(incomeGroups).map((group) => ({
+                                value: currencyData.reduce(
+                                    (sum, stat) => Number((sum + parseMoneyString(stat.Income[group]?.Total || "0")).toFixed(2)),
+                                    0
+                                ),
+                                name: group,
+                            })),
+                        },
+                    ],
+                };
+                const totalIncomeEl = document.getElementById("totalIncome");
+                totalIncomeEl.style.height = chartHeight + "px";
+                totalIncome.setOption(totalIncomeOption);
+                totalIncome.resize();
+                const reversedLabels = labels.slice().reverse();
+                function formatCurrency(value) {
+                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                }
+                const monthlyExpenses = echarts.init(document.getElementById("monthlyExpenses"));
+                const monthlyExpensesOption = {
+                    title: { text: window.localizedStrings.monthlyExpensesPerCategory, left: "center", top: "10px" },
+                    tooltip: { trigger: "item", axisPointer: { type: "shadow" }, formatter: function (params) {
+                        const monthLabel = params.name;
+                        let result = `${monthLabel}<br>`;
+                        const monthData = currencyData[labels.indexOf(monthLabel)];
+                        const totals = monthData.Expense;
+                        const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
+                        if (params.value > 0) {
+                            const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
+                            result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(absoluteValue)})<br>`;
+                        }
+                        return result;
+                    } },
+                    legend: { type: "scroll", orient: "horizontal", top: "40px", left: "center", right: "10%" },
+                    toolbox: { feature: { saveAsImage: {}, dataView: {} } },
+                    grid: { left: "3%", right: "5%", bottom: "5%", top: "100px", containLabel: true },
+                    xAxis: { type: "value", name: window.localizedStrings.percentage, nameLocation: "middle", nameGap: 30, max: 100, axisLabel: { formatter: "{value}%" } },
+                    yAxis: { type: "category", data: reversedLabels, axisLabel: { interval: 0, rotate: 0 }, axisTick: { alignWithLabel: true } },
+                    series: Array.from(expenseGroups).map((group) => ({
+                        name: group,
+                        type: "bar",
+                        stack: "total",
+                        emphasis: { focus: "series" },
+                        barCategoryGap: "30%",
+                        data: currencyData
+                            .map((stat) => {
+                                let monthTotal = Object.values(stat.Expense).reduce((sum, expense) => sum + parseMoneyString(expense.Total), 0);
+                                let groupValue = parseMoneyString(stat.Expense[group]?.Total || "0");
+                                return (groupValue / monthTotal) * 100;
+                            })
+                            .reverse(),
+                    })),
+                };
+                function addChartClickHandler(chart, type) {
+                    chart.on("click", function (params) {
+                        if (params.seriesName && params.name) {
+                            const month = params.name;
+                            const group = params.seriesName;
+                            window.location.href = `/transactions?month=${month}&group=${encodeURIComponent(group)}&type=${type}&currency=${currentCurrency}`;
+                        }
+                    });
+                }
+                monthlyExpenses.setOption(monthlyExpensesOption);
+                addChartClickHandler(monthlyExpenses, "expense");
+                const monthlyIncome = echarts.init(document.getElementById("monthlyIncome"));
+                const monthlyIncomeOption = {
+                    title: { text: window.localizedStrings.monthlyIncomePerCategory, left: "center", top: "10px" },
+                    tooltip: { trigger: "item", axisPointer: { type: "shadow" }, formatter: function (params) {
+                        const monthLabel = params.name;
+                        let result = `${monthLabel}<br>`;
+                        const monthData = currencyData[labels.indexOf(monthLabel)];
+                        const totals = monthData.Income;
+                        const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
+                        if (params.value > 0) {
+                            const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
+                            result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(absoluteValue)})<br>`;
+                        }
+                        return result;
+                    } },
+                    legend: { type: "scroll", orient: "horizontal", top: "40px", left: "center", right: "10%" },
+                    toolbox: { feature: { saveAsImage: {}, dataView: {} } },
+                    grid: { left: "3%", right: "5%", bottom: "5%", top: "100px", containLabel: true },
+                    xAxis: { type: "value", name: window.localizedStrings.percentage, nameLocation: "middle", nameGap: 30, max: 100, axisLabel: { formatter: "{value}%" } },
+                    yAxis: { type: "category", data: reversedLabels, axisLabel: { interval: 0, rotate: 0 }, axisTick: { alignWithLabel: true } },
+                    series: Array.from(incomeGroups).map((group) => ({
+                        name: group,
+                        type: "bar",
+                        stack: "total",
+                        emphasis: { focus: "series" },
+                        barCategoryGap: "30%",
+                        data: currencyData
+                            .map((stat) => {
+                                let monthTotal = Object.values(stat.Income).reduce((sum, income) => sum + parseMoneyString(income.Total), 0);
+                                let groupValue = parseMoneyString(stat.Income[group]?.Total || "0");
+                                return (groupValue / monthTotal) * 100;
+                            })
+                            .reverse(),
+                    })),
+                };
+                monthlyIncome.setOption(monthlyIncomeOption);
+                addChartClickHandler(monthlyIncome, "income");
+                window.addEventListener("resize", function () {
+                    expensesVsIncome.resize();
+                    totalExpenses.resize();
+                    totalIncome.resize();
+                    monthlyExpenses.resize();
+                    monthlyIncome.resize();
+                });
+            }
+            updateCharts(currentCurrency);
+            currencySelector.addEventListener("change", function (e) {
+                currentCurrency = e.target.value;
+                updateCharts(currentCurrency);
+            });
+            if (timelineSelector) {
+                if (!timelineSelector.value) timelineSelector.value = "12";
+                timelineSelector.addEventListener("change", function (e) {
+                    updateCharts(currentCurrency);
+                });
+            }
+        });
+    </script>
 </body>
 </html>
