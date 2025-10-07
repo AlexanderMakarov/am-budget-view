@@ -73,6 +73,9 @@
         };
     </script>
     <script>
+        function formatCurrency(value) {
+            return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
         document.addEventListener("DOMContentLoaded", function () {
             const data = JSON.parse(document.getElementById("interval-statistics").textContent);
             console.log(data);
@@ -131,7 +134,11 @@
                     title: { text: window.localizedStrings.expensesVsIncome },
                     tooltip: { trigger: "axis", axisPointer: { type: "cross", label: { backgroundColor: "#6a7985" } } },
                     legend: { data: [window.localizedStrings.expenses, window.localizedStrings.incomes] },
-                    toolbox: { feature: { saveAsImage: {}, magicType: { type: ["line", "bar"] }, dataView: {} } },
+                    toolbox: { feature: {
+                        saveAsImage: {show: true, pixelRatio: 2, title: "Save as x2 image"},
+                        magicType: { type: ["line", "bar"] },
+                        dataView: {show: true, readOnly: true} }
+                    },
                     xAxis: { type: "category", data: labels },
                     yAxis: { type: "value" },
                     series: [
@@ -145,7 +152,10 @@
                     title: { text: window.localizedStrings.totalExpensesPerCategory },
                     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
                     legend: { show: false },
-                    toolbox: { show: true, feature: { saveAsImage: {}, dataView: {}, restore: {} } },
+                    toolbox: { show: true, feature: {
+                        saveAsImage: {show: true, pixelRatio: 3, title: "Save as x3 image"},
+                        dataView: {show: true, readOnly: true}
+                    } },
                     grid: { left: "3%", right: "4%", bottom: "10%", top: "40px", containLabel: true },
                     xAxis: { type: "value", name: window.localizedStrings.amount, nameLocation: "middle", nameGap: 30, nameRotate: 0, nameTextStyle: { padding: [10, 0, 0, 0] } },
                     yAxis: { type: "category", data: Array.from(expenseGroups), interval: 0 },
@@ -174,7 +184,10 @@
                     title: { text: window.localizedStrings.totalIncomePerCategory },
                     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
                     legend: { show: false },
-                    toolbox: { show: true, feature: { saveAsImage: {}, dataView: {}, restore: {} } },
+                    toolbox: { show: true, feature: {
+                        saveAsImage: {show: true, pixelRatio: 3, title: "Save as x3 image"},
+                        dataView: {show: true, readOnly: true}
+                    } },
                     grid: { left: "3%", right: "4%", bottom: "10%", top: "40px", containLabel: true },
                     xAxis: { type: "value", name: window.localizedStrings.amount, nameLocation: "middle", nameGap: 30, nameRotate: 0, nameTextStyle: { padding: [10, 0, 0, 0] } },
                     yAxis: { type: "category", data: Array.from(incomeGroups), interval: 0 },
@@ -198,40 +211,107 @@
                 totalIncome.setOption(totalIncomeOption);
                 totalIncome.resize();
                 const reversedLabels = labels.slice().reverse();
-                function formatCurrency(value) {
-                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-                }
                 const monthlyExpenses = echarts.init(document.getElementById("monthlyExpenses"));
                 const monthlyExpensesOption = {
                     title: { text: window.localizedStrings.monthlyExpensesPerCategory, left: "center", top: "10px" },
-                    tooltip: { trigger: "item", axisPointer: { type: "shadow" }, formatter: function (params) {
-                        const monthLabel = params.name;
-                        let result = `${monthLabel}<br>`;
-                        const monthData = currencyData[labels.indexOf(monthLabel)];
-                        const totals = monthData.Expense;
-                        const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
-                        if (params.value > 0) {
-                            const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
-                            result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(absoluteValue)})<br>`;
+                    tooltip: {
+                        trigger: "item",
+                        axisPointer: { type: "shadow" },
+                        formatter: function (params) {
+                            let result = `${params.data.monthLabel}<br>`;
+                            if (params.value > 0) {
+                                result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(params.data.monetaryValue)} ${currentCurrency})<br>`;
+                            }
+                            return result;
                         }
-                        return result;
-                    } },
+                    },
                     legend: { type: "scroll", orient: "horizontal", top: "40px", left: "center", right: "10%" },
-                    toolbox: { feature: { saveAsImage: {}, dataView: {} } },
+                    toolbox: { feature: {
+                        saveAsImage: {show: true, pixelRatio: 2, title: "Save as x2 image"},
+                        myLabelSwitcher: {
+                            show: true,
+                            title: "Toggle labels on categories",
+                            icon: "path://M4 4h16v2H4V4zm0 6h16v2H4v-2zm0 6h16v2H4v-2z",
+                            onclick: function () {
+                                var opt = monthlyExpenses.getOption();
+                                var current = false;
+                                if (opt.series && opt.series.length > 0 && opt.series[0].label && typeof opt.series[0].label[0] !== 'undefined') {
+                                    current = !!opt.series[0].label[0].show;
+                                } else if (opt.series && opt.series.length > 0 && opt.series[0].label) {
+                                    current = !!opt.series[0].label.show;
+                                }
+                                var next = !current;
+                                var newSeries = (opt.series || []).map(function (s) {
+                                    var lbl = s.label && (s.label[0] || s.label) ? (s.label[0] || s.label) : {};
+                                    lbl.show = next;
+                                    return { label: lbl };
+                                });
+                                monthlyExpenses.setOption({ series: newSeries }, false);
+                            }
+                        },
+                        dataView: {
+                            show: true,
+                            readOnly: true,
+                            optionToContent: function(opt) {
+                                var cats = Array.from(expenseGroups);
+                                var header = '<tr><th style="position:sticky;left:0;background:#fff;z-index:2;border:1px solid #ccc;padding:6px;white-space:nowrap;text-align:left;">Month</th>';
+                                for (var c = 0; c < cats.length; c++) {
+                                    header += '<th style="border:1px solid #ccc;padding:6px;white-space:nowrap;text-align:right;">' + cats[c] + '</th>';
+                                }
+                                header += '</tr>';
+                                var body = '';
+                                for (var i = 0; i < labels.length; i++) {
+                                    var monthLabel = labels[i];
+                                    var monthData = currencyData[i];
+                                    var totals = monthData.Expense;
+                                    var monthTotal = 0;
+                                    Object.keys(totals).forEach(function(key){ monthTotal += parseMoneyString(totals[key].Total); });
+                                    var row = '<tr><td style="position:sticky;left:0;background:#fff;z-index:1;border:1px solid #ccc;padding:6px;white-space:nowrap;text-align:left;">' + monthLabel + '</td>';
+                                    for (var j = 0; j < cats.length; j++) {
+                                        var g = cats[j];
+                                        var groupValue = totals[g] ? parseMoneyString(totals[g].Total) : 0;
+                                        var percent = monthTotal ? (groupValue / monthTotal * 100).toFixed(2) : '0.00';
+                                        var cell = percent + '% (' + formatCurrency(groupValue.toFixed(2)) + ')';
+                                        row += '<td style="border:1px solid #ccc;padding:6px;text-align:right;white-space:nowrap;">' + cell + '</td>';
+                                    }
+                                    row += '</tr>';
+                                    body += row;
+                                }
+                                var table = '<div style="overflow:auto;"><table style="border-collapse:collapse;width:100%;text-align:left"><thead>' + header + '</thead><tbody>' + body + '</tbody></table></div>';
+                                return table;
+                            }
+                        }
+                    } },
                     grid: { left: "3%", right: "5%", bottom: "5%", top: "100px", containLabel: true },
                     xAxis: { type: "value", name: window.localizedStrings.percentage, nameLocation: "middle", nameGap: 30, max: 100, axisLabel: { formatter: "{value}%" } },
                     yAxis: { type: "category", data: reversedLabels, axisLabel: { interval: 0, rotate: 0 }, axisTick: { alignWithLabel: true } },
-                    series: Array.from(expenseGroups).map((group) => ({
-                        name: group,
+                    series: Array.from(expenseGroups).map((category) => ({
+                        name: category,
                         type: "bar",
+                        label: {
+                            show: true,
+                            minMargin: 20,
+                            distance: 50,
+                            formatter: function (params) {
+                                if (params.value === 0) return "";
+                                return formatCurrency(parseMoneyString(params.data.monetaryValue.toFixed(2)));
+                            }
+                        },
+                        overflow: "breakAll",
                         stack: "total",
                         emphasis: { focus: "series" },
                         barCategoryGap: "30%",
                         data: currencyData
-                            .map((stat) => {
+                            .map((stat, index) => {
+                                let monthLabel = labels[index];
                                 let monthTotal = Object.values(stat.Expense).reduce((sum, expense) => sum + parseMoneyString(expense.Total), 0);
-                                let groupValue = parseMoneyString(stat.Expense[group]?.Total || "0");
-                                return (groupValue / monthTotal) * 100;
+                                let groupValue = parseMoneyString(stat.Expense[category]?.Total || "0");
+                                return {
+                                    monthLabel: monthLabel,
+                                    category: category,
+                                    monetaryValue: groupValue,
+                                    value: (groupValue / monthTotal) * 100,
+                                };
                             })
                             .reverse(),
                     })),
@@ -250,34 +330,105 @@
                 const monthlyIncome = echarts.init(document.getElementById("monthlyIncome"));
                 const monthlyIncomeOption = {
                     title: { text: window.localizedStrings.monthlyIncomePerCategory, left: "center", top: "10px" },
-                    tooltip: { trigger: "item", axisPointer: { type: "shadow" }, formatter: function (params) {
-                        const monthLabel = params.name;
-                        let result = `${monthLabel}<br>`;
-                        const monthData = currencyData[labels.indexOf(monthLabel)];
-                        const totals = monthData.Income;
-                        const monthTotal = Object.values(totals).reduce((sum, data) => sum + parseMoneyString(data.Total), 0);
-                        if (params.value > 0) {
-                            const absoluteValue = ((params.value * monthTotal) / 100).toFixed(2);
-                            result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(absoluteValue)})<br>`;
+                    tooltip: {
+                        trigger: "item",
+                        axisPointer: { type: "shadow" },
+                        formatter: function (params) {
+                            let result = `${params.data.monthLabel}<br>`;
+                            if (params.value > 0) {
+                                result += `${params.marker} ${params.seriesName}: ${params.value.toFixed(2)}% (${formatCurrency(params.data.monetaryValue)} ${currentCurrency})<br>`;
+                            }
+                            return result;
                         }
-                        return result;
-                    } },
+                    },
                     legend: { type: "scroll", orient: "horizontal", top: "40px", left: "center", right: "10%" },
-                    toolbox: { feature: { saveAsImage: {}, dataView: {} } },
+                    toolbox: { feature: {
+                        saveAsImage: {show: true, pixelRatio: 2, title: "Save as x2 image"},
+                        myLabelSwitcher: {
+                            show: true,
+                            title: "Toggle labels on categories",
+                            icon: "path://M4 4h16v2H4V4zm0 6h16v2H4v-2zm0 6h16v2H4v-2z",
+                            onclick: function () {
+                                var opt = monthlyIncome.getOption();
+                                var current = false;
+                                if (opt.series && opt.series.length > 0 && opt.series[0].label && typeof opt.series[0].label[0] !== 'undefined') {
+                                    current = !!opt.series[0].label[0].show;
+                                } else if (opt.series && opt.series.length > 0 && opt.series[0].label) {
+                                    current = !!opt.series[0].label.show;
+                                }
+                                var next = !current;
+                                var newSeries = (opt.series || []).map(function (s) {
+                                    var lbl = s.label && (s.label[0] || s.label) ? (s.label[0] || s.label) : {};
+                                    lbl.show = next;
+                                    return { label: lbl };
+                                });
+                                monthlyIncome.setOption({ series: newSeries }, false);
+                            }
+                        },
+                        dataView: {
+                            show: true,
+                            readOnly: true,
+                            optionToContent: function(opt) {
+                                var cats = Array.from(incomeGroups);
+                                var header = '<tr><th style="position:sticky;left:0;background:#fff;z-index:2;border:1px solid #ccc;padding:6px;white-space:nowrap;text-align:left;">Month</th>';
+                                for (var c = 0; c < cats.length; c++) {
+                                    header += '<th style="border:1px solid #ccc;padding:6px;white-space:nowrap;text-align:right;">' + cats[c] + '</th>';
+                                }
+                                header += '</tr>';
+                                var body = '';
+                                for (var i = 0; i < labels.length; i++) {
+                                    var monthLabel = labels[i];
+                                    var monthData = currencyData[i];
+                                    var totals = monthData.Income;
+                                    var monthTotal = 0;
+                                    Object.keys(totals).forEach(function(key){ monthTotal += parseMoneyString(totals[key].Total); });
+                                    var row = '<tr><td style="position:sticky;left:0;background:#fff;z-index:1;border:1px solid #ccc;padding:6px;white-space:nowrap;text-align:left;">' + monthLabel + '</td>';
+                                    for (var j = 0; j < cats.length; j++) {
+                                        var g = cats[j];
+                                        var groupValue = totals[g] ? parseMoneyString(totals[g].Total) : 0;
+                                        var percent = monthTotal ? (groupValue / monthTotal * 100).toFixed(2) : '0.00';
+                                        var cell = percent + '% (' + formatCurrency(groupValue.toFixed(2)) + ')';
+                                        row += '<td style="border:1px solid #ccc;padding:6px;text-align:right;white-space:nowrap;">' + cell + '</td>';
+                                    }
+                                    row += '</tr>';
+                                    body += row;
+                                }
+                                var table = '<div style="overflow:auto;"><table style="border-collapse:collapse;width:100%;text-align:left"><thead>' + header + '</thead><tbody>' + body + '</tbody></table></div>';
+                                return table;
+                            }
+                        }
+                        }
+                    },
                     grid: { left: "3%", right: "5%", bottom: "5%", top: "100px", containLabel: true },
                     xAxis: { type: "value", name: window.localizedStrings.percentage, nameLocation: "middle", nameGap: 30, max: 100, axisLabel: { formatter: "{value}%" } },
                     yAxis: { type: "category", data: reversedLabels, axisLabel: { interval: 0, rotate: 0 }, axisTick: { alignWithLabel: true } },
-                    series: Array.from(incomeGroups).map((group) => ({
-                        name: group,
+                    series: Array.from(incomeGroups).map((category) => ({
+                        name: category,
                         type: "bar",
+                        label: {
+                            show: true,
+                            minMargin: 20,
+                            distance: 50,
+                            formatter: function (params) {
+                                if (params.value === 0) return "";
+                                return formatCurrency(parseMoneyString(params.data.monetaryValue.toFixed(2)));
+                            }
+                        },
+                        overflow: "breakAll",
                         stack: "total",
                         emphasis: { focus: "series" },
                         barCategoryGap: "30%",
                         data: currencyData
-                            .map((stat) => {
+                            .map((stat, index) => {
+                                let monthLabel = labels[index];
                                 let monthTotal = Object.values(stat.Income).reduce((sum, income) => sum + parseMoneyString(income.Total), 0);
-                                let groupValue = parseMoneyString(stat.Income[group]?.Total || "0");
-                                return (groupValue / monthTotal) * 100;
+                                let groupValue = parseMoneyString(stat.Income[category]?.Total || "0");
+                                return {
+                                    monthLabel: monthLabel,
+                                    category: category,
+                                    monetaryValue: groupValue,
+                                    value: monthTotal ? (groupValue / monthTotal) * 100 : 0,
+                                };
                             })
                             .reverse(),
                     })),

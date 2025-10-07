@@ -58,9 +58,9 @@ type Config struct {
 	MonthStartDayNumber                  uint              `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
 	TimeZoneLocation                     string            `yaml:"timeZoneLocation,omitempty"`
 	GroupAllUnknownTransactions          bool              `yaml:"groupAllUnknownTransactions"`
-	// Leave here for backward compatibility
+	// OUTDATED - leave here for backward compatibility.
 	GroupNamesToSubstrings map[string][]string `yaml:"groupNamesToSubstrings,omitempty"`
-	// New groups format
+	// Transactions categorization groups.
 	Groups map[string]*GroupConfig `yaml:"groups,omitempty"`
 }
 
