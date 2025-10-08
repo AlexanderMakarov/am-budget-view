@@ -26,13 +26,14 @@ Results are:
 
 Automatically opens browser with local UI:
 
-<img src="docsdata/dashboard AMD.png" alt="main page" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/dashboard EUR RU income data view.png" alt="main page" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/montly expenses per category percent.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/dashboard AMD.png" alt="Main page ENG AMD" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/dashboard EUR RU expense data view.png" alt="Main page RU EUR" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/montly expenses per category.png" alt="Monthly expenses per category" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/transactions.png" alt="Transactions page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/categorization.png" alt="Categorization page" width="300" onclick="window.open(this.src)"/>
 <img src="docsdata/files.png" alt="Files page" width="300" onclick="window.open(this.src)"/>
-<img src="docsdata/montly expenses per category percent ru.png" alt="Ежемесячные расходы по категориям" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/montly expenses per category RU.png" alt="Ежемесячные расходы по категориям" width="300" onclick="window.open(this.src)"/>
+<img src="docsdata/groups.png" alt="Rules/groups editing" width="300" onclick="window.open(this.src)"/>
 
 ### 2. Text report with most important and structured insights into your budget.
 
