@@ -11,19 +11,19 @@ AM Budget View.txt
 
 # Local data
 tmp**
-demo**
 bank_dowloader_config.yaml
-*.xml
 History *.xls
 AccountTransactions*.csv
 generic*.csv
 * account statement *.xls
+* account statement *.xml
 scripts/*.csv
 scripts/*.json
 scripts/*.txt
 AccountStatement *.csv
 Income Statement *.xlsx
 Statement *.xls
+Statement *.xml
 statement*.xlsx
 STATEMENT*.xlsx
 *.beancount
