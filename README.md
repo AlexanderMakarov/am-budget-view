@@ -94,7 +94,7 @@ generic (manually/customly mapped) CSV files with transactions.
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain
   own Reciever/Payer account number and currency.
-- [PARTIAL] MyAmeria History Excel (.xls) file downloaded from https://myameria.am/history.
+- [FULL] MyAmeria History Excel (.xls) file downloaded from https://myameria.am/history.
   Press on "Filter" button at right, set dates, press "Excel" button
   in "Actions" section at right.
   Only one file is needed because contains transactions for all accounts and cards.

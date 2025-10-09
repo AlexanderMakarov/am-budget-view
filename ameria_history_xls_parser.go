@@ -9,7 +9,7 @@ import (
 	"github.com/tealeg/xlsx"
 )
 
-const MyAmeriaHistoryDateFormat = "02/01/2006"
+const MyAmeriaHistoryDateFormat = "02-01-2006"
 const giveUpFindHeaderInAmeriaExcelAfterEmpty1Cells = 15
 
 var (
