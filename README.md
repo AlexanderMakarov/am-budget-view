@@ -72,10 +72,12 @@ Banks usually send transactions/statements by email monthly or yearly
 and allows to download list of transactions on their websites.
 Files received via email could be protected by password which is hard to handle in app.
 Additionally files from emails usually don't contain Reciever/Payer account number
-and it makes them much less valuable because:
-1. account-based categorization won't work,
+and it makes them hard to use for analysis because:
+1. account-based categorization won't work at all,
 2. transfers between "my accounts" can't be detected and will be counted as "other income" and "other expense" thus distorting statistics/sums,
 3. Beancount report won't be full.
+
+Details about each bank/file format:
 
 ### Inecobank
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
@@ -87,8 +89,7 @@ and it makes them much less valuable because:
   (the same place as XML above) - ARE NOT SUPPORTED because XML downloaded from the same place
   is simpler format for parsing.
 - [PARTIAL] Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
-  Don't have Reciever/Payer account number so account-based categorization won't work
-  and resulting Beancount report won't be full.
+  Don't have Reciever/Payer account number.
   To allow app use such files need to remove password protection first
   ([MS Office instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
   [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
@@ -107,9 +108,9 @@ and it makes them much less valuable because:
 - [NONE] AmeriaBank for Businesses XML (.XML) files downloaded per-account from
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain
-  own Reciever/Payer account number and currency.
-- [NONE] AmeriaBank for Businesses XLSX (.xlsx) files received via email.
-  They don't contain Reciever/Payer account number.
+  own account number and currency.
+- [NONE] AmeriaBank for Businesses XLSX (.xlsx) files which AmeriaBank sends via email.
+  They don't contain Reciever/Payer account number, exchange rates.
 
 ### MyAmeria (Ameria for Inidividuals)
 - [FULL] MyAmeria History Excel (.xls) file downloaded from https://myameria.am/history.
@@ -117,31 +118,34 @@ and it makes them much less valuable because:
   press "Excel" button in "Actions" section at right.
   Only one file is needed because it contains transactions for all accounts and cards.
   In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
-  Note that it should be accompanied by `myAmeriaMyAccounts` map with "my"
-  account numbers and currencies because file doesn't provide this data.
-  Otherwise most of application features won't work and parser would fail with error in terminal.
+  Note that it should be accompanied by `myAmeriaMyAccounts` dictionary with "my"
+  account numbers and relevant currencies because file doesn't provide this data.
+  Without this data most of application's features won't work, so parser would fail with error in terminal.
   Supports features native to app and Beancount reports except for exchange rates
   which are not provided in this file as well.
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
-  !!! There is an option to **download such files automatically** via
+  !!! There is an option to **download such files semi-automatically** via
   [bank_downloader.py](/scripts/bank_downloader.py) script.
   Copy [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_configak.yaml.template)
   into new file `bank_dowloader_config.yaml` in "scripts" folder and fill in your data.
-  Run `python scripts/bank_downloader.py` (or `make bank-downloader`) to download statements.
+  Each time before running need to login into https://account.myameria.am and copy
+  "Authorization" token from browser developer tools to `auth_token` field (expires in few minutes).
+  Run `python scripts/bank_downloader.py` (or `make bank-downloader`) to download transactions
+  history starting from `since-DD-MM-YYYY` date until today.
   Note that due to script gets data directly from bank's API it generates "Generic" CSV file
   (not "MyAmeria History Excel") to provide information about multiple accounts in one file.
-- [OUTDATED, backwards compatibility] MyAmeria Account Statements Excel (.xls)
+- [OUTDATED, backward compatibility] MyAmeria Account Statements Excel (.xls)
   dowloaded from pages like https://myameria.am/cards-and-accounts/account-statement/******.
   before 2025. Note that it haven't worked for cards, only for accounts.
-  Left for backward compatibility with files downloaded before 2025 (was the main source of data in here),
-  in 2025 use '2025+ History Excel' option.
+  Left to extract information from files downloaded before 2025 (was the main source of data in here),
+  since 2025 use '2025+ History Excel' option instead.
   In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
-- [NONE] MyAmeria Account/Card Statements CSV downloaded from pages like
+- [NONE] MyAmeria Account/Card Statements CSV files downloaded from pages like
   https://myameria.am/cards-and-accounts/account-statement/****** and
   https://myameria.am/cards-and-accounts/card-statement/****** in 2025+.
   Bank changed format somewhere in border of 2024-2025 and new format doesn't have
-  receiver/sender account number and doesn't have amount in native bank currency,
+  Reciever/Payer account number and doesn't have amount in native bank currency,
   therefore has less data than '2025+ History Excel' option.
 
 ### Ardshinbank
@@ -153,6 +157,8 @@ and it makes them much less valuable because:
   Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `ardshinbankXlsxFilesGlob` setting.
   Parsed by [ardshin_xlsx_parser.go](/ardshin_xlsx_parser.go).
+- [NONE] Ardshinbank XLSX files downloaded from https://ardshinbank.am/
+  ARE NOT SUPPORTED because they either the same as XLSX above or have less data.
 
 ### Generic
 - [FULL] Generic CSV files with transactions from the any source.
@@ -160,7 +166,7 @@ and it makes them much less valuable because:
   Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
   Supports all features native to app and Beancount reports.
   Own account number and currency deduced from fields below.
-  Required fields/headers (first row in file):
+  Supported fields/headers (first row in file):
   - Date - string with date of the transaction in `YYYY-MM-DD` format.
   - FromAccount - string with account number of the sender.
   - ToAccount - string with account number of the receiver.
@@ -171,8 +177,8 @@ and it makes them much less valuable because:
      1500 dollars and 30 cents) with amount of the transaction.
   - Details - string with details/comments of the transaction.
   - AccountCurrency - 3 chars ISO code of the currency of the account.
-  - OriginCurrency - 3 chars ISO code of the currency of the transaction before conversion.
-  - OriginCurrencyAmount - string with amount of the transaction in origin currency.
+  - OriginCurrency - (optional) 3 chars ISO code of the currency of the transaction before conversion.
+  - OriginCurrencyAmount - (optional) string with amount of the transaction in origin currency.
 
 To add new bank support please create an issue in repository with example of file
 with transactions downloaded from the bank application and instructions how you got this file.
@@ -218,7 +224,7 @@ File may have values changes to hide sensitive information but of same format/le
     [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
   - Для Ardshinbank просто поместите нужные XLSX файлы в папку приложения.
     Обратите внимание что если положить годовые и месячные файлы вместе то транзакции будут дублироваться.
-1. Запустите приложение ("am-budget-view-\*-\*").
+3. Запустите приложение ("am-budget-view-\*-\*").
   Если все в порядке то через пару секунд откроется новая вкладка в браузере
   с агрегированными данными из банковских транзакций, которые были предоставлены через "Выписка" файлы.
   В противном случае откроется текстовый файл с описанием ошибки.
@@ -232,7 +238,7 @@ File may have values changes to hide sensitive information but of same format/le
   При успешном запуске страница браузера, скорее всего, будет содержать несколько
   начальных категорий и одну большую категорию "Unknown" созданную из еще не
   категоризированных транзакций.
-1. Для категоризации транзакций используйте кнопку "Категоризация транзакций" в правом
+4. Для категоризации транзакций используйте кнопку "Категоризация транзакций" в правом
   верхнем углу. Откроется страница со списком не категоризованных транзакций где
   у каждый строки справа будет кнопка "Категоризовать". При нажатии на неё откроется
   модальное окно для создания нового правила категоризации.
@@ -249,11 +255,11 @@ File may have values changes to hide sensitive information but of same format/le
   Если нужно удалить уже существующую категорию или посмотреть все категории и правила
   то нажмите кнопку "Категории" - откроется отдельная страница со список категорий и
   кнопкой "Удалить" для каждой из них.
-1. После того, как вы классифицируете все транзакции, вы получите готовый и интуитивно
+5. После того, как вы классифицируете все транзакции, вы получите готовый и интуитивно
   понятный отчет о расходах и доходах, сравнения месяцев, принятия финансовых решений и т.д.
   Обратите внимание, что чем больше счетов будет предоставлено приложению,
   тем более полной будет финансовая картина.
-1. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
+6. С прошествием времени достаточно добавить новые или обновить старые "Statement" файлы
   с новыми транзакциями и снова запустить приложение или нажать кнопку "Обновить файлы" в правом верхнем углу.
   Возможно потребуется добавить новые правила категоризации для новых транзакций.
   Конфигурационный файл "config.yaml" будет обновляться приложением и содержит все
@@ -337,22 +343,22 @@ Script in English:
    File "config.yaml" would be updated by application and contains all your personal categorization rules.
 
 ### Notes:
-1. Files which banks are sending in emails not always have all required information.
-2. It is a command line application and may work completely in the terminal.
+1. It is a command line application and may work completely in the terminal.
    Run it with `-h` for details.
-   It would explain how to work with multiple configuration files and see information directly in terminal.
-3. Application automatically starts in "local HTTP server mode" and opens in a default browser.
+   It would explain how to switch between configuration files and get information directly in terminal.
+2. By-default application automatically starts in "local HTTP server mode" and opens page in a default browser.
    No external requests are made.
-4. Application supports 3 "reporting" modes: 'web' - default,
-   'file' - to open text report in TXT files veiwer,
-   'none' - only STDOUT (appeared first historically).
-5. In "not web" mode application also supports "categorization" in interactive mode
+3. Application supports 3 "reporting" modes:
+   - 'web' - default,
+   - 'file' - to open text report in TXT files veiwer,
+   - 'none' - only STDOUT (appeared first historically).
+4. In "not web" mode application supports "categorization" flow in interactive mode
    - need to set `categorizeMode: true` in configuration file.
-   This mode is useful to find transactions without categories.
+   This mode is useful to find transactions without categories in terminal.
 
 # Use with Beancount and Fava UI
 
-Application by-default generates [Beancount](https://github.com/beancount/beancount) file
+Application generates [Beancount](https://github.com/beancount/beancount) file
 which then could be viewed in [Fava UI](https://github.com/beancount/fava).
 Beancount report allows to do full double-entry accounting.
 It could be hard to understand for those who don't have solid accounting knowledge,
@@ -370,15 +376,18 @@ while Fava UI would catch up changes by pressing relevant button in page.
 
 # Limitations
 
-- Application does not have currencies exchange rates source other than transactions files you provide to it.
-  Because it is designed to work completely offline.
-  While it performs quite precise conversions using only scarse information from transaction files.
+- Application does not have currencies exchange rates source other than those which are
+  provided by transactions files - it is designed to work completely offline.
+  While it still performs quite precise conversions using only scarse information from transaction files.
   It converts currencies with direct exchange rates first, next with best multi-hop conversion option
-  found by Dijkstra algorithm. Precision is measured as a number of days between current day and each
-  exchange rate date used for conversion hop, with one exception - even if target date is the same date
-  where we have direct exchange rate then precision would be 1, because precision 0 means "no conversion",
-  i.e. transaction currency is a target currency.
+  found by Dijkstra algorithm. Precision is almost always measured as a number of days
+  between current day and each exchange rate date used for conversion hop.
+  The only exception here is when target date is the same date
+  where we have direct exchange rate then precision still would be 1,
+  because precision 0 means "no conversion", i.e. transaction currency is a target currency.
 - Application does not support a way to categorize transactions in a different way for different accounts/banks.
+- Application can't (and won't) download files from banks itself - it is designed to work completely offline.
+  See "scripts" folder for such capabilities.
 
 # Contributions
 
@@ -401,14 +410,16 @@ CI will do the rest.
 
 ## Demo data
 
-Demo data files are generated by [generate_demo.py](/scripts/generate_demo.py) script and allows
-to try application for yourself with synthetic data.
+Demo data files are generated by [generate_demo.py](/scripts/generate_demo.py) script
+and allows to try application for yourself with synthetic data.
+Results of this script could be found in [`demo`](/demo) folder.
 
-To run application with demo data execute `go run . config-demo.yaml`.
+To run application from sources with demo data execute `go run . config-demo.yaml`.
+To run binary with demo data execute something like `am-budget-view-windows-amd64.exe config-demo.yaml`.
 
-To generate different demo data setup "main" function in [generate_demo.py](/scripts/generate_demo.py)
+To generate different demo data - setup "main" function in [generate_demo.py](/scripts/generate_demo.py)
 and run it via `make generate-demo` (needs exactly Python 3.12) or alike.
-It would generate files in `demo` folder.
+It would replace files in `demo` folder.
 
 ## TODO/Roadmap
 

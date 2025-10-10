@@ -98,8 +98,12 @@ jobs:
 
       - name: Build Binaries
         run: |
+          suffix=""
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            suffix=".exe"
+          fi
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-            -o am-budget-view-${{ matrix.os }}-${{ matrix.arch }} \
+            -o am-budget-view-${{ matrix.os }}-${{ matrix.arch }}${suffix} \
             -ldflags "-X main.Version=${{ steps.vars.outputs.version }}"
           chmod a+x am-budget-view-*
 
