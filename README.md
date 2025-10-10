@@ -62,10 +62,22 @@ Statistics for        2024-08-01..2024-08-31 (in    AMD):
 
 ## List of supported banks, file formats and relevant notes
 
-In short supported: Inecobank individual accounts,
-Ameriabank both individual and legal accounts,
-generic (manually/customly mapped) CSV files with transactions.
+In short supported:
+- Inecobank individual accounts,
+- AmeriaBank both individual (aka MyAmeria) and legal accounts,
+- Ardshinbank both individual and legal accounts,
+- Generic (manually/customly mapped) CSV files with transactions.
 
+Banks usually send transactions/statements by email monthly or yearly
+and allows to download list of transactions on their websites.
+Files received via email could be protected by password which is hard to handle in app.
+Additionally files from emails usually don't contain Reciever/Payer account number
+and it makes them much less valuable because:
+1. account-based categorization won't work,
+2. transfers between "my accounts" can't be detected and will be counted as "other income" and "other expense" thus distorting statistics/sums,
+3. Beancount report won't be full.
+
+### Inecobank
 - [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
   (click on account, choose dates range, icon to download in right bottom corner).
   Supports all features native to app and Beancount reports.
@@ -82,6 +94,8 @@ generic (manually/customly mapped) CSV files with transactions.
   [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
   In `config.yaml` is referenced by `inecobankStatementXlsxFilesGlob` setting.
   Parsed by [ineco_excel_parser.go](/ineco_excel_parser.go).
+
+### AmeriaBank (Ameria for Business)
 - [FULL] AmeriaBank for Businesses CSV (.CSV) files downloaded per-account from
   https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Statement,
   chose period (for custom use "FromDate" and "To" date pickers),
@@ -94,31 +108,43 @@ generic (manually/customly mapped) CSV files with transactions.
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain
   own Reciever/Payer account number and currency.
+- [NONE] AmeriaBank for Businesses XLSX (.xlsx) files received via email.
+  They don't contain Reciever/Payer account number.
+
+### MyAmeria (Ameria for Inidividuals)
 - [FULL] MyAmeria History Excel (.xls) file downloaded from https://myameria.am/history.
-  Press on "Filter" button at right, set dates, press "Excel" button
-  in "Actions" section at right.
-  Only one file is needed because contains transactions for all accounts and cards.
+  Press on "Filter" button at right, set right dates (leave other fields as is),
+  press "Excel" button in "Actions" section at right.
+  Only one file is needed because it contains transactions for all accounts and cards.
   In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
-  Note that it should be accompanied by `myAmeriaMyAccounts` map because file
-  doesn't provide owner's account numbers and currencies and to make most of application
-  features working it is required to specify this data.
-  If transactions would have account number or currency not specified then parser would fail.
+  Note that it should be accompanied by `myAmeriaMyAccounts` map with "my"
+  account numbers and currencies because file doesn't provide this data.
+  Otherwise most of application features won't work and parser would fail with error in terminal.
   Supports features native to app and Beancount reports except for exchange rates
-  (exchange rates should be specified in other transaction files).
+  which are not provided in this file as well.
   Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
-- [ONLY ACCOUNTS, NOT CARDS] MyAmeria Account Statements Excel (.xls) dowloaded from pages like
-  or https://myameria.am/cards-and-accounts/account-statement/******.
-  Note that it doesn't work for card, only for accounts - use 
-  "MyAmeria History Excel" option above instead.
-  Open https://myameria.am/cards-and-accounts, select account,
-  press "Statement" button at right, set dates, press "Download" button.
-  In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
   !!! There is an option to **download such files automatically** via
   [bank_downloader.py](/scripts/bank_downloader.py) script.
   Copy [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_configak.yaml.template)
   into new file `bank_dowloader_config.yaml` in "scripts" folder and fill in your data.
   Run `python scripts/bank_downloader.py` (or `make bank-downloader`) to download statements.
+  Note that due to script gets data directly from bank's API it generates "Generic" CSV file
+  (not "MyAmeria History Excel") to provide information about multiple accounts in one file.
+- [OUTDATED, backwards compatibility] MyAmeria Account Statements Excel (.xls)
+  dowloaded from pages like https://myameria.am/cards-and-accounts/account-statement/******.
+  before 2025. Note that it haven't worked for cards, only for accounts.
+  Left for backward compatibility with files downloaded before 2025 (was the main source of data in here),
+  in 2025 use '2025+ History Excel' option.
+  In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
   Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
+- [NONE] MyAmeria Account/Card Statements CSV downloaded from pages like
+  https://myameria.am/cards-and-accounts/account-statement/****** and
+  https://myameria.am/cards-and-accounts/card-statement/****** in 2025+.
+  Bank changed format somewhere in border of 2024-2025 and new format doesn't have
+  receiver/sender account number and doesn't have amount in native bank currency,
+  therefore has less data than '2025+ History Excel' option.
+
+### Ardshinbank
 - [FULL] Ardshinbank XLSX files received via email. They could be monthly or yearly,
   inside there are 3 sheets: English, Russian and Armenian.
   Account number of a peer (receiver or sender) looks like could only be inner
@@ -127,6 +153,8 @@ generic (manually/customly mapped) CSV files with transactions.
   Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `ardshinbankXlsxFilesGlob` setting.
   Parsed by [ardshin_xlsx_parser.go](/ardshin_xlsx_parser.go).
+
+### Generic
 - [FULL] Generic CSV files with transactions from the any source.
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
   Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
@@ -421,13 +449,18 @@ It would generate files in `demo` folder.
 - [x] Add ability to set "my accounts" in config.yaml. To don't count transactions to "not connected" banks/accounts.
 - [x] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
 - [x] Add demo files to allow fast "try for myself".
+- [x] Explain in README.md `ameria_xls_stmt_parser.go` logic (outdated, for backwards compatibility, explain other MyAmeria/Ameria Business files (un)support details.
+- [ ] (wait response from bank on relevant issue) Handle MyAmeria "History" file bug with wrong month number (8 for September).
+- [ ] Add ACBA bank support (Armenian files due to more data in them).
+- [ ] Add config-based rates (https://github.com/AlexanderMakarov/am-budget-view/issues/8)
+- [ ] Add Russian translation for '## List of supported banks, file formats and relevant notes' section in README.md.
 - [ ] Record new video(s) with instructions.
 - [ ] Download account statements from Ameria Business and Inecobank via Playwright.
-- [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/).
+- [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/) or similar. Migrate to v6 ECharts.
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
-- [ ] Fix folders structure, see https://appliedgo.com/blog/go-project-layout
+- [ ] Fix sources folders structure, see https://appliedgo.com/blog/go-project-layout
 - [ ] (? value vs complexity) Take manual transactions for "not connected" banks/accounts.
-- [ ] (? value vs complexity) Store notes per transaction and global.
+- [ ] (? value vs complexity) Store notes per transactions and per rules.
 - [ ] (? small value) Search for overlapping rules.
 - [ ] (? confusing) Support group to ignore some transactions as "to me". Because:
       a) user may have transactions from not-provided bank accounts.
