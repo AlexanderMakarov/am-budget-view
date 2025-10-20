@@ -458,6 +458,19 @@ func (dh *DataHandler) parseAllFiles() ([]Transaction, []FileInfo, []string, *Ca
 	transactions = append(transactions, ardshinbankXlsxTransactions...)
 	allFileInfos = append(allFileInfos, fileInfos...)
 
+	// Acba Regular Account XLS
+	acbaRegularAccountXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
+		dh.Config.AcbaRegularAccountXlsFilesGlob,
+		"Acba Regular Account XLS statement",
+		AcbaRegularAccountExcelFileParser{},
+		&parsingWarnings,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	transactions = append(transactions, acbaRegularAccountXlsTransactions...)
+	allFileInfos = append(allFileInfos, fileInfos...)
+
 	// Generic CSV
 	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
 		dh.Config.GenericCsvFilesGlob,

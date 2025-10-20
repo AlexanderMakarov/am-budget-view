@@ -41,12 +41,13 @@ type GroupConfig struct {
 type Config struct {
 	Language                             string            `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
 	EnsureTerminal                       bool              `yaml:"ensureTerminal,omitempty" default:"true"`
-	InecobankStatementXmlFilesGlob       string            `yaml:"inecobankStatementXmlFilesGlob" validate:"required,filepath,min=1"`
-	InecobankStatementXlsxFilesGlob      string            `yaml:"inecobankStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
-	AmeriaCsvFilesGlob                   string            `yaml:"ameriaCsvFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaAccountStatementXlsFilesGlob string            `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"required,filepath,min=1"`
-	MyAmeriaHistoryXlsFilesGlob          string            `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"required,filepath,min=1"`
+	InecobankStatementXmlFilesGlob       string            `yaml:"inecobankStatementXmlFilesGlob" validate:"omitempty,filepath,min=1"`
+	InecobankStatementXlsxFilesGlob      string            `yaml:"inecobankStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
+	AmeriaCsvFilesGlob                   string            `yaml:"ameriaCsvFilesGlob" validate:"omitempty,filepath,min=1"`
+	MyAmeriaAccountStatementXlsFilesGlob string            `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
+	MyAmeriaHistoryXlsFilesGlob          string            `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"omitempty,filepath,min=1"`
 	ArdshinbankXlsxFilesGlob             string            `yaml:"ardshinbankXlsxFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
+	AcbaRegularAccountXlsFilesGlob      string            `yaml:"acbaRegularAccountXlsFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	GenericCsvFilesGlob                  string            `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	MyAmeriaMyAccounts                   map[string]string `yaml:"myAmeriaMyAccounts,omitempty"`
 	MyAccounts                           []string          `yaml:"myAccounts,omitempty"`

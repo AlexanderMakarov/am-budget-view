@@ -26,6 +26,30 @@ func (m *MoneyWith2DecimalPlaces) ParseString(s string) error {
 	return nil
 }
 
+func (m *MoneyWith2DecimalPlaces) ParseAmountWithoutLettersFromString(value string) error {
+	value = strings.TrimSpace(value)
+
+	// Find the first consecutive [0-9.-] characters
+	var numberStr strings.Builder
+	for _, char := range value {
+		if (char >= '0' && char <= '9') || char == '.' || char == '-' {
+			numberStr.WriteRune(char)
+		}
+	}
+
+	if numberStr.Len() == 0 {
+		return fmt.Errorf("invalid money format: '%s'", value)
+	}
+
+	// Parse the amount from the extracted number string
+	err := m.ParseString(numberStr.String())
+	if err != nil {
+		return fmt.Errorf("failed to parse amount: %w", err)
+	}
+
+	return nil
+}
+
 // UnmarshalText removes commas and parses string as float.
 func (m *MoneyWith2DecimalPlaces) UnmarshalText(text []byte) error {
 	return m.ParseString(string(text))

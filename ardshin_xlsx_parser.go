@@ -43,7 +43,6 @@ func (p ArdshinXlsxFileParser) ParseRawTransactionsFromFile(
 	}
 	log.Println(i18n.T("f parsing sheet s from n sheets", "f", filePath, "s", engSheet.Name, "n", len(f.Sheets)))
 
-	// Parse myAmeriaStmtTransactions.
 	var transactions []Transaction
 	var accountNumber = ""
 	var accountCurrency = ""

@@ -160,6 +160,13 @@ Details about each bank/file format:
 - [NONE] Ardshinbank XLSX files downloaded from https://ardshinbank.am/
   ARE NOT SUPPORTED because they either the same as XLSX above or have less data.
 
+### ACBA
+- [PARTIAL] ACBA XLS files downloaded from https://acbadigital.am/dashboard
+  (https://acbadigital.am/en/dashboard). Note that statement files downloaded on Armenian
+  language contains more information than on English and in turn
+  regular account statements contains more information than card statements.
+  Not all 
+
 ### Generic
 - [FULL] Generic CSV files with transactions from the any source.
   In `config.yaml` is referenced by `genericCsvFilesGlob` setting.

@@ -9,33 +9,19 @@ import (
 	"github.com/tealeg/xlsx"
 )
 
-const giveUpFindHeaderInAmeriaExcelStmtAfterRows = 18
-const MyAmeriaStmtDateFormat = "02.01.2006"
-
-var (
-	// Headers which exists in all files. Doesn't include "Amount" which are different from file to file.
-	ameriaXlsHeaders = []string{
-		"Date", "Account", "Recipient/Sender", "Operation Type", "Purpose",
-	}
+const (
+	giveUpFindHeaderInAcbaCardExcelStmtAfterRows = 23
+	acbaCardStmtDateFormat = "01/02/2006"
 )
 
-type MyAmeriaStmtTransaction struct {
-	Date                 time.Time
-	Account              string
-	RecipientOrSender    string
-	OperationType        string
-	Purpose              string
-	Currency             string
-	CreditOriginCurrency MoneyWith2DecimalPlaces
-	CreditAMD            MoneyWith2DecimalPlaces
-	DebitOriginCurrency  MoneyWith2DecimalPlaces
-	DebitAMD             MoneyWith2DecimalPlaces
+const (
+	acbaCardXlsHeaders = "ԱմսաթիվԳումարԱրժույթՄուտքԵլքԿիրառվող փոխարժեքՀաշվի վերջնական մնացորդԳործարքի նկարագրություն"
+)
+
+type AcbaCardExcelFileParser struct {
 }
 
-type MyAmeriaExcelStmtFileParser struct {
-}
-
-func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
+func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 	filePath string,
 ) ([]Transaction, error) {
 	f, err := xlsx.OpenFile(filePath)
@@ -138,17 +124,9 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
 		}
 		var creditAmount MoneyWith2DecimalPlaces
-		err = creditAmount.ParseAmountWithoutLettersFromString(cells[creditColumnIndex].String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", creditColumnIndex+1, i+1, err)
-		}
 		var creditAmdAmount MoneyWith2DecimalPlaces
-		err = creditAmdAmount.ParseAmountWithoutLettersFromString(cells[creditAmdColumnIndex].String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse credit AMD amount from cell %d of %d row: %w", creditAmdColumnIndex+1, i+1, err)
-		}
 		var debitAmount MoneyWith2DecimalPlaces
-		err = debitAmount.ParseAmountWithoutLettersFromString(cells[debitColumnIndex].String())
+		var debitAmdAmount MoneyWith2DecimalPlaces
 		if creditColumnIndex != -1 && cells[creditColumnIndex].String() != "" {
 			err = creditAmount.ParseAmountWithoutLettersFromString(cells[creditColumnIndex].String())
 			if err != nil {
@@ -167,7 +145,6 @@ func (p MyAmeriaExcelStmtFileParser) ParseRawTransactionsFromFile(
 				return nil, fmt.Errorf("failed to parse debit amount from cell %d of %d row: %w", debitColumnIndex+1, i+1, err)
 			}
 		}
-		var debitAmdAmount MoneyWith2DecimalPlaces
 		if debitAmdColumnIndex != -1 && cells[debitAmdColumnIndex].String() != "" {
 			err = debitAmdAmount.ParseAmountWithoutLettersFromString(cells[debitAmdColumnIndex].String())
 			if err != nil {
