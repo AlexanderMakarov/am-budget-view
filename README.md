@@ -165,7 +165,8 @@ Details about each bank/file format:
   (https://acbadigital.am/en/dashboard). Note that statement files downloaded on Armenian
   language contains more information than on English and in turn
   regular account statements contains more information than card statements.
-  Not all 
+  Due to only part of transactions have Reciever/Payer account number Beancount
+  report building would fail so need to disable it with `--no-beancount` flag.
 
 ### Generic
 - [FULL] Generic CSV files with transactions from the any source.

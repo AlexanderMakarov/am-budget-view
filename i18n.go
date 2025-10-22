@@ -18,6 +18,38 @@ const I18N_DATE_FORMAT = "2006-01-02"
 
 var formatSpecifierRegexp = regexp.MustCompile(`{{([^}]+)}}`)
 
+// parseCommaSeparatedWithQuotes parses a comma-separated string while respecting quoted strings
+func parseCommaSeparatedWithQuotes(s string) []string {
+	var result []string
+	var current strings.Builder
+	inQuotes := false
+	quoteChar := rune(0)
+
+	for _, r := range s {
+		if !inQuotes && (r == '\'' || r == '"') {
+			inQuotes = true
+			quoteChar = r
+			current.WriteRune(r)
+		} else if inQuotes && r == quoteChar {
+			inQuotes = false
+			quoteChar = rune(0)
+			current.WriteRune(r)
+		} else if !inQuotes && r == ',' {
+			result = append(result, strings.TrimSpace(current.String()))
+			current.Reset()
+		} else {
+			current.WriteRune(r)
+		}
+	}
+
+	// Add the last part
+	if current.Len() > 0 {
+		result = append(result, strings.TrimSpace(current.String()))
+	}
+
+	return result
+}
+
 // Translation system is based on i18next, see https://www.i18next.com.
 // Translation files should be compatible with i18next JS/TS libs.
 // But "github.com/yuangwei/go-i18next" realization is inconvenient, so use our own for Go.
@@ -317,7 +349,7 @@ func (i18n *I18n) T(key string, args ...interface{}) string {
 
 		for _, match := range matches {
 			placeholder := match[0]
-			parts := strings.Split(strings.TrimSpace(match[1]), ",")
+			parts := parseCommaSeparatedWithQuotes(strings.TrimSpace(match[1]))
 			if len(parts) < 2 {
 				// Simple interpolation without formatting.
 				interpolationKey := strings.TrimSpace(match[1])
@@ -347,7 +379,7 @@ func (i18n *I18n) T(key string, args ...interface{}) string {
 
 				// Parse options
 				if optionsStr != "" {
-					optionPairs := strings.Split(optionsStr, ",")
+					optionPairs := parseCommaSeparatedWithQuotes(optionsStr)
 					for _, pair := range optionPairs {
 						kv := strings.Split(pair, ":")
 						if len(kv) != 2 {

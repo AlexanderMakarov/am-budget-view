@@ -17,6 +17,7 @@
     "can't check for uncategorized transactions": "can't check for uncategorized transactions: {{err, error}}",
     "can't build journal entries": "can't build journal entries: {{err, error}}",
     "can't build Beancount report": "can't build Beancount report: {{err, error}}",
+    "can't build Beancount report, transactions from following sources don't have Reciever/Payer account number: sources": "can't build Beancount report, transactions from following sources don't have Reciever/Payer account number: {{sources, list(separator: ', ')}}",
     "Built Beancount file f with n transactions": "Built Beancount file '{{file}}' with {{n}} transactions.",
     "can't create statistic builder": "can't create statistic builder: {{err, error}}",
     "can't build statistics": "can't build statistics: {{err, error}}",

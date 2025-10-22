@@ -169,11 +169,27 @@ func main() {
 
 	// Produce Beancount file if not disabled.
 	if !args.DontBuildBeanconFile {
-		transLen, err := buildBeancountFile(journalEntries, dataMart.AllCurrencies, dataMart.Accounts, RESULT_BEANCOUNT_FILE_PATH)
-		if err != nil {
-			fatalError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
+		// Check that all transactions have Reciever/Payer account number.
+		sourcesWithBrokenTransactions := make(map[string]struct{})
+		for _, jEntry := range journalEntries {
+			if jEntry.ToAccount == "" || jEntry.FromAccount == "" {
+				sourcesWithBrokenTransactions[jEntry.Source.TypeName] = struct{}{}
+			}
 		}
-		log.Println(i18n.T("Built Beancount file f with n transactions", "file", RESULT_BEANCOUNT_FILE_PATH, "n", transLen))
+		if len(sourcesWithBrokenTransactions) > 0 {
+			sourceNames := make([]string, 0, len(sourcesWithBrokenTransactions))
+			for sourceName := range sourcesWithBrokenTransactions {
+				sourceNames = append(sourceNames, sourceName)
+			}
+			log.Println(i18n.T("can't build Beancount report, transactions from following sources don't have Reciever/Payer account number: sources", "sources", strings.Join(sourceNames, ", ")))
+		} else {
+			// Build Beancount file.
+			transLen, err := buildBeancountFile(journalEntries, dataMart.AllCurrencies, dataMart.Accounts, RESULT_BEANCOUNT_FILE_PATH)
+			if err != nil {
+				fatalError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
+			}
+			log.Println(i18n.T("Built Beancount file f with n transactions", "file", RESULT_BEANCOUNT_FILE_PATH, "n", transLen))
+		}
 	}
 
 	// Build statistic.
