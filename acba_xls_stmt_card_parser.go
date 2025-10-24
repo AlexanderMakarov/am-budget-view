@@ -6,16 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tealeg/xlsx"
+	"github.com/shakinm/xlsReader/xls"
 )
 
 const (
-	giveUpFindHeaderInAcbaCardExcelStmtAfterRows = 23
-	acbaCardStmtDateFormat = "01/02/2006"
-)
-
-const (
-	acbaCardXlsHeaders = "ԱմսաթիվԳումարԱրժույթՄուտքԵլքԿիրառվող փոխարժեքՀաշվի վերջնական մնացորդԳործարքի նկարագրություն"
+	giveUpFindHeaderInAcbaCardExcelStmtAfterRows = 27
+	acbaCardStmtDateFormat                       = "02.01.2006"
+	acbaCardAccountCellPrefix                    = "Հաշվի համար:  "
+	acbaCardCurrencyCellPrefix                   = "Հաշվի արժույթ:  "
+	// acbaCardXlsHeaders is the header row for transaction data
+	acbaCardXlsHeaders        = "Գործարքի ամսաթիվԳործարքի գումարըԱրժույթՄուտքԵլք"
+	acbaCardFinishRowContains = "ՎԱՍՏԱԿԱԾ ԵԿԱՄՈՒՏՆԵՐ ԵՎ ԲՈՆՈՒՍՆԵՐ"
+	acbaCardFinishRow         = "Քաղվածքի վերջ"
 )
 
 type AcbaCardExcelFileParser struct {
@@ -24,88 +26,91 @@ type AcbaCardExcelFileParser struct {
 func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 	filePath string,
 ) ([]Transaction, error) {
-	f, err := xlsx.OpenFile(filePath)
+	f, err := xls.OpenFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 
 	// Find first sheet.
-	firstSheet := f.Sheets[0]
-	log.Println(i18n.T("file parsing first sheet s from n sheets", "file", filePath, "s", firstSheet.Name, "n", len(f.Sheets)))
+	firstSheet, err := f.GetSheet(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get first sheet: %w", err)
+	}
+	log.Println(i18n.T("file parsing first sheet s from n sheets", "file", filePath, "s", firstSheet.GetName(), "n", f.GetNumberSheets()))
 
-	// Parse myAmeriaStmtTransactions.
-	var myAmeriaStmtTransactions []MyAmeriaStmtTransaction
+	// Parse native transactions first.
+	var transactions []Transaction
 	var accountNumber = ""
 	var accountCurrency = ""
+	var source TransactionsSource
 	var isHeaderRowFound bool
-	var creditColumnIndex = -1
-	var creditAmdColumnIndex = -1
-	var debitColumnIndex = -1
-	var debitAmdColumnIndex = -1
-	for i, row := range firstSheet.Rows {
-		cells := row.Cells
-		if len(cells) < len(ameriaXlsHeaders) {
-			return nil, fmt.Errorf(
-				"%d row has only %d cells while need to find information for headers %v",
-				i, len(cells), ameriaXlsHeaders,
-			)
+	for i := 0; i <= firstSheet.GetNumberRows(); i++ {
+		row, err := firstSheet.GetRow(i)
+		if err != nil {
+			continue
 		}
-		// Find header row.
+
+		// Skip if row is empty.
+		if row == nil {
+			continue
+		}
+
+		// Find transactions header row first.
 		if !isHeaderRowFound {
-			if i > giveUpFindHeaderInAmeriaExcelStmtAfterRows {
+			if i > giveUpFindHeaderInAcbaCardExcelStmtAfterRows {
 				return nil, fmt.Errorf(
 					"after scanning %d rows can't find headers %v",
-					i, ameriaXlsHeaders,
+					i, acbaCardXlsHeaders,
 				)
 			}
 
+			// Concatenate all values into one big string.
+			var builder strings.Builder
+			for j := 0; j <= 40; j++ {
+				cell, err := row.GetCol(j)
+				if err != nil {
+					continue
+				}
+				cellValue := cell.GetString()
+				if cellValue != "" {
+					builder.WriteString(strings.TrimSpace(cellValue))
+				}
+			}
+			rowString := builder.String()
+
 			// Try to find account number and currency first.
 			if len(accountNumber) < 1 {
-				if cells[0].String() == "Account No" {
-					// Account number contains extra "'" character.
-					accountNumber = strings.Trim(cells[2].String(), "'")
+				if strings.Contains(rowString, acbaCardAccountCellPrefix) {
+					start := strings.Index(rowString, acbaCardAccountCellPrefix)
+					accountNumber = rowString[start+len(acbaCardAccountCellPrefix):]
+					// Extract just the account number (remove any trailing text)
+					if spaceIndex := strings.Index(accountNumber, " "); spaceIndex > 0 {
+						accountNumber = accountNumber[:spaceIndex]
+					}
 				}
 			}
 			if len(accountCurrency) < 1 {
-				// Currency is placed under "Overdraft current limit" and "Overdraft used amount" labels.
-				if cells[0].String() == "Overdraft current limit" {
-					// Currency cell contains extra spaces.
-					accountCurrency = strings.TrimSpace(cells[2].String())
+				if strings.Contains(rowString, acbaCardCurrencyCellPrefix) {
+					start := strings.Index(rowString, acbaCardCurrencyCellPrefix)
+					accountCurrency = rowString[start+len(acbaCardCurrencyCellPrefix):]
+					// Extract just the currency (remove any trailing text)
+					if spaceIndex := strings.Index(accountCurrency, " "); spaceIndex > 0 {
+						accountCurrency = accountCurrency[:spaceIndex]
+					}
 				}
 			}
 
-			var isCellMatches = true
-			for cellIndex, header := range ameriaXlsHeaders {
-				if strings.TrimSpace(cells[cellIndex].String()) != header {
-					isCellMatches = false
-					break
+			isHeaderRowFound = rowString == acbaCardXlsHeaders
+			if isHeaderRowFound {
+				if len(accountNumber) < 1 || len(accountCurrency) < 1 {
+					return nil, fmt.Errorf("can't find account number and/or currency down to row %d", i+1)
 				}
-			}
-			if isCellMatches {
-				isHeaderRowFound = true
-				// This row contains also headers for "Credit XXX" and "Debit XXX" columns.
-				// Search indexes of these columns.
-				for cellIndex, cell := range cells {
-					header := cell.String()
-					if header == "Credit "+accountCurrency {
-						creditColumnIndex = cellIndex
-						continue // Skip this row to avoid getting "creditAmdColumnIndex" set if account currency is AMD.
-					}
-					if header == "Credit AMD" {
-						creditAmdColumnIndex = cellIndex
-						continue
-					}
-					if header == "Debit "+accountCurrency {
-						debitColumnIndex = cellIndex
-						continue // Skip this row to avoid getting "debitAmdColumnIndex" set if account currency is AMD.
-					}
-					if header == "Debit AMD" {
-						debitAmdColumnIndex = cellIndex
-						continue
-					}
-				}
-				if creditColumnIndex == -1 && debitColumnIndex == -1 {
-					return nil, fmt.Errorf("%d row has no credit or debit columns", i)
+				source = TransactionsSource{
+					TypeName:        "Acba Card XLS statement",
+					Tag:             "AcbaCardExcel:" + accountCurrency,
+					FilePath:        filePath,
+					AccountNumber:   accountNumber,
+					AccountCurrency: accountCurrency,
 				}
 			}
 
@@ -113,100 +118,98 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 			continue
 		}
 
-		// Stop if row doesn't have enough cells or first cell is empty.
-		if len(cells) < len(ameriaXlsHeaders) || cells[0].String() == "" {
+		// Get cells.
+		cells := row.GetCols()
+		// Skip rows which don't have enough cells.
+		if len(cells) < 30 {
+			continue
+		}
+		dateStr := cells[2].GetString()
+
+		// Stop on "finish" rows.
+		if dateStr == acbaCardFinishRow || strings.Contains(dateStr, acbaCardFinishRowContains) {
 			break
 		}
 
-		// Parse date and amounts.
-		date, err := time.Parse(MyAmeriaStmtDateFormat, cells[0].String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse date from 1st cell of %d row: %w", i, err)
-		}
-		var creditAmount MoneyWith2DecimalPlaces
-		var creditAmdAmount MoneyWith2DecimalPlaces
-		var debitAmount MoneyWith2DecimalPlaces
-		var debitAmdAmount MoneyWith2DecimalPlaces
-		if creditColumnIndex != -1 && cells[creditColumnIndex].String() != "" {
-			err = creditAmount.ParseAmountWithoutLettersFromString(cells[creditColumnIndex].String())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", creditColumnIndex+1, i+1, err)
-			}
-		}
-		if creditAmdColumnIndex != -1 && cells[creditAmdColumnIndex].String() != "" {
-			err = creditAmdAmount.ParseAmountWithoutLettersFromString(cells[creditAmdColumnIndex].String())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse credit AMD amount from cell %d of %d row: %w", creditAmdColumnIndex+1, i+1, err)
-			}
-		}
-		if debitColumnIndex != -1 && cells[debitColumnIndex].String() != "" {
-			err = debitAmount.ParseAmountWithoutLettersFromString(cells[debitColumnIndex].String())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse debit amount from cell %d of %d row: %w", debitColumnIndex+1, i+1, err)
-			}
-		}
-		if debitAmdColumnIndex != -1 && cells[debitAmdColumnIndex].String() != "" {
-			err = debitAmdAmount.ParseAmountWithoutLettersFromString(cells[debitAmdColumnIndex].String())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse debit AMD amount from cell %d of %d row: %w", debitAmdColumnIndex+1, i+1, err)
-			}
-		}
-		// Build MyAmeria Statement transaction.
-		myAmeriaStmtTransactions = append(myAmeriaStmtTransactions, MyAmeriaStmtTransaction{
-			Date:                 date,
-			Account:              cells[1].String(),
-			RecipientOrSender:    cells[2].String(),
-			OperationType:        cells[3].String(),
-			Purpose:              cells[4].String(),
-			Currency:             accountCurrency,
-			CreditOriginCurrency: creditAmount,
-			CreditAMD:            creditAmdAmount,
-			DebitOriginCurrency:  debitAmount,
-			DebitAMD:             debitAmdAmount,
-		})
-	}
-
-	source := TransactionsSource{
-		TypeName:        "MyAmeria XLS statement",
-		Tag:             "MyAmeriaXls:" + accountCurrency,
-		FilePath:        filePath,
-		AccountNumber:   accountNumber,
-		AccountCurrency: accountCurrency,
-	}
-
-	// Convert MyAmeria rows to unified transactions and separate expenses from incomes.
-	// Keep AMD as "originCurrency" for case when account currency is AMD and values are provided in "Credit AMD" or "Debit AMD" columns.
-	transactions := make([]Transaction, 0, len(myAmeriaStmtTransactions))
-	for _, t := range myAmeriaStmtTransactions {
-		isExpense := false
-		amount := t.CreditOriginCurrency
-		originCurrencyAmount := t.CreditAMD
-		to := accountNumber
-		from := t.Account
-		// Expenses has value in "Debit XXX" columns, incomes has value in "Credit XXX" columns.
-		if t.DebitOriginCurrency.int > 0 || t.DebitAMD.int > 0 {
-			isExpense = true
-			to = t.Account
-			from = accountNumber
-			amount = t.DebitOriginCurrency
-			originCurrencyAmount = t.DebitAMD
-		}
-		// Skip transactions without any amount.
-		if amount.int == 0 && originCurrencyAmount.int == 0 {
+		// Skip rows without date cell.
+		if dateStr == "" {
 			continue
 		}
+
+		// Try to parse as string date
+		date, err := time.Parse(acbaCardStmtDateFormat, dateStr)
+		if err != nil {
+			// Skip rows without date.
+			continue
+		}
+
+		// Parse amount from cell 5 (amount cell).
+		amount := MoneyWith2DecimalPlaces{}
+		err = amount.ParseAmountWithoutLettersFromString(cells[5].GetString())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse amount from cell %d of %d row: %w", 5, i+1, err)
+		}
+
+		// Parse credit amount from cell 8 (credit amount cell).
+		creditAmount := MoneyWith2DecimalPlaces{}
+		creditStr := cells[8].GetString()
+		if creditStr != "" {
+			err = creditAmount.ParseAmountWithoutLettersFromString(creditStr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", 8, i+1, err)
+			}
+		}
+
+		// For card statements, debit is the transaction amount when it's an expense
+		debitAmount := MoneyWith2DecimalPlaces{}
+		if creditStr == "" {
+			// If no credit amount, this is a debit (expense)
+			debitAmount = amount
+		}
+
+		// Build "details" from "Transaction description" and "Transaction place" values.
+		details := cells[23].GetString() + " " + cells[29].GetString()
+		// Trim trailing comma with LF and spaces.
+		details = strings.Trim(details, ",\n")
+		details = strings.TrimSpace(details)
+
+		// Determine if transaction is expense or income.
+		currency := cells[6].GetString() // Currency is in column 6
+		isExpense := false
+		from := accountNumber
+		to := ""
+		originCurrencyAmount := creditAmount
+		if debitAmount.int != 0 {
+			isExpense = true
+			from = accountNumber
+			to = ""
+			originCurrencyAmount = MoneyWith2DecimalPlaces{int: -debitAmount.int}
+		}
+
+		// Clear "origin currency" fields if account currency is used.
+		originCurrency := currency
+		if currency == accountCurrency {
+			originCurrency = ""
+			originCurrencyAmount = MoneyWith2DecimalPlaces{int: 0}
+		}
+
+		// Build native transaction.
 		transactions = append(transactions, Transaction{
-			IsExpense:            isExpense,
-			Date:                 t.Date,
-			Details:              t.Purpose,
-			Source:               &source,
-			AccountCurrency:      accountCurrency,
-			Amount:               amount,
-			OriginCurrency:       t.Currency,
-			OriginCurrencyAmount: originCurrencyAmount,
+			Date:                 date,
 			FromAccount:          from,
 			ToAccount:            to,
+			IsExpense:            isExpense,
+			Amount:               amount,
+			AccountCurrency:      accountCurrency,
+			Details:              details,
+			OriginCurrency:       originCurrency,
+			OriginCurrencyAmount: originCurrencyAmount,
+			Source:               &source,
 		})
+	}
+
+	if !isHeaderRowFound {
+		return nil, fmt.Errorf("after scanning %d rows can't find headers %v", firstSheet.GetNumberRows(), acbaCardXlsHeaders)
 	}
 
 	return transactions, nil

@@ -12,8 +12,8 @@ import (
 const (
 	giveUpFindHeaderInAcbaAccountExcelStmtAfterRows = 23
 	acbaAccountStmtDateFormat                       = "2006-01-02T15:04:05Z"
-	acbaAccountCellPrefix                           = "Հաշվի համար՝ "
-	acbaCurrencyCellPrefix                          = "Հաշվի արժույթ՝ "
+	acbaAccountAccountCellPrefix                    = "Հաշվի համար՝ "
+	acbaAccountCurrencyCellPrefix                   = "Հաշվի արժույթ՝ "
 	acbaAccountXlsHeaders                           = "ԱմսաթիվԳումարԱրժույթՄուտքԵլք"
 	acbaAccountFinishRowContains                    = "... ..."
 	acbaAccountFinishRow                            = "Քաղվածքի վերջ"
@@ -58,7 +58,7 @@ func (p AcbaRegularAccountExcelFileParser) ParseRawTransactionsFromFile(
 		if !isHeaderRowFound {
 			if i > giveUpFindHeaderInAcbaAccountExcelStmtAfterRows {
 				return nil, fmt.Errorf(
-					"after scanning %d rows can't find headers %v",
+					"after scanning %d rows can't find headers '%s'",
 					i, acbaAccountXlsHeaders,
 				)
 			}
@@ -79,9 +79,9 @@ func (p AcbaRegularAccountExcelFileParser) ParseRawTransactionsFromFile(
 
 			// Try to find account number and currency first.
 			if len(accountNumber) < 1 {
-				if strings.Contains(rowString, acbaAccountCellPrefix) {
-					start := strings.Index(rowString, acbaAccountCellPrefix)
-					accountNumber = rowString[start+len(acbaAccountCellPrefix):]
+				if strings.Contains(rowString, acbaAccountAccountCellPrefix) {
+					start := strings.Index(rowString, acbaAccountAccountCellPrefix)
+					accountNumber = rowString[start+len(acbaAccountAccountCellPrefix):]
 					// Extract just the account number (remove any trailing text)
 					if spaceIndex := strings.Index(accountNumber, " "); spaceIndex > 0 {
 						accountNumber = accountNumber[:spaceIndex]
@@ -89,9 +89,9 @@ func (p AcbaRegularAccountExcelFileParser) ParseRawTransactionsFromFile(
 				}
 			}
 			if len(accountCurrency) < 1 {
-				if strings.Contains(rowString, acbaCurrencyCellPrefix) {
-					start := strings.Index(rowString, acbaCurrencyCellPrefix)
-					accountCurrency = rowString[start+len(acbaCurrencyCellPrefix):]
+				if strings.Contains(rowString, acbaAccountCurrencyCellPrefix) {
+					start := strings.Index(rowString, acbaAccountCurrencyCellPrefix)
+					accountCurrency = rowString[start+len(acbaAccountCurrencyCellPrefix):]
 					// Extract just the currency (remove any trailing text)
 					if spaceIndex := strings.Index(accountCurrency, " "); spaceIndex > 0 {
 						accountCurrency = accountCurrency[:spaceIndex]
@@ -101,6 +101,9 @@ func (p AcbaRegularAccountExcelFileParser) ParseRawTransactionsFromFile(
 
 			isHeaderRowFound = rowString == acbaAccountXlsHeaders
 			if isHeaderRowFound {
+				if len(accountNumber) < 1 || len(accountCurrency) < 1 {
+					return nil, fmt.Errorf("can't find account number and/or currency down to row %d", i+1)
+				}
 				source = TransactionsSource{
 					TypeName:        "Acba Regular Account XLS statement",
 					Tag:             "AcbaAccountExcel:" + accountCurrency,
@@ -116,7 +119,7 @@ func (p AcbaRegularAccountExcelFileParser) ParseRawTransactionsFromFile(
 
 		// Get cells.
 		cells := row.GetCols()
-		// Stop if row doesn't have enough cells.
+		// Skip rows which don't have enough cells.
 		if len(cells) < 13 {
 			continue
 		}
@@ -220,6 +223,10 @@ func (p AcbaRegularAccountExcelFileParser) ParseRawTransactionsFromFile(
 			OriginCurrencyAmount: originCurrencyAmount,
 			Source:               &source,
 		})
+	}
+
+	if !isHeaderRowFound {
+		return nil, fmt.Errorf("after scanning %d rows can't find headers '%s'", firstSheet.GetNumberRows(), acbaAccountXlsHeaders)
 	}
 
 	return transactions, nil

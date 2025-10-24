@@ -24,6 +24,9 @@ ardshinbankXlsxFilesGlob: STATEMENT_*.xlsx
 # Write "glob" template to your Acba Regular Account XLS files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 acbaRegularAccountXlsFilesGlob: AccountStatement*.xls
+# Write "glob" template to your Acba Card XLS files.
+# Glob supports wildcard "star" (*) which replaces any substring in the path.
+acbaCardXlsFilesGlob: CardStatement*.xls
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 genericCsvFilesGlob: generic*.csv

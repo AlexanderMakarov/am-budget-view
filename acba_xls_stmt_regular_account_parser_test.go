@@ -2,7 +2,7 @@ package main
 
 import (
 	"path/filepath"
-	// "strings"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,48 +71,53 @@ func TestAcbaRegularAccountExcelFileParser_ParseRawTransactionsFromFile_Valid(t 
 	}
 }
 
-// func TestAcbaRegularAccountXlsxFileParser_ParseRawTransactionsFromFile_Errors(t *testing.T) {
+func TestAcbaRegularAccountExcelFileParser_ParseRawTransactionsFromFile_NoData(t *testing.T) {
+	validFilePath := filepath.Join("testdata", "acba", "no_transactions_and_finish_text_account.xls")
+	transactions, err := AcbaRegularAccountExcelFileParser{}.ParseRawTransactionsFromFile(validFilePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	} else if len(transactions) != 0 {
+		t.Errorf("expected 0 transactions, got %d", len(transactions))
+	}
+}
 
-// 	tests := []struct {
-// 		fileName     string
-// 		errorMessage string
-// 	}{
-// 		{
-// 			fileName:      "no_data",
-// 			errorMessage:  "can't find sheet with name 'Account ENG'",
-// 		},
-// 		{
-// 			fileName:     "no_account_number",
-// 			errorMessage: "failed to find any data in the file",
-// 		},
-// 		{
-// 			fileName:     "no_account_currency",
-// 			errorMessage: "failed to parse account currency under label 'Account currency: ' after transactions header is found in 12 row",
-// 		},
-// 		{
-// 			fileName:     "no_header_row",
-// 			errorMessage: "after scanning 29 rows can't find both headers 'TransactionTransaction amount in card currencyExchange rateDrawn-down dateClosing balanceSender/ReceiverTransaction details' and 'DateAmountCurrencyCreditsDebits'",
-// 		},
-// 		{
-// 			fileName:     "transaction_without_debit_and_credit",
-// 			errorMessage: "failed to parse amount from cell 4 of 17 row: strconv.ParseFloat: parsing \"\": invalid syntax",
-// 		},
-// 		{
-// 			fileName:     "transaction_without_account_number_in_senderreceiver",
-// 			errorMessage: "failed to parse peer's account number from 16 row: *ARCA something",
-// 		},
-// 	}
+func TestAcbaRegularAccountXlsxFileParser_ParseRawTransactionsFromFile_Errors(t *testing.T) {
+	tests := []struct {
+		fileName     string
+		errorMessage string
+	}{
+		{
+			fileName:     "no_data_account",
+			errorMessage: "after scanning 19 rows can't find headers 'ԱմսաթիվԳումարԱրժույթՄուտքԵլք'",
+		},
+		{
+			fileName:     "no_account_number_account",
+			errorMessage: "can't find account number and/or currency down to row 13",
+		},
+		{
+			fileName:     "no_account_currency_account",
+			errorMessage: "can't find account number and/or currency down to row 13",
+		},
+		{
+			fileName:     "no_header_row_account",
+			errorMessage: "after scanning 24 rows can't find headers 'ԱմսաթիվԳումարԱրժույթՄուտքԵլք'",
+		},
+		{
+			fileName:     "transaction_without_debit_and_credit_account",
+			errorMessage: "failed to parse debit amount from cell 6 of 22 row: invalid money format: ''",
+		},
+	}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.fileName, func(t *testing.T) {
-// 			parser := ArdshinXlsxFileParser{}
-// 			filePath := filepath.Join("testdata", "ardshin", tt.fileName+".xlsx")
-// 			_, err := parser.ParseRawTransactionsFromFile(filePath)
-// 			if err == nil {
-// 				t.Errorf("expected error, got nil")
-// 			} else if !strings.Contains(err.Error(), tt.errorMessage) {
-// 				t.Errorf("expected error containing %q, got %v", tt.errorMessage, err)
-// 			}
-// 		})
-// 	}
-// }
+	for _, tt := range tests {
+		t.Run(tt.fileName, func(t *testing.T) {
+			parser := AcbaRegularAccountExcelFileParser{}
+			filePath := filepath.Join("testdata", "acba", tt.fileName+".xls")
+			_, err := parser.ParseRawTransactionsFromFile(filePath)
+			if err == nil {
+				t.Errorf("expected error, got nil")
+			} else if !strings.Contains(err.Error(), tt.errorMessage) {
+				t.Errorf("expected error containing %q, got %v", tt.errorMessage, err)
+			}
+		})
+	}
+}

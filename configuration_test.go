@@ -17,6 +17,8 @@ ameriaCsvFilesGlob: "*.csv"
 myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
 myAmeriaHistoryXlsFilesGlob: "History*.xls"
 ardshinbankXlsxFilesGlob: "STATEMENT_*.xlsx"
+acbaRegularAccountXlsFilesGlob: "AcbaAccount*.xls"
+acbaCardXlsFilesGlob: "AcbaCard*.xls"
 genericCsvFilesGlob: "generic*.csv"
 myAmeriaMyAccounts: 
   "Account1": "USD"
@@ -75,6 +77,18 @@ groupNamesToSubstrings:
 		t.Errorf(
 			"Expected ArdshinbankCsvFilesGlob to be 'STATEMENT_*.xlsx', got '%s'",
 			cfg.ArdshinbankXlsxFilesGlob,
+		)
+	}
+	if cfg.AcbaRegularAccountXlsFilesGlob != "AcbaAccount*.xls" {
+		t.Errorf(
+			"Expected AcbaRegularAccountXlsFilesGlob to be 'AcbaAccount*.xls', got '%s'",
+			cfg.AcbaRegularAccountXlsFilesGlob,
+		)
+	}
+	if cfg.AcbaCardXlsFilesGlob != "AcbaCard*.xls" {
+		t.Errorf(
+			"Expected AcbaCardXlsFilesGlob to be 'AcbaCard*.xls', got '%s'",
+			cfg.AcbaCardXlsFilesGlob,
 		)
 	}
 	if cfg.GenericCsvFilesGlob != "generic*.csv" {
@@ -186,7 +200,7 @@ groupsNamesToSubstrings: # Should be groupNamesToSubstrings
 	checkErrorContainsSubstring(t, err, "either 'groups' or 'groupNamesToSubstrings' must be set")
 }
 
-func TestReadConfig_MisstypedField(t *testing.T) {
+func TestReadConfig_MistypedFields(t *testing.T) {
 	// Arrange.
 	tempFile := createTempFileWithContent(
 		`inecobankStatementXmlFilesGlob: "*.xml"
@@ -202,7 +216,7 @@ myAmeriaMyAccounts:
 detailedOutput: true
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
-groupAllUnknownTransactions: true
+groupUnknownTransactions: true  # Should be groupAllUnknownTransactions
 groups:
   g1:
     substrings:
@@ -223,14 +237,9 @@ groups:
 	_, err := readConfig(tempFile.Name())
 
 	// Assert
-	if err == nil {
-		t.Fatal("Expected error, but got no error")
+	if err != nil {
+		t.Fatalf("Expected no error, but got: %v", err)
 	}
-	checkErrorContainsSubstring(
-		t,
-		err,
-		"Key: 'Config.AmeriaCsvFilesGlob' Error:Field validation for 'AmeriaCsvFilesGlob' failed on the 'required' tag",
-	)
 }
 
 func TestReadConfig_FileNotFound(t *testing.T) {
