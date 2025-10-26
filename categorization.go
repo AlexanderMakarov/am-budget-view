@@ -32,20 +32,6 @@ func NewCategorization(config *Config) (*Categorization, error) {
 		toAccountToGroupConfig:        make(map[string]*groupConfigWithName),
 	}
 
-	// Fill up config.Groups with legacy GroupNamesToSubstrings.
-	// TODO: Remove on next minor version.
-	if config.Groups == nil {
-		config.Groups = make(map[string]*GroupConfig)
-	}
-	for groupName, substrings := range config.GroupNamesToSubstrings {
-		groupConfig := config.Groups[groupName]
-		if groupConfig == nil {
-			groupConfig = &GroupConfig{}
-			config.Groups[groupName] = groupConfig
-		}
-		groupConfig.Substrings = append(groupConfig.Substrings, substrings...)
-	}
-
 	// Handle new Groups format.
 	for groupName, group := range config.Groups {
 		groupCopy := &groupConfigWithName{
@@ -86,10 +72,6 @@ func NewCategorization(config *Config) (*Categorization, error) {
 			c.toAccountToGroupConfig[toAccount] = groupCopy
 		}
 	}
-
-	// Remove old GroupNamesToSubstrings.
-	// TODO: Remove on next minor version.
-	config.GroupNamesToSubstrings = nil
 
 	return c, nil
 }

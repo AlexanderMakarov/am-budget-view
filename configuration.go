@@ -60,8 +60,6 @@ type Config struct {
 	MonthStartDayNumber                  uint              `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
 	TimeZoneLocation                     string            `yaml:"timeZoneLocation,omitempty"`
 	GroupAllUnknownTransactions          bool              `yaml:"groupAllUnknownTransactions"`
-	// OUTDATED - leave here for backward compatibility.
-	GroupNamesToSubstrings map[string][]string `yaml:"groupNamesToSubstrings,omitempty"`
 	// Transactions categorization groups.
 	Groups map[string]*GroupConfig `yaml:"groups,omitempty"`
 }
@@ -107,9 +105,9 @@ func readConfig(filename string) (*Config, error) {
 		return nil, fmt.Errorf("invalid timezone location '%s': %w", cfg.TimeZoneLocation, err)
 	}
 
-	// Check either Groups or GroupNamesToSubstrings is set
-	if len(cfg.Groups) == 0 && len(cfg.GroupNamesToSubstrings) == 0 {
-		return nil, fmt.Errorf("either 'groups' or 'groupNamesToSubstrings' must be set")
+	// Check that Groups is set
+	if len(cfg.Groups) == 0 {
+		return nil, fmt.Errorf("'groups' must be set")
 	}
 
 	// Validate other fields
@@ -181,66 +179,6 @@ func mergeComments(newNode, oldNode *yaml.Node) {
 
 	// Recursively merge comments for mapping nodes
 	if len(newNode.Content) > 0 && len(oldNode.Content) > 0 {
-		// Special handling for groups and groupNamesToSubstrings
-		if newNode.Kind == yaml.MappingNode {
-			var groupsNode, oldGroupsToSubstringsNode *yaml.Node
-
-			// Find the relevant nodes
-			for i := 0; i < len(newNode.Content); i += 2 {
-				if newNode.Content[i].Value == "groups" {
-					groupsNode = newNode.Content[i+1]
-				}
-			}
-			for i := 0; i < len(oldNode.Content); i += 2 {
-				if oldNode.Content[i].Value == "groupNamesToSubstrings" {
-					oldGroupsToSubstringsNode = oldNode.Content[i+1]
-				}
-			}
-
-			// If we found both nodes, merge comments from groupNamesToSubstrings to groups.substrings
-			if groupsNode != nil && oldGroupsToSubstringsNode != nil &&
-				groupsNode.Kind == yaml.MappingNode && oldGroupsToSubstringsNode.Kind == yaml.MappingNode {
-				for i := 0; i < len(groupsNode.Content); i += 2 {
-					groupName := groupsNode.Content[i].Value
-					groupConfig := groupsNode.Content[i+1]
-
-					// Find corresponding old substrings
-					for j := 0; j < len(oldGroupsToSubstringsNode.Content); j += 2 {
-						if oldGroupsToSubstringsNode.Content[j].Value == groupName {
-							oldSubstrings := oldGroupsToSubstringsNode.Content[j+1]
-
-							// Find substrings field in new group config
-							for k := 0; k < len(groupConfig.Content); k += 2 {
-								if groupConfig.Content[k].Value == "substrings" {
-									newSubstrings := groupConfig.Content[k+1]
-
-									// Only merge comments for the actual substring elements
-									if oldSubstrings.Kind == yaml.SequenceNode && newSubstrings.Kind == yaml.SequenceNode {
-										// Clear any comments that might have been incorrectly propagated
-										newSubstrings.HeadComment = ""
-										newSubstrings.LineComment = ""
-										newSubstrings.FootComment = ""
-										groupConfig.Content[k].HeadComment = ""
-										groupConfig.Content[k].LineComment = ""
-										groupConfig.Content[k].FootComment = ""
-
-										// Copy comments directly from old sequence elements to new ones
-										for l := 0; l < len(newSubstrings.Content) && l < len(oldSubstrings.Content); l++ {
-											newSubstrings.Content[l].HeadComment = oldSubstrings.Content[l].HeadComment
-											newSubstrings.Content[l].LineComment = oldSubstrings.Content[l].LineComment
-											newSubstrings.Content[l].FootComment = oldSubstrings.Content[l].FootComment
-										}
-									}
-									break
-								}
-							}
-							break
-						}
-					}
-				}
-			}
-		}
-
 		// Continue with regular comment merging for other nodes
 		for i := 0; i < len(newNode.Content) && i < len(oldNode.Content); i++ {
 			mergeComments(newNode.Content[i], oldNode.Content[i])

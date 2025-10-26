@@ -56,7 +56,7 @@ categorizeMode: false
 # Sometimes it makes sense to analyze month from the "salary day".
 monthStartDayNumber: 1
 # Flag to aggregate all transactions with "Details" not matched with "substrings"
-# from 'groupNamesToSubstrings' below into single group with name "Unknown".
+# from 'groups' below into single group with name "Unknown".
 # Otherwise unknown transactions create new categories with "Details" value name.
 groupAllUnknownTransactions: true
 # Groups of categories to match transactions by.

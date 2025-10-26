@@ -28,12 +28,14 @@ categorizeMode: false
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
 groupAllUnknownTransactions: true
-groupNamesToSubstrings:
+groups:
   g1:
-    - Sub1
-    - Sub2
+    substrings:
+      - Sub1
+      - Sub2
   g2:
-    - Sub3
+    substrings:
+      - Sub3
 `,
 	)
 	defer os.Remove(tempFile.Name())
@@ -118,10 +120,10 @@ groupNamesToSubstrings:
 	if !cfg.GroupAllUnknownTransactions {
 		t.Error("Expected GroupAllUnknownTransactions to be true")
 	}
-	if len(cfg.GroupNamesToSubstrings) != 2 || len(cfg.GroupNamesToSubstrings["g1"]) != 2 || cfg.GroupNamesToSubstrings["g1"][0] != "Sub1" || cfg.GroupNamesToSubstrings["g1"][1] != "Sub2" || len(cfg.GroupNamesToSubstrings["g2"]) != 1 || cfg.GroupNamesToSubstrings["g2"][0] != "Sub3" {
+	if len(cfg.Groups) != 2 || len(cfg.Groups["g1"].Substrings) != 2 || cfg.Groups["g1"].Substrings[0] != "Sub1" || cfg.Groups["g1"].Substrings[1] != "Sub2" || len(cfg.Groups["g2"].Substrings) != 1 || cfg.Groups["g2"].Substrings[0] != "Sub3" {
 		t.Errorf(
-			"Expected GroupNamesToSubstrings to have correct mappings, got '%v'",
-			cfg.GroupNamesToSubstrings,
+			"Expected Groups to have correct mappings, got '%v'",
+			cfg.Groups,
 		)
 	}
 }
@@ -143,12 +145,14 @@ detailedOutput: true
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
 groupAllUnknownTransactions: true
-groupNamesToSubstrings:
+groups:
   g1:
-    - Sub1
-    - Sub2
+    substrings:
+      - Sub1
+      - Sub2
   g2:
-    - Sub3
+    substrings:
+      - Sub3
 `,
 	)
 	defer os.Remove(tempFile.Name())
@@ -164,7 +168,7 @@ groupNamesToSubstrings:
 }
 
 func TestReadConfig_GroupsNotSpecified(t *testing.T) {
-	// Arrange. Note that both "groupNamesToSubstrings" and "groups" are not specified.
+	// Arrange. Note that "groups" is not specified.
 	tempFile := createTempFileWithContent(
 		`inecobankStatementXmlFilesGlob: "*.xml"
 inecobankStatementXlsxFilesGlob: "*.xlsx"
@@ -180,12 +184,6 @@ detailedOutput: true
 monthStartDayNumber: 1
 timeZoneLocation: "America/New_York"
 groupAllUnknownTransactions: true
-groupsNamesToSubstrings: # Should be groupNamesToSubstrings
-  g1:
-    - Sub1
-    - Sub2
-  g2:
-    - Sub3
 `,
 	)
 	defer os.Remove(tempFile.Name())
@@ -197,7 +195,7 @@ groupsNamesToSubstrings: # Should be groupNamesToSubstrings
 	if err == nil {
 		t.Fatal("Expected error, but got no error")
 	}
-	checkErrorContainsSubstring(t, err, "either 'groups' or 'groupNamesToSubstrings' must be set")
+	checkErrorContainsSubstring(t, err, "'groups' must be set")
 }
 
 func TestReadConfig_MistypedFields(t *testing.T) {
@@ -270,7 +268,7 @@ func TestReadConfig_EmptyFile(t *testing.T) {
 	checkErrorContainsSubstring(
 		t,
 		err,
-		"either 'groups' or 'groupNamesToSubstrings' must be set",
+		"'groups' must be set",
 	)
 }
 
@@ -285,12 +283,14 @@ myAmeriaHistoryXlsFilesGlob: "History*.xls"
 genericCsvFilesGlob: "generic*.csv"
 detailedOutput: false
 groupAllUnknownTransactions: true
-groupNamesToSubstrings:
+groups:
   g1:
-    - Sub1
-    - Sub2
+    substrings:
+      - Sub1
+      - Sub2
   g2:
-    - Sub3
+    substrings:
+      - Sub3
 `,
 	)
 	defer os.Remove(tempFile.Name())
@@ -355,10 +355,10 @@ groupNamesToSubstrings:
 	if !cfg.GroupAllUnknownTransactions {
 		t.Error("Expected GroupAllUnknownTransactions to be true")
 	}
-	if len(cfg.GroupNamesToSubstrings) != 2 || len(cfg.GroupNamesToSubstrings["g1"]) != 2 || cfg.GroupNamesToSubstrings["g1"][0] != "Sub1" || cfg.GroupNamesToSubstrings["g1"][1] != "Sub2" || len(cfg.GroupNamesToSubstrings["g2"]) != 1 || cfg.GroupNamesToSubstrings["g2"][0] != "Sub3" {
+	if len(cfg.Groups) != 2 || len(cfg.Groups["g1"].Substrings) != 2 || cfg.Groups["g1"].Substrings[0] != "Sub1" || cfg.Groups["g1"].Substrings[1] != "Sub2" || len(cfg.Groups["g2"].Substrings) != 1 || cfg.Groups["g2"].Substrings[0] != "Sub3" {
 		t.Errorf(
-			"Expected GroupNamesToSubstrings to have correct mappings, got '%v'",
-			cfg.GroupNamesToSubstrings,
+			"Expected Groups to have correct mappings, got '%v'",
+			cfg.Groups,
 		)
 	}
 }
@@ -475,11 +475,12 @@ categorizeMode: false
 monthStartDayNumber: 1
 timeZoneLocation: America/New_York
 groupAllUnknownTransactions: true
-groupNamesToSubstrings:
+groups:
   # Before group comment
   g1:
-    - Sub1 # Group element comment
-    - Sub2
+    substrings:
+      - Sub1 # Group element comment
+      - Sub2
 `
 	// Note that comments are preserved with following limitations:
 	// - Optional fields will be added with default values.
