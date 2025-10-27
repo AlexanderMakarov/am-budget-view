@@ -238,15 +238,16 @@ func main() {
 
 	// Start web server if needed.
 	if args.ResultMode == OPEN_MODE_WEB {
+		url := fmt.Sprintf("http://localhost:%d", dataHandler.Config.UIPort)
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Give the server a moment to start.
-			err := openBrowser("http://localhost:" + WEB_PORT)
+			err := openInOS(url)
 			if err != nil {
-				log.Println(i18n.T("Failed to open browser", "err", err))
+				log.Println(i18n.T("Failed to open UI in web browser", "err", err))
 			}
 		}()
 
-		log.Println(i18n.T("Starting local web server on urlport", "port", WEB_PORT))
+		log.Println(i18n.T("Starting local web server on urlport", "urlport", url))
 		err := ListenAndServe(dataHandler)
 		if err != nil {
 			fatalError(

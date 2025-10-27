@@ -104,7 +104,7 @@ func ListenAndServe(dataHandler *DataHandler) error {
 	loggedMux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// Create a custom ResponseWriter to capture the status code
+		// Create a custom ResponseWriter to capture the status code.
 		lw := &logWriter{ResponseWriter: w}
 		http.DefaultServeMux.ServeHTTP(lw, r)
 		duration := time.Since(start)
@@ -112,9 +112,9 @@ func ListenAndServe(dataHandler *DataHandler) error {
 	})
 
 	if devMode {
-		log.Println("Running in development mode - serving static files from filesystem")
+		log.Println("Running in development mode - serving static files directly from filesystem")
 	}
-	return http.ListenAndServe(":8080", loggedMux)
+	return http.ListenAndServe(fmt.Sprintf(":%d", dataHandler.Config.UIPort), loggedMux)
 }
 
 func handleIndex(dataHandler *DataHandler) func(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +409,7 @@ func handleOpenFile() http.HandlerFunc {
 			return
 		}
 
-		if err := openFileInOS(filePath); err != nil {
+		if err := openInOS(filePath); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

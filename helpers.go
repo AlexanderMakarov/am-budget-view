@@ -20,20 +20,22 @@ func getFilesByGlob(glob string) ([]string, error) {
 	return files, nil
 }
 
-// openBrowser opens the specified URL in the default web browser.
-func openBrowser(url string) error {
-	var err error
+// openInOS opens a file or URL in the OS-specific default application.
+func openInOS(path string) error {
+	var cmd *exec.Cmd
+
 	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
+	case "linux", "android", "freebsd", "openbsd", "netbsd", "dragonfly", "solaris", "illumos":
+		cmd = exec.Command("xdg-open", path)
 	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
+	case "darwin", "ios":
+		cmd = exec.Command("open", path)
 	default:
-		err = errors.New(i18n.T("unsupported platform"))
+		return errors.New(i18n.T("unsupported operating system os", "os", runtime.GOOS))
 	}
-	return err
+
+	return cmd.Start()
 }
 
 // fatalError handles fatal errors and logs them.
@@ -51,27 +53,10 @@ func writeAndOpenFile(resultFilePath, content string, openFile bool) {
 		log.Fatalf("Can't write result file into %s: %#v", resultFilePath, err)
 	}
 	if openFile {
-		if err := openFileInOS(resultFilePath); err != nil {
+		if err := openInOS(resultFilePath); err != nil {
 			log.Fatalf("Can't open result file %s: %#v", resultFilePath, err)
 		}
 	}
-}
-
-// openFileInOS opens file in OS-specific viewer.
-func openFileInOS(url string) error {
-	var err error
-
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = errors.New(i18n.T("unsupported platform"))
-	}
-	return err
 }
 
 // parseTransactionsOfOneType parses transactions from files of one type by one glob pattern.

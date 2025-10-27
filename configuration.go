@@ -41,6 +41,7 @@ type GroupConfig struct {
 type Config struct {
 	Language                             string            `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
 	EnsureTerminal                       bool              `yaml:"ensureTerminal,omitempty" default:"true"`
+	UIPort                               int               `yaml:"uiPort,omitempty" default:"8080"`
 	InecobankStatementXmlFilesGlob       string            `yaml:"inecobankStatementXmlFilesGlob" validate:"omitempty,filepath,min=1"`
 	InecobankStatementXlsxFilesGlob      string            `yaml:"inecobankStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
 	AmeriaCsvFilesGlob                   string            `yaml:"ameriaCsvFilesGlob" validate:"omitempty,filepath,min=1"`
@@ -55,6 +56,7 @@ type Config struct {
 	ConvertToCurrencies                  []string          `yaml:"convertToCurrencies,omitempty"`
 	MinCurrencyTimespanPercent           int               `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
 	MaxCurrencyTimespanGapsDays          int               `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
+
 	DetailedOutput                       bool              `yaml:"detailedOutput"`
 	CategorizeMode                       bool              `yaml:"categorizeMode"`
 	MonthStartDayNumber                  uint              `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`

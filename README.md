@@ -469,9 +469,9 @@ It would replace files in `demo` folder.
 - [x] Add zoom to main diagrams (when multiple years are shown). Default 1 year.
 - [x] Add demo files to allow fast "try for myself".
 - [x] Explain in README.md `ameria_xls_stmt_parser.go` logic (outdated, for backwards compatibility, explain other MyAmeria/Ameria Business files (un)support details.
-- [ ] (wait response from bank on relevant issue) Handle MyAmeria "History" file bug with wrong month number (8 for September).
-- [ ] Add ACBA bank support (Armenian files due to more data in them).
+- [x] Add ACBA bank support (Armenian files due to more data in them).
 - [ ] Add config-based rates (https://github.com/AlexanderMakarov/am-budget-view/issues/8)
+- [ ] (wait response from bank on relevant issue) Handle MyAmeria "History" file bug with wrong month number (8 for September).
 - [ ] Add Russian translation for '## List of supported banks, file formats and relevant notes' section in README.md.
 - [ ] Record new video(s) with instructions.
 - [ ] Download account statements from Ameria Business and Inecobank via Playwright.
