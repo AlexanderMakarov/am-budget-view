@@ -59,11 +59,11 @@ monthStartDayNumber: 1
 # from 'groups' below into single group with name "Unknown".
 # Otherwise unknown transactions create new categories with "Details" value name.
 groupAllUnknownTransactions: true
-# Groups of categories to match transactions by.
-# May contain following keys:
+# Groups of transactions categories in format "groups:<group name>:<field type>:<values>".
+# Supported following field types:
 # - substrings: List of substrings to search in transaction's "Details" field.
-# - fromAccounts: List of accounts to match in "From Account" field.
-# - toAccounts: List of accounts to match in "To Account" field.
+# - fromAccounts: List of account numbers to match in "From Account" field.
+# - toAccounts: List of account numbers to match in "To Account" field.
 groups:
   Cash:
     substrings:

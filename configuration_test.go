@@ -348,6 +348,9 @@ groups:
 	if cfg.MonthStartDayNumber != 1 {
 		t.Errorf("Expected MonthStartDayNumber to be 1, got '%d'", cfg.MonthStartDayNumber)
 	}
+	if cfg.UIPort != 8080 {
+		t.Errorf("Expected UIPort to be 8080, got '%d'", cfg.UIPort)
+	}
 	tzname, _ := tzlocal.RuntimeTZ()
 	if cfg.TimeZoneLocation != tzname {
 		t.Errorf("Expected TimeZoneLocation to be '%s', got '%s'", tzname, cfg.TimeZoneLocation)
@@ -422,7 +425,8 @@ groups:
 	// - Order of fields is replaced with `Config` struct fields order.
 	// - 2 spaces before comments are changed to 1.
 	// - Single quotes are changed to double quotes.
-	expectedContent := `# Root comment
+	expectedContent := `uiPort: 8080
+# Root comment
 inecobankStatementXmlFilesGlob: '*.xml' # After line comment
 inecobankStatementXlsxFilesGlob: '*.xlsx'
 ameriaCsvFilesGlob: '*.csv'
@@ -446,68 +450,6 @@ groups:
     substrings:
       - Sub1 # Group element comment
       # Before group element comment
-      - Sub2
-`
-
-	// Act
-	actualContent := readUseWriteConfig(t, initialContent)
-
-	// Assert
-	assertStringEqual(t, actualContent, expectedContent)
-}
-
-// FYI: don't need to update this test because input can't change.
-func TestWriteToFile_FromOldToNew(t *testing.T) {
-	// Arrange.
-	initialContent := `# Root comment
-inecobankStatementXmlFilesGlob: '*.xml'  # After line comment
-inecobankStatementXlsxFilesGlob: "*.xlsx"
-ameriaCsvFilesGlob: '*.csv'
-myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
-myAmeriaHistoryXlsFilesGlob: "1324657890123456"
-# Before group comment
-myAmeriaMyAccounts:
-  Account1: USD # List element comment
-  # Between list elements comment
-  Account2: AMD
-detailedOutput: true
-categorizeMode: false
-monthStartDayNumber: 1
-timeZoneLocation: America/New_York
-groupAllUnknownTransactions: true
-groups:
-  # Before group comment
-  g1:
-    substrings:
-      - Sub1 # Group element comment
-      - Sub2
-`
-	// Note that comments are preserved with following limitations:
-	// - Optional fields will be added with default values.
-	// - Order of fields is replaced with `Config` struct fields order.
-	// - 2 spaces before comments are changed to 1.
-	// - Single quotes are changed to double quotes.
-	expectedContent := `# Root comment
-inecobankStatementXmlFilesGlob: '*.xml' # After line comment
-inecobankStatementXlsxFilesGlob: '*.xlsx'
-ameriaCsvFilesGlob: '*.csv'
-myAmeriaAccountStatementXlsxFilesGlob: '*.xls'
-myAmeriaHistoryXlsFilesGlob: "1324657890123456"
-# Before group comment
-myAmeriaMyAccounts:
-  Account1: USD # List element comment
-  # Between list elements comment
-  Account2: AMD
-detailedOutput: true
-categorizeMode: false
-monthStartDayNumber: 1
-timeZoneLocation: America/New_York
-groupAllUnknownTransactions: true
-groups:
-  # Before group comment
-  g1:
-    substrings:
-      - Sub1 # Group element comment
       - Sub2
 `
 

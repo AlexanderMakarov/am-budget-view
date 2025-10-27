@@ -53,39 +53,60 @@ func (Args) Description() string {
 }
 
 func main() {
-	// Parse arguments and set configPath.
-	var args Args
-	p, err := arg.NewParser(arg.Config{}, &args)
+	// Parse command line arguments.
+	args, isHelpRequested, err := parseArgs(os.Args[1:])
 	if err != nil {
-		log.Fatalf("Error creating argument parser: %v", err)
+		log.Fatalf("Error parsing arguments: %v", err)
+	} else if isHelpRequested {
+		os.Exit(0)
 	}
 
-	err = p.Parse(os.Args[1:])
+	// Run the main application logic.
+	err = runApplication(args)
+	if err != nil {
+		log.Fatalf("Application error: %v", err)
+	}
+}
+
+// parseArgs parses command line arguments.
+func parseArgs(args []string) (Args, bool, error) {
+	var parsedArgs Args
+	p, err := arg.NewParser(arg.Config{}, &parsedArgs)
+	if err != nil {
+		return Args{}, false, fmt.Errorf("error creating argument parser: %w", err)
+	}
+
+	err = p.Parse(args)
 	if err != nil {
 		// Check if the error is a help request
 		if err == arg.ErrHelp {
 			p.WriteHelp(os.Stdout)
-			os.Exit(0)
+			return Args{}, true, nil
 		}
-		log.Fatalf("Error parsing arguments: %v", err)
+		return Args{}, false, fmt.Errorf("error parsing arguments: %w", err)
 	}
 
+	return parsedArgs, false, nil
+}
+
+// runApplication contains the main application logic, separated for testing.
+func runApplication(args Args) error {
 	// Check if the config file exists, if not create it with default path and content.
 	if _, err := os.Stat(args.ConfigPath); os.IsNotExist(err) {
 		args.ConfigPath = DEFAULT_CONFIG_FILE_PATH
 		err = os.WriteFile(args.ConfigPath, defaultConfig, 0644)
 		if err != nil {
-			log.Fatalf("Error creating default config file: %v", err)
+			return fmt.Errorf("error creating default config file: %w", err)
 		}
 		log.Printf("Created default config file at '%s'", args.ConfigPath)
 	}
 
-	// Validate ResultMode
+	// Validate ResultMode.
 	switch args.ResultMode {
 	case OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE:
 		// Valid modes
 	default:
-		log.Fatalf("Invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE)
+		return fmt.Errorf("invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE)
 	}
 
 	// Prepare flags for writing to file and opening file with result.
@@ -95,7 +116,7 @@ func main() {
 	// Parse configuration.
 	config, err := readConfig(args.ConfigPath)
 	if err != nil {
-		fatalError(
+		return handleError(
 			fmt.Errorf("configuration file '%s' is wrong: %w", args.ConfigPath, err),
 			isWriteToFile,
 			isOpenFileWithResult,
@@ -110,7 +131,7 @@ func main() {
 	// Parse timezone or set system.
 	timeZone, err := time.LoadLocation(config.TimeZoneLocation)
 	if err != nil {
-		fatalError(
+		return handleError(
 			fmt.Errorf("unknown TimeZoneLocation: %s", config.TimeZoneLocation),
 			isWriteToFile,
 			isOpenFileWithResult,
@@ -133,26 +154,26 @@ func main() {
 	}
 	transactions, fileInfos, parsingWarnings, categorization, err := dataHandler.parseAllFiles()
 	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
+		return handleError(err, isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Just show uncategorized transactions if in "CategorizeMode" and not WEB result mode.
 	if config.CategorizeMode && args.ResultMode != OPEN_MODE_WEB {
 		err = categorization.PrintUncategorizedTransactions(transactions)
 		if err != nil {
-			fatalError(err, isWriteToFile, isOpenFileWithResult)
+			return handleError(err, isWriteToFile, isOpenFileWithResult)
 		}
-		return
+		return nil
 	}
 
 	// Build DataMart and StatisticBuilderFactory.
 	dataMart, err := BuildDataMart(transactions, config)
 	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
+		return handleError(err, isWriteToFile, isOpenFileWithResult)
 	}
 	statisticBuilderFactory, err := NewStatisticBuilderByCategories(dataMart.Accounts, config)
 	if err != nil {
-		fatalError(err, isWriteToFile, isOpenFileWithResult)
+		return handleError(err, isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Complete the DataHandler setup.
@@ -164,7 +185,7 @@ func main() {
 	// Build journal entries.
 	journalEntries, err := dataHandler.GetJournalEntries()
 	if err != nil {
-		fatalError(errors.New(i18n.T("can't build journal entries", "err", err)), isWriteToFile, isOpenFileWithResult)
+		return handleError(errors.New(i18n.T("can't build journal entries", "err", err)), isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Produce Beancount file if not disabled.
@@ -186,7 +207,7 @@ func main() {
 			// Build Beancount file.
 			transLen, err := buildBeancountFile(journalEntries, dataMart.AllCurrencies, dataMart.Accounts, RESULT_BEANCOUNT_FILE_PATH)
 			if err != nil {
-				fatalError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
+				return handleError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
 			}
 			log.Println(i18n.T("Built Beancount file f with n transactions", "file", RESULT_BEANCOUNT_FILE_PATH, "n", transLen))
 		}
@@ -195,7 +216,7 @@ func main() {
 	// Build statistic.
 	monthlyStatistics, err := dataHandler.GetMonthlyStatistics()
 	if err != nil {
-		fatalError(
+		return handleError(
 			errors.New(i18n.T("can't build statistics", "err", err)),
 			isWriteToFile,
 			isOpenFileWithResult,
@@ -223,7 +244,7 @@ func main() {
 		}
 		for _, oneMonthStatistics := range monthlyStatistics {
 			if err := DumpIntervalStatistics(oneMonthStatistics, &reportStringBuilder, currency, config.DetailedOutput); err != nil {
-				fatalError(errors.New(i18n.T("can't dump interval statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
+				return handleError(errors.New(i18n.T("can't dump interval statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
 			}
 		}
 		fmt.Fprintf(&reportStringBuilder, "\n%s", i18n.T("Total n months", "n", len(monthlyStatistics)))
@@ -250,13 +271,24 @@ func main() {
 		log.Println(i18n.T("Starting local web server on urlport", "urlport", url))
 		err := ListenAndServe(dataHandler)
 		if err != nil {
-			fatalError(
+			return handleError(
 				errors.New(i18n.T("failed to start web server, probably app is already running", "err", err)),
 				isWriteToFile,
 				isOpenFileWithResult,
 			)
 		}
 	}
+
+	return nil
+}
+
+// handleError handles errors similar to fatalError but returns error instead of calling log.Fatal
+func handleError(err error, inFile bool, openFile bool) error {
+	errMsg := fmt.Sprintf("ERROR: %s", err)
+	if inFile {
+		writeAndOpenFile(RESULT_FILE_PATH, errMsg, openFile)
+	}
+	return errors.New(errMsg)
 }
 
 // FileInfo represents information about a parsed transaction file.

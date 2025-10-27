@@ -39,29 +39,29 @@ type GroupConfig struct {
 
 // Config represents the application configuration.
 type Config struct {
-	Language                             string            `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
-	EnsureTerminal                       bool              `yaml:"ensureTerminal,omitempty" default:"true"`
-	UIPort                               int               `yaml:"uiPort,omitempty" default:"8080"`
-	InecobankStatementXmlFilesGlob       string            `yaml:"inecobankStatementXmlFilesGlob" validate:"omitempty,filepath,min=1"`
-	InecobankStatementXlsxFilesGlob      string            `yaml:"inecobankStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
-	AmeriaCsvFilesGlob                   string            `yaml:"ameriaCsvFilesGlob" validate:"omitempty,filepath,min=1"`
-	MyAmeriaAccountStatementXlsFilesGlob string            `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
-	MyAmeriaHistoryXlsFilesGlob          string            `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"omitempty,filepath,min=1"`
-	ArdshinbankXlsxFilesGlob             string            `yaml:"ardshinbankXlsxFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
-	AcbaRegularAccountXlsFilesGlob       string            `yaml:"acbaRegularAccountXlsFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
-	AcbaCardXlsFilesGlob                 string            `yaml:"acbaCardXlsFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
-	GenericCsvFilesGlob                  string            `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
-	MyAmeriaMyAccounts                   map[string]string `yaml:"myAmeriaMyAccounts,omitempty"`
-	MyAccounts                           []string          `yaml:"myAccounts,omitempty"`
-	ConvertToCurrencies                  []string          `yaml:"convertToCurrencies,omitempty"`
-	MinCurrencyTimespanPercent           int               `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
-	MaxCurrencyTimespanGapsDays          int               `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
+	Language                             string                        `yaml:"language,omitempty" validate:"omitempty,oneof=en ru"`
+	EnsureTerminal                       bool                          `yaml:"ensureTerminal,omitempty"`
+	UIPort                               int                           `yaml:"uiPort,omitempty"`
+	InecobankStatementXmlFilesGlob       string                        `yaml:"inecobankStatementXmlFilesGlob" validate:"omitempty,filepath,min=1"`
+	InecobankStatementXlsxFilesGlob      string                        `yaml:"inecobankStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
+	AmeriaCsvFilesGlob                   string                        `yaml:"ameriaCsvFilesGlob" validate:"omitempty,filepath,min=1"`
+	MyAmeriaAccountStatementXlsFilesGlob string                        `yaml:"myAmeriaAccountStatementXlsxFilesGlob" validate:"omitempty,filepath,min=1"`
+	MyAmeriaHistoryXlsFilesGlob          string                        `yaml:"myAmeriaHistoryXlsFilesGlob" validate:"omitempty,filepath,min=1"`
+	ArdshinbankXlsxFilesGlob             string                        `yaml:"ardshinbankXlsxFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
+	AcbaRegularAccountXlsFilesGlob       string                        `yaml:"acbaRegularAccountXlsFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
+	AcbaCardXlsFilesGlob                 string                        `yaml:"acbaCardXlsFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
+	GenericCsvFilesGlob                  string                        `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
+	MyAmeriaMyAccounts                   map[string]string             `yaml:"myAmeriaMyAccounts,omitempty"`
+	MyAccounts                           []string                      `yaml:"myAccounts,omitempty"`
+	ConvertToCurrencies                  []string                      `yaml:"convertToCurrencies,omitempty"`
+	MinCurrencyTimespanPercent           int                           `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
+	MaxCurrencyTimespanGapsDays          int                           `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
 
-	DetailedOutput                       bool              `yaml:"detailedOutput"`
-	CategorizeMode                       bool              `yaml:"categorizeMode"`
-	MonthStartDayNumber                  uint              `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31" default:"1"`
-	TimeZoneLocation                     string            `yaml:"timeZoneLocation,omitempty"`
-	GroupAllUnknownTransactions          bool              `yaml:"groupAllUnknownTransactions"`
+	DetailedOutput              bool   `yaml:"detailedOutput"`
+	CategorizeMode              bool   `yaml:"categorizeMode"`
+	MonthStartDayNumber         uint   `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31"`
+	TimeZoneLocation            string `yaml:"timeZoneLocation,omitempty"`
+	GroupAllUnknownTransactions bool   `yaml:"groupAllUnknownTransactions"`
 	// Transactions categorization groups.
 	Groups map[string]*GroupConfig `yaml:"groups,omitempty"`
 }
@@ -88,8 +88,14 @@ func readConfig(filename string) (*Config, error) {
 	}
 
 	// Set default values.
+	// Note: For boolean fields, we can't distinguish between "not set" and "explicitly false"
+	// So we'll assume if it's false, it was explicitly set to false by the user
+	// and not apply the default. This is a limitation of the current approach.
 	if cfg.MonthStartDayNumber == 0 {
 		cfg.MonthStartDayNumber = 1
+	}
+	if cfg.UIPort == 0 {
+		cfg.UIPort = 8080
 	}
 	if len(cfg.TimeZoneLocation) == 0 {
 		tzname, err := tzlocal.RuntimeTZ()
@@ -162,13 +168,14 @@ func (cfg *Config) writeToFile(filename string) error {
 	return encoder.Encode(&newNode)
 }
 
-// mergeComments recursively copies comments from the old node to the new node
+// mergeComments recursively copies comments from the old node to the new node.
 func mergeComments(newNode, oldNode *yaml.Node) {
-	// Skip comment merging for the 'substrings' key node to prevent comment duplication
+	// Skip comment merging for the 'substrings' key node to prevent comment duplication.
 	if newNode.Kind == yaml.ScalarNode && newNode.Value == "substrings" {
 		return
 	}
 
+	// Copy comments from the old node to the new node.
 	if oldNode.HeadComment != "" {
 		newNode.HeadComment = oldNode.HeadComment
 	}
@@ -179,11 +186,36 @@ func mergeComments(newNode, oldNode *yaml.Node) {
 		newNode.FootComment = oldNode.FootComment
 	}
 
-	// Recursively merge comments for mapping nodes
+	// Recursively merge comments for mapping nodes.
 	if len(newNode.Content) > 0 && len(oldNode.Content) > 0 {
-		// Continue with regular comment merging for other nodes
-		for i := 0; i < len(newNode.Content) && i < len(oldNode.Content); i++ {
-			mergeComments(newNode.Content[i], oldNode.Content[i])
+		// For mapping nodes, match children by key.
+		if newNode.Kind == yaml.MappingNode && oldNode.Kind == yaml.MappingNode {
+			// Build map of old keys to index
+			oldKeyToIndex := make(map[string]int)
+			for i := 0; i+1 < len(oldNode.Content); i += 2 {
+				key := oldNode.Content[i]
+				oldKeyToIndex[key.Value] = i
+			}
+			for i := 0; i+1 < len(newNode.Content); i += 2 {
+				newKey := newNode.Content[i]
+				if oi, ok := oldKeyToIndex[newKey.Value]; ok {
+					oldKey := oldNode.Content[oi]
+					oldVal := oldNode.Content[oi+1]
+					// Merge comments for key node and value node
+					mergeComments(newKey, oldKey)
+					mergeComments(newNode.Content[i+1], oldVal)
+				}
+			}
+		} else if newNode.Kind == yaml.SequenceNode && oldNode.Kind == yaml.SequenceNode {
+			// Sequence node, merge by index
+			for i := 0; i < len(newNode.Content) && i < len(oldNode.Content); i++ {
+				mergeComments(newNode.Content[i], oldNode.Content[i])
+			}
+		} else {
+			// Fallback: merge by index
+			for i := 0; i < len(newNode.Content) && i < len(oldNode.Content); i++ {
+				mergeComments(newNode.Content[i], oldNode.Content[i])
+			}
 		}
 	}
 }

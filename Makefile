@@ -10,6 +10,8 @@ test:
 coverage:
 	go tool cover -html=coverage.out
 
+test-coverage: test coverage
+
 generate-demo:
 	python3.12 scripts/generate_demo.py
 
