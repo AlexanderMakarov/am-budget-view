@@ -48,6 +48,18 @@ myAccounts:
 # totals would be incorrect!
 convertToCurrencies:
   - AMD
+  - USD
+# Constant/fallback exchange rates structure for conversion between currencies.
+# Precision score for these exchanges would be provided as 100500.
+# These rates would be used only if `convertToCurrencies` is set
+# and no exchange rates are found in transactions files so it is safe keep them
+# in configuration file forever if precision is not important.
+# Format `exchangeRates:<currency name>: <target currency name>: <exchange rate (multiplier)>`.
+exchangeRates:
+  USD:  # Use bigger currency to don't specify many fractions.
+    AMD: 381
+    EUR: 0.86
+    RUB: 80
 # Flag to output all information about the result.
 detailedOutput: false
 # Flag to print details for all uncategorized transactions. Skips any other actions.

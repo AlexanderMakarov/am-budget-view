@@ -53,9 +53,10 @@ type Config struct {
 	GenericCsvFilesGlob                  string                        `yaml:"genericCsvFilesGlob,omitempty" validate:"omitempty,filepath,min=1"`
 	MyAmeriaMyAccounts                   map[string]string             `yaml:"myAmeriaMyAccounts,omitempty"`
 	MyAccounts                           []string                      `yaml:"myAccounts,omitempty"`
+	ExchangeRates                        map[string]map[string]float64 `yaml:"exchangeRates,omitempty"`
 	ConvertToCurrencies                  []string                      `yaml:"convertToCurrencies,omitempty"`
 	MinCurrencyTimespanPercent           int                           `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
-	MaxCurrencyTimespanGapsDays          int                           `yaml:"maxCurrencyTimespanGapsDays,omitempty" validate:"min=0"`
+	MaxCurrencyTimespanGapDays           int                           `yaml:"maxCurrencyTimespanGapDays,omitempty" validate:"min=0"`
 
 	DetailedOutput              bool   `yaml:"detailedOutput"`
 	CategorizeMode              bool   `yaml:"categorizeMode"`
@@ -105,6 +106,12 @@ func readConfig(filename string) (*Config, error) {
 		} else {
 			cfg.TimeZoneLocation = tzname
 		}
+	}
+	if cfg.MinCurrencyTimespanPercent == 0 {
+		cfg.MinCurrencyTimespanPercent = 80
+	}
+	if cfg.MaxCurrencyTimespanGapDays == 0 {
+		cfg.MaxCurrencyTimespanGapDays = 30
 	}
 
 	// Verify timezone is valid

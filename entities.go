@@ -107,6 +107,12 @@ const (
 	RuleTypeToAccount RuleType = "ToAccount"
 	// RuleTypeSubstring is a type of rule that matched by substring in "details".
 	RuleTypeSubstring RuleType = "Substring"
+	// ConstantExchangeRatePrecision is a precision for constant exchange rates.
+	ConstantExchangeRatePrecision int = 100500
+	// ConstantExchangeRateSourceName is a name of the source for constant exchange rates.
+	ConstantExchangeRateSourceName = "ConstantExchangeRates"
+	// ConstantExchangeRateSourceFilePath is a path to the file for constant exchange rates.
+	ConstantExchangeRateSourceFilePath = DEFAULT_CONFIG_FILE_PATH
 )
 
 // TransactionsSource represents supported types of files with transactions.

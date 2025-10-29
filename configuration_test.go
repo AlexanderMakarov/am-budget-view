@@ -422,7 +422,6 @@ groups:
 `
 	// Note that comments are preserved with following limitations:
 	// - Optional fields will be added with default values.
-	// - Order of fields is replaced with `Config` struct fields order.
 	// - 2 spaces before comments are changed to 1.
 	// - Single quotes are changed to double quotes.
 	expectedContent := `uiPort: 8080
@@ -439,6 +438,8 @@ myAmeriaMyAccounts:
   Account1: USD # List element comment
   # Between list elements comment
   Account2: AMD
+minCurrencyTimespanPercent: 80
+maxCurrencyTimespanGapDays: 30
 detailedOutput: true
 categorizeMode: false
 monthStartDayNumber: 1

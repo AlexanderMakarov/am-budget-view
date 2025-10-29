@@ -16,19 +16,41 @@ import (
 type ExchangeRate struct {
 	// Date is a date of the exchange rate.
 	date time.Time
-	// CurrencyFrom is a always account currency.
+	// CurrencyFrom is source currency name.
+	// To get amount in source currency divide amount in target currency by rate value.
 	currencyFrom string
-	// CurrencyTo is a always origin currency.
+	// CurrencyTo is target currency name.
+	// To get amount in target currency multiply amount in source currency by rate value.
 	currencyTo string
-	// ExchangeRate = CurrencyFrom / CurrencyTo.
+	// ExchangeRate = Amount in currencyFrom / Amount in currencyTo.
 	exchangeRate float64
 	// Source is a source of the exchange rate.
 	source *TransactionsSource
 }
 
+func (er *ExchangeRate) String() string {
+	return fmt.Sprintf("ExchangeRate{date: %v, currencyFrom: %q, currencyTo: %q, exchangeRate: %v, source: %+v}", er.date, er.currencyFrom, er.currencyTo, er.exchangeRate, er.source)
+}
+
+func atLeast1CentDiv(amountCents int, rate float64) MoneyWith2DecimalPlaces {
+	n := int(float64(amountCents) / rate)
+	if n == 0 {
+		n = 1
+	}
+	return MoneyWith2DecimalPlaces{int: n}
+}
+
+func atLeast1CentMul(amountCents int, rate float64) MoneyWith2DecimalPlaces {
+	n := int(float64(amountCents) * rate)
+	if n == 0 {
+		n = 1
+	}
+	return MoneyWith2DecimalPlaces{int: n}
+}
+
 // CurrencyStatistics is a struct representing data about a currency found in transactions.
 type CurrencyStatistics struct {
-	// Name is a currency name (valid by beancount rules).
+	// Name is a currency name (valid by Beancount rules).
 	Name string
 	// From is a first transaction date.
 	From time.Time
@@ -36,7 +58,7 @@ type CurrencyStatistics struct {
 	To time.Time
 	// MetInSources is a set of sources where currency was met.
 	MetInSources map[string]struct{}
-	// MetTimes is a number of times currency was met.
+	// MetTimes is a number of times currency was occurred.
 	MetTimes int
 	// OverlappedWithOtherCurrencyAmount is a total amount of the currency overlapped with other currency.
 	OverlappedWithOtherCurrencyAmount MoneyWith2DecimalPlaces
@@ -45,7 +67,7 @@ type CurrencyStatistics struct {
 	// Transactions is a list of transactions with the currency.
 	Transactions []*Transaction
 	// ExchangeRates is a list of exchange rates for the currency.
-	// Current currency may be both "currencyFrom" and "currencyTo" in exchange rates.
+	// Note that current currency could be both "currencyFrom" and "currencyTo" in exchange rates.
 	ExchangeRates []*ExchangeRate
 }
 
@@ -190,13 +212,13 @@ func parseExchangeRateFromDetails(date time.Time, details string, targetCurrency
 	}
 }
 
-func printCurrencyStatisticsMap(convertableCurrencies map[string]*CurrencyStatistics) {
-	if len(convertableCurrencies) == 0 {
+func printCurrencyStatisticsMap(convertbleCurrencies map[string]*CurrencyStatistics) {
+	if len(convertbleCurrencies) == 0 {
 		fmt.Println(i18n.T("No currencies found"))
 		return
 	}
 	fmt.Println(i18n.T("Currency\tFrom\tTo\tNumber of Exchange Rates"))
-	for currency, stat := range convertableCurrencies {
+	for currency, stat := range convertbleCurrencies {
 		fmt.Printf("  %s\t%s\t%s\t%d\n",
 			currency,
 			stat.From.Format(beancountOutputTimeFormat),
@@ -220,27 +242,6 @@ func buildConversionPath(
 		date.Format(time.DateOnly),
 		source,
 	)
-}
-
-// findAnyCurrencyClosestExchangeRate finds closest exchange rate in any currency to the given date.
-// Not uses `curState.exchangeRateIndexesPerCurrency`.
-// returns precision as number of days between dates.
-func findAnyCurrencyClosestExchangeRate(
-	date time.Time,
-	curState *currencyState,
-) int {
-	if len(curState.statistics.ExchangeRates) == 0 {
-		return math.MaxInt
-	}
-	var dateDiff time.Duration = math.MaxInt
-	// Find closest exchange rate after current one.
-	for i := 0; i < len(curState.statistics.ExchangeRates); i++ {
-		checkedEr := curState.statistics.ExchangeRates[i]
-		if date.Sub(checkedEr.date).Abs() < dateDiff {
-			dateDiff = date.Sub(checkedEr.date).Abs()
-		}
-	}
-	return int(dateDiff / (24 * time.Hour))
 }
 
 // findClosestExchangeRateToCurrency finds closest to date direct exchange rate to currency.
@@ -293,7 +294,7 @@ func findClosestExchangeRateToCurrency(
 	return exchangeRate, int(dateDiff / (24 * time.Hour))
 }
 
-// convertToCurrency converts transaction amounts to convertable currencies.
+// convertToCurrency converts transaction amounts to convertible currencies.
 // Shifts index of exchangeRateIndex in curStates because expects to be called for dates in chronological order.
 // Calculates precision as:
 // 0 - no conversion (amountCurrency == targetCurrency),
@@ -324,10 +325,12 @@ func convertToCurrency(
 		if precision == 0 {
 			precision = 1
 		}
+		// Special handling for constant exchange rates.
+		if exchangeRateDirect.source != nil && exchangeRateDirect.source.TypeName == ConstantExchangeRateSourceName {
+			precision = ConstantExchangeRatePrecision
+		}
 		if exchangeRateDirect.currencyTo == targetCurrency {
-			return MoneyWith2DecimalPlaces{
-					int: int(float64(amount.int) / exchangeRateDirect.exchangeRate),
-				},
+			return atLeast1CentDiv(amount.int, exchangeRateDirect.exchangeRate),
 				precision,
 				[]string{
 					buildConversionPath(
@@ -339,9 +342,7 @@ func convertToCurrency(
 					),
 				}
 		}
-		return MoneyWith2DecimalPlaces{
-				int: int(float64(amount.int) * exchangeRateDirect.exchangeRate),
-			},
+		return atLeast1CentMul(amount.int, exchangeRateDirect.exchangeRate),
 			precision,
 			[]string{
 				buildConversionPath(
@@ -426,6 +427,10 @@ func convertToCurrency(
 			if stepPrecision == 0 {
 				stepPrecision = 1 // It is not the same currency so minimal precision is 1.
 			}
+			// Special handling for constant exchange rates.
+			if er.source != nil && er.source.TypeName == ConstantExchangeRateSourceName {
+				stepPrecision = ConstantExchangeRatePrecision
+			}
 
 			// Calculate new precision as sum of all steps.
 			newPrecision := fromNode.precision + stepPrecision
@@ -437,9 +442,7 @@ func convertToCurrency(
 				var newAmount MoneyWith2DecimalPlaces
 				var pathEntry string
 				if current.currency == er.currencyFrom {
-					newAmount = MoneyWith2DecimalPlaces{
-						int: int(float64(fromNode.amount.int) / er.exchangeRate),
-					}
+					newAmount = atLeast1CentDiv(fromNode.amount.int, er.exchangeRate)
 					pathEntry = buildConversionPath(
 						er.currencyFrom,
 						er.currencyTo,
@@ -448,9 +451,7 @@ func convertToCurrency(
 						er.source,
 					)
 				} else {
-					newAmount = MoneyWith2DecimalPlaces{
-						int: int(float64(fromNode.amount.int) * er.exchangeRate),
-					}
+					newAmount = atLeast1CentMul(fromNode.amount.int, er.exchangeRate)
 					pathEntry = buildConversionPath(
 						er.currencyTo,
 						er.currencyFrom,
@@ -479,8 +480,8 @@ func convertToCurrency(
 			return targetNode.amount, targetNode.precision, targetNode.path
 		}
 	}
-	// If no conversion path found then return original amount with max precision
-	return amount, math.MaxInt, []string{}
+	// If no conversion path found then return 0 amount with max precision.
+	return MoneyWith2DecimalPlaces{int: 0}, math.MaxInt, []string{}
 }
 
 // BuildDataMart builds data required to build journal entries.
@@ -492,6 +493,38 @@ func BuildDataMart(
 	slices.SortFunc(transactions, func(a, b Transaction) int {
 		return a.Date.Compare(b.Date)
 	})
+
+	// Find accounts and currencies.
+	accounts, currencies, err := findAccountsAndCurrencies(transactions)
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) == 0 {
+		return nil, errors.New(i18n.T("no accounts found"))
+	}
+	if len(currencies) == 0 {
+		return nil, errors.New(i18n.T("no currencies found"))
+	}
+	log.Println(i18n.T("In n transactions found m currencies", "n", len(transactions), "m", len(currencies)))
+	printCurrencyStatisticsMap(currencies)
+
+	// Find convertible currencies.
+	convertibleCurrencies, err := buildConvertibleCurrencies(currencies, config)
+	if err != nil {
+		return nil, err
+	}
+	log.Println(i18n.T("Using n convertible currencies", "n", len(convertibleCurrencies)))
+	printCurrencyStatisticsMap(convertibleCurrencies)
+
+	return &DataMart{
+		SortedTransactions:    transactions,
+		Accounts:              accounts,
+		AllCurrencies:         currencies,
+		ConvertibleCurrencies: convertibleCurrencies,
+	}, nil
+}
+
+func findAccountsAndCurrencies(transactions []Transaction) (map[string]*AccountStatistics, map[string]*CurrencyStatistics, error) {
 
 	// Iterate all transactions to:
 	// 1) validate and collect currencies (transaction may have 1 or 2 currencies), determine their timespan
@@ -539,7 +572,7 @@ func BuildDataMart(
 				accountCurrency.TotalAmount.int += t.Amount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, errors.New(
+				return nil, nil, errors.New(
 					i18n.T("invalid currency c in file f from transaction t",
 						"c", t.AccountCurrency, "f", t.Source, "t", t,
 					),
@@ -551,7 +584,7 @@ func BuildDataMart(
 			if validCurrencyRegex.MatchString(t.OriginCurrency) {
 				// If transaction has both currencies then they should be different.
 				if atLeastOneCurrency && t.OriginCurrency == t.AccountCurrency {
-					return nil, errors.New(
+					return nil, nil, errors.New(
 						i18n.T("transaction t has the same currency c in 'account' and 'origin'",
 							"t", t, "c", t.AccountCurrency,
 						),
@@ -584,7 +617,7 @@ func BuildDataMart(
 				originCurrency.TotalAmount.int += t.OriginCurrencyAmount.int
 				atLeastOneCurrency = true
 			} else {
-				return nil, errors.New(
+				return nil, nil, errors.New(
 					i18n.T("invalid origin currency c in file f from transaction t",
 						"c", t.OriginCurrency, "f", t.Source, "t", t,
 					),
@@ -640,7 +673,7 @@ func BuildDataMart(
 		}
 		// Check that transaction has at least one currency.
 		if !atLeastOneCurrency {
-			return nil, errors.New(
+			return nil, nil, errors.New(
 				i18n.T("no currency found in transaction t from file f",
 					"t", t, "f", t.Source,
 				),
@@ -703,20 +736,15 @@ func BuildDataMart(
 			}
 		}
 	}
-	if len(accounts) == 0 {
-		return nil, errors.New(i18n.T("no accounts found"))
-	}
-	if len(currencies) == 0 {
-		return nil, errors.New(i18n.T("no currencies found"))
-	}
-	log.Println(i18n.T("In n transactions found m currencies", "n", len(transactions), "m", len(currencies)))
-	printCurrencyStatisticsMap(currencies)
+	return accounts, currencies, nil
+}
 
+func buildConvertibleCurrencies(currencies map[string]*CurrencyStatistics, config *Config) (map[string]*CurrencyStatistics, error) {
 	// Find total timespan of all currencies.
 	minDate := time.Time{}
 	maxDate := time.Time{}
 	for _, currency := range currencies {
-		// Set initial values.
+		// Set initial values (zero values won't work).
 		if minDate.IsZero() {
 			minDate = currency.From
 		}
@@ -741,124 +769,189 @@ func BuildDataMart(
 		),
 	)
 
-	// Determine in which currencies it makes sense to convert amounts in journal entries.
+	// Determine which currencies it makes sense to convert amounts into. Rules:
 	// 1. Currency should span at least MinCurrencyTimespanPercent of total timespan.
 	// 2. Currency should have no gaps longer than MaxCurrencyTimespanGapsDays.
-	// Set defaults if config doesn't provide them.
+	// a) Find rules.
 	minTimespanPercent := config.MinCurrencyTimespanPercent
-	if minTimespanPercent == 0 {
-		minTimespanPercent = 80
-	}
-	maxGapDays := config.MaxCurrencyTimespanGapsDays
-	if maxGapDays == 0 {
-		maxGapDays = 30
-	}
-	// Calculate minTimespan and maxGap.
+	maxGapDays := config.MaxCurrencyTimespanGapDays
+	// Calculate minTimespan and maxGap in time.Duration.
 	minTimespan := time.Duration(minTimespanPercent) * totalTimespan / 100
 	maxGap := time.Duration(maxGapDays) * 24 * time.Hour
-	// Iterate all currencies to find convertable ones.
-	// 1. Check timespan and gaps in exchange rates for any currency.
-	convertableCurrencies := map[string]*CurrencyStatistics{}
+	// b) Iterate all currencies to check simple rules and build preliminary list of convertible currencies.
+	convertibleCurrencies := map[string]*CurrencyStatistics{}
 	for _, stat := range currencies {
-		// Check timespan.
-		if stat.To.Sub(stat.From) < minTimespan {
+		// Check timespan is not zero and less than minTimespan.
+		currencyTimespan := stat.To.Sub(stat.From)
+		if currencyTimespan > 0 && currencyTimespan < minTimespan {
 			log.Println(i18n.T("Currency c has timespan t which is less than minTimespan m",
-				"c", stat.Name, "t", stat.To.Sub(stat.From), "m", minTimespan,
+				"c", stat.Name, "t", currencyTimespan, "m", minTimespan,
 			))
 			continue
 		}
-		// Check that there are no gaps longer than maxGap for transactions with exchange rates.
-		hasGapAtLeastDays := maxGap
-		lastTransactionDate := minDate
-		for _, er := range stat.ExchangeRates { // May be empty.
-			hasGapAtLeastDays = er.date.Sub(lastTransactionDate)
-			if hasGapAtLeastDays > maxGap {
+		// Check that there are no gaps longer than maxGap for exchange rates.
+		gap := maxGap
+		lastTransactionDate := minDate                    // Start from first transaction date.
+		for _, exchangeRate := range stat.ExchangeRates { // Could be empty.
+			gap = exchangeRate.date.Sub(lastTransactionDate)
+			if gap > maxGap {
+				// Stop checking if gap is longer than maxGap.
 				break
 			}
-			lastTransactionDate = er.date
+			lastTransactionDate = exchangeRate.date
 		}
-		if hasGapAtLeastDays > maxGap {
-			log.Println(i18n.T("Currency c has gap in 'any' exchange rates t which is longer than maxGap m",
-				"c", stat.Name, "t", hasGapAtLeastDays, "m", maxGap,
+		if gap > maxGap {
+			log.Println(i18n.T("Currency c has gap g in 'to any currency' exchange rates which is longer than maxGap m, therefore currency is not convertible",
+				"c", stat.Name, "g", gap, "m", maxGap,
 			))
 			continue
 		}
-		convertableCurrencies[stat.Name] = stat
+		convertibleCurrencies[stat.Name] = stat
 	}
-	// 2. Iterate each currency exchange rates with checks they are for convertable currencies.
-	// Do it until there are no gaps longer than maxGap for exchange rates.
+	// c) Iterate all currencies exchange rates to check that they points to convertible currencies.
 	isRecheck := true
 	for isRecheck {
 		isRecheck = false
-		for _, stat := range convertableCurrencies {
-			hasGapAtLeastDays := maxGap
-			lastTransactionDate := minDate
-			for _, er := range stat.ExchangeRates {
-				oppositeCurrency := er.currencyFrom
+		// Repeat until there are no gaps longer than maxGap for exchange rates.
+		for _, stat := range convertibleCurrencies {
+			gap := maxGap
+			lastTransactionDate := minDate // Start from first transaction date.
+			for _, exchangeRate := range stat.ExchangeRates {
+				oppositeCurrency := exchangeRate.currencyFrom
 				if oppositeCurrency == stat.Name {
-					oppositeCurrency = er.currencyTo
+					oppositeCurrency = exchangeRate.currencyTo
 				}
-				// Check that opposite currency is convertable.
-				if _, ok := convertableCurrencies[oppositeCurrency]; !ok {
+				// Check that opposite currency is convertible.
+				if _, ok := convertibleCurrencies[oppositeCurrency]; !ok {
+					// Skip not relevant exchange rates.
 					continue
 				}
 				// Check that there are no gaps longer than maxGap for exchange rates.
-				hasGapAtLeastDays = er.date.Sub(lastTransactionDate)
-				if hasGapAtLeastDays >= maxGap {
+				gap = exchangeRate.date.Sub(lastTransactionDate)
+				if gap > maxGap {
+					// Stop checking if gap is longer than maxGap.
 					break
 				}
-				lastTransactionDate = er.date
+				lastTransactionDate = exchangeRate.date
 			}
-			// If there is a gap longer than maxGap then remove currency from the map.
-			if hasGapAtLeastDays >= maxGap {
-				log.Println(i18n.T("Currency c has gap in 'to convertible currencies' exchange rates t which is longer than maxGap m",
-					"c", stat.Name, "t", hasGapAtLeastDays, "m", maxGap,
+			// If there is a gap longer than maxGap then currency is not convertible.
+			if gap > maxGap {
+				log.Println(i18n.T("Currency c has gap g in 'to other convertible currencies' exchange rates which is longer than maxGap m, therefore marking currency as not convertible",
+					"c", stat.Name, "g", gap, "m", maxGap,
 				))
-				delete(convertableCurrencies, stat.Name)
-				// Need to recheck all currencies all exchange rates one more time.
+				delete(convertibleCurrencies, stat.Name)
+				// Need to recheck everything one more time.
 				isRecheck = true
-				break
-			}
-			if isRecheck {
 				break
 			}
 		}
 	}
 	log.Println(
-		i18n.T("With MinCurrencyTimespanPercent=m1, MaxCurrencyTimespanGapsDays=m2 filtered out following currencies to convert all transactions amounts into",
+		i18n.T("With MinCurrencyTimespanPercent=m1, MaxCurrencyTimespanGapsDays=m2 getting following convertible currencies (i.e. can convert all transactions amounts with configured precision)",
 			"m1", minTimespanPercent, "m2", maxGapDays,
 		),
 	)
-	printCurrencyStatisticsMap(convertableCurrencies)
+	printCurrencyStatisticsMap(convertibleCurrencies)
 
-	// Append ConvertToCurrencies from config inconditionally.
-	for _, currency := range config.ConvertToCurrencies {
-		if _, ok := currencies[currency]; !ok {
-			return nil, errors.New(
-				i18n.T("currency c from ConvertToCurrencies not found in transactions",
-					"c", currency,
-				),
-			)
+	// If ConvertToCurrencies are provided then unconditionally add them to the list of convertible currencies.
+	if len(config.ConvertToCurrencies) > 0 {
+		for _, currencyName := range config.ConvertToCurrencies {
+			if currencyStats, ok := currencies[currencyName]; ok {
+				convertibleCurrencies[currencyName] = currencyStats
+			} else {
+				// If currency is not found in transactions then create artificial one.
+				convertibleCurrencies[currencyName] = &CurrencyStatistics{
+					Name:          currencyName,
+					From:          maxDate, // Use today as the date for artificial currency.
+					To:            maxDate,
+					MetInSources:  make(map[string]struct{}),
+					Transactions:  []*Transaction{},
+					ExchangeRates: []*ExchangeRate{},
+				}
+				convertibleCurrencies[currencyName].MetInSources["artificial by ConvertToCurrencies"] = struct{}{}
+			}
 		}
-		convertableCurrencies[currency] = currencies[currency]
+
+		// Add constant exchange rates to transaction's ones if provided and needed.
+		if len(config.ExchangeRates) > 0 {
+
+			// Create a dummy source for constant exchange rates.
+			constantSource := &TransactionsSource{
+				TypeName: ConstantExchangeRateSourceName,
+				Tag:      ConstantExchangeRateSourceName,
+				FilePath: ConstantExchangeRateSourceFilePath,
+			}
+
+			// Build map of maps of provided exchange rates.
+			cfgExchangeRates := make(map[string]map[string]*ExchangeRate)
+			for currencyName, currencyMap := range config.ExchangeRates {
+				for targetCurrencyName, exchangeRate := range currencyMap {
+					// Add direct exchange rate.
+					var directExchangeRates map[string]*ExchangeRate
+					var ok bool
+					if directExchangeRates, ok = cfgExchangeRates[currencyName]; !ok {
+						directExchangeRates = make(map[string]*ExchangeRate)
+						cfgExchangeRates[currencyName] = directExchangeRates
+					}
+					directExchangeRates[targetCurrencyName] = &ExchangeRate{
+						date:         maxDate, // Use last transaction date.
+						currencyFrom: currencyName,
+						currencyTo:   targetCurrencyName,
+						exchangeRate: 1 / exchangeRate,
+						source:       constantSource,
+					}
+					// Add reverse exchange rate.
+					var reverseExchangeRates map[string]*ExchangeRate
+					if reverseExchangeRates, ok = cfgExchangeRates[targetCurrencyName]; !ok {
+						reverseExchangeRates = make(map[string]*ExchangeRate)
+						cfgExchangeRates[targetCurrencyName] = reverseExchangeRates
+					}
+					reverseExchangeRates[currencyName] = &ExchangeRate{
+						date:         maxDate, // Use last transaction date.
+						currencyFrom: targetCurrencyName,
+						currencyTo:   currencyName,
+						exchangeRate: exchangeRate,
+						source:       constantSource,
+					}
+				}
+			}
+
+			// Iterate all convertible currencies to check if any exchange rates are available for them.
+			// Note that multi-hop conversions are not checked here.
+			for _, currencyStat := range convertibleCurrencies {
+				// Check if any exchange rate for this currency is provided in transactions.
+				if len(currencyStat.ExchangeRates) > 0 {
+					continue
+				}
+				log.Println(i18n.T("No exchange rates for currency c found in provided transactions, trying to find exchange rates from ExchangeRates structure instead", "c", currencyStat.Name))
+				// Try to find exchange rates for this currency in cfgExchangeRates.
+				if currencyMap, ok := cfgExchangeRates[currencyStat.Name]; ok {
+					for _, exchangeRate := range currencyMap {
+						// Add exchange rates to all currencies.
+						currencyStat.ExchangeRates = append(currencyStat.ExchangeRates, exchangeRate)
+					}
+					continue
+				}
+				return nil, errors.New(
+					i18n.T("Any exchange rates for currency c from ConvertToCurrencies not found both in provided transactions and in ExchangeRates structure",
+						"c", currencyStat.Name,
+					),
+				)
+			}
+		}
 	}
 
-	// Check that we end up with at least one convertable currency.
-	if len(convertableCurrencies) == 0 {
+	// Check that we end up with at least one convertible currency.
+	if len(convertibleCurrencies) == 0 {
 		return nil, errors.New(
-			i18n.T("'good' convertable currencies not found, consider change config file with" +
-				"a) adding ConvertToCurrencies entry (i.e. try convert unconditionally to some currency)" +
-				"b) decreasing MinCurrencyTimespanPercent" +
-				"c) increasing MaxCurrencyTimespanGapsDays",
+			i18n.T("Convertible currencies not found due to too few exchange rates. Consider change config file with (in priority order):\n"+
+				"- decreasing MinCurrencyTimespanPercent and/or increasing MaxCurrencyTimespanGapsDays,\n"+
+				"- adding ConvertToCurrencies list of currencies to ignore precision checks,\n",
+				"- adding ExchangeRates structure to provide constant exchange rate.",
 			),
 		)
 	}
-	return &DataMart{
-		SortedTransactions:    transactions,
-		Accounts:              accounts,
-		AllCurrencies:         currencies,
-		ConvertibleCurrencies: convertableCurrencies,
-	}, nil
+	return convertibleCurrencies, nil
 }
 
 // buildJournalEntries builds journal entries from transactions.
@@ -901,33 +994,40 @@ func buildJournalEntries(
 		} else if isUncategorized {
 			uncategorizedTransactions = append(uncategorizedTransactions, t)
 		}
-		// Convert amounts to convertable currencies.
+		// Convert amounts to convertible currencies.
 		amounts := make(map[string]AmountInCurrency, len(dataMart.ConvertibleCurrencies))
 		for _, curStatistic := range dataMart.ConvertibleCurrencies {
 			var amountAccCur, amountOrgCur MoneyWith2DecimalPlaces
 			var precisionAccCur, precisionOrgCur int = math.MaxInt, math.MaxInt
 			var conversionPathAccCur, conversionPathOrgCur []string
 
-			// Only convert if currency exists and amount is non-zero. Use all available exchange rates.
+			// First convert account currency amount if it exists and amount is non-zero.
 			if t.AccountCurrency != "" && t.Amount.int != 0 {
 				amountAccCur, precisionAccCur, conversionPathAccCur = convertToCurrency(t.Amount, t.AccountCurrency, curStatistic.Name, t.Date, curStates)
 			}
 
-			// Only convert if currency exists and amount is non-zero. Use all available exchange rates.
+			// Then convert origin currency amount if it exists and amount is non-zero.
 			if t.OriginCurrency != "" && t.OriginCurrencyAmount.int != 0 {
 				amountOrgCur, precisionOrgCur, conversionPathOrgCur = convertToCurrency(t.OriginCurrencyAmount, t.OriginCurrency, curStatistic.Name, t.Date, curStates)
 			}
 
-			// Check that any amount is non-zero.
-			// Note that if transaction amount is 1 (i.e. 100 in 'MoneyWith2DecimalPlaces.int' property)
-			// it may be converted to another currency as 0 but it is valid conversion.
-			// Such transactions are used to check that card can be charged in general.
-			if amountAccCur.int == 0 && amountOrgCur.int == 0 && (t.Amount.int != 100 && t.OriginCurrencyAmount.int != 100) {
+			// Check that any amount is non-zero (i.e. conversion was successful).
+			if amountAccCur.int == 0 && amountOrgCur.int == 0 {
+				accountCurrencyRatesDesc := ""
+				if _, ok := curStates[t.AccountCurrency]; ok {
+					accountCurrencyRatesDesc = fmt.Sprintf("%+v", curStates[t.AccountCurrency].statistics.ExchangeRates)
+				}
+				originCurrencyRatesDesc := ""
+				if _, ok := curStates[t.OriginCurrency]; ok {
+					originCurrencyRatesDesc = fmt.Sprintf("%+v", curStates[t.OriginCurrency].statistics.ExchangeRates)
+				}
 				return nil, nil, errors.New(
 					i18n.T(
-						"transaction t can't be converted to c currency because not enough exchange rates found to connect transaction currency with c currency",
+						"transaction t can't be converted to c currency because not enough exchange rates were found to connect transaction currency with c currency. Having only following exchange rates for account currency: rates1 and for origin currency: rates2",
 						"t", t,
 						"c", curStatistic.Name,
+						"rates1", accountCurrencyRatesDesc,
+						"rates2", originCurrencyRatesDesc,
 					),
 				)
 			}
