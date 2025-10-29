@@ -62,8 +62,6 @@ exchangeRates:
     RUB: 80
 # Flag to output all information about the result.
 detailedOutput: false
-# Flag to print details for all uncategorized transactions. Skips any other actions.
-categorizeMode: false
 # Which day of month use as start of the month.
 # Sometimes it makes sense to analyze month from the "salary day".
 monthStartDayNumber: 1
