@@ -145,9 +145,18 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 
 		// Parse amount from cell 5 (amount cell).
 		amount := MoneyWith2DecimalPlaces{}
-		err = amount.ParseAmountWithoutLettersFromString(cells[5].GetString())
+		amountStr := cells[5].GetString()
+		// Check cell 10 as fallback (some statements have amount there)
+		if amountStr == "" {
+			amountStr = cells[10].GetString()
+		}
+		err = amount.ParseAmountWithoutLettersFromString(amountStr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse amount from cell %d of %d row: %w", 5, i+1, err)
+			amount.int = 0
+		}
+
+		if amount.int < 0 {
+			amount.int = -amount.int
 		}
 
 		// Parse credit amount from cell 8 (credit amount cell).
@@ -158,6 +167,7 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", 8, i+1, err)
 			}
+			amount = creditAmount
 		}
 
 		// For card statements, debit is the transaction amount when it's an expense
@@ -175,10 +185,17 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 
 		// Determine if transaction is expense or income.
 		currency := cells[6].GetString() // Currency is in column 6
+		if currency == "" {
+			currency = accountCurrency
+		}
 		isExpense := false
 		from := accountNumber
 		to := ""
 		originCurrencyAmount := creditAmount
+		if creditAmount.int > 0 {
+			to = accountNumber
+			from = ""
+		}
 		if debitAmount.int != 0 {
 			isExpense = true
 			from = accountNumber
