@@ -29,6 +29,30 @@ func TestAcbaCardExcelFileParser_ParseRawTransactionsFromFile_Valid(t *testing.T
 
 	expected := []Transaction{
 		{
+			Date:                 time.Date(2025, time.October, 1, 0, 0, 0, 0, time.UTC),
+			IsExpense:            true,
+			Amount:               MoneyWith2DecimalPlaces{int: 300000}, // 3,000.00
+			FromAccount:          accountNumber,
+			ToAccount:            "",
+			Source:               source,
+			AccountCurrency:      accountCurrency,
+			OriginCurrency:       "",
+			OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 0},
+			Details:              "Յուքոմ բջջ . պարտքի վճար /43210123/ (մոբայլ բանկինց 150123456)",
+		},
+		{
+			Date:                 time.Date(2025, time.October, 1, 0, 0, 0, 0, time.UTC),
+			IsExpense:            false,
+			Amount:               MoneyWith2DecimalPlaces{int: 1230000}, // 12,300.00
+			FromAccount:          "",
+			ToAccount:            accountNumber,
+			Source:               source,
+			AccountCurrency:      accountCurrency,
+			OriginCurrency:       "",
+			OriginCurrencyAmount: MoneyWith2DecimalPlaces{int: 0},
+			Details:              "Արժ, գնում RUR Name Surname (մոբայլ բանկինց 150123457)",
+		},
+		{
 			Date:                 time.Date(2025, time.October, 4, 0, 0, 0, 0, time.UTC),
 			IsExpense:            true,
 			Amount:               MoneyWith2DecimalPlaces{int: 420000}, // 4,200.00

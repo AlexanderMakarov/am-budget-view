@@ -136,30 +136,23 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 			continue
 		}
 
-		// Try to parse as string date
+		// Try to parse date.
 		date, err := time.Parse(acbaCardStmtDateFormat, dateStr)
 		if err != nil {
 			// Skip rows without date.
 			continue
 		}
 
-		// Parse amount from cell 5 (amount cell).
+		// Try to parse amount from cell 5 (amount cell).
 		amount := MoneyWith2DecimalPlaces{}
 		amountStr := cells[5].GetString()
-		// Check cell 10 as fallback (some statements have amount there)
-		if amountStr == "" {
-			amountStr = cells[10].GetString()
-		}
 		err = amount.ParseAmountWithoutLettersFromString(amountStr)
 		if err != nil {
 			amount.int = 0
 		}
+		isExpense := true  // We always check "Credit" column so start with expense assumption.
 
-		if amount.int < 0 {
-			amount.int = -amount.int
-		}
-
-		// Parse credit amount from cell 8 (credit amount cell).
+		// Try to parse credit amount from cell 8 (credit amount cell).
 		creditAmount := MoneyWith2DecimalPlaces{}
 		creditStr := cells[8].GetString()
 		if creditStr != "" {
@@ -168,13 +161,26 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 				return nil, fmt.Errorf("failed to parse credit amount from cell %d of %d row: %w", 8, i+1, err)
 			}
 			amount = creditAmount
+			isExpense = false
 		}
 
-		// For card statements, debit is the transaction amount when it's an expense
-		debitAmount := MoneyWith2DecimalPlaces{}
-		if creditStr == "" {
-			// If no credit amount, this is a debit (expense)
-			debitAmount = amount
+		// If amount was not found yet then both amount and credit cells are empty. Check cell 10 (debit amount cell).
+		debitAmount := amount
+		if amount.int == 0 {
+			err = debitAmount.ParseAmountWithoutLettersFromString(cells[10].GetString())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse amount from all cells of %d row: %w", i+1, err)
+			}
+			// Skip rows without any amount.
+			if debitAmount.int == 0 {
+				log.Printf("skipping row %d because amount is 0 here\n", i+1)
+				continue
+			}
+			// Convert negative amount to positive.
+			debitAmount.int = -debitAmount.int
+			// Set amount and isExpense based on debit amount.
+			amount = debitAmount
+			isExpense = true
 		}
 
 		// Build "details" from "Transaction description" and "Transaction place" values.
@@ -183,31 +189,31 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 		details = strings.Trim(details, ",\n")
 		details = strings.TrimSpace(details)
 
-		// Determine if transaction is expense or income.
+		// Try to parse currency. If not provided then use account currency.
 		currency := cells[6].GetString() // Currency is in column 6
 		if currency == "" {
 			currency = accountCurrency
 		}
-		isExpense := false
+
+		// Set "FromAccount" and "ToAccount" based on "IsExpense" value.
 		from := accountNumber
 		to := ""
-		originCurrencyAmount := creditAmount
-		if creditAmount.int > 0 {
+		if !isExpense {
 			to = accountNumber
 			from = ""
 		}
-		if debitAmount.int != 0 {
-			isExpense = true
-			from = accountNumber
-			to = ""
-			originCurrencyAmount = MoneyWith2DecimalPlaces{int: -debitAmount.int}
-		}
 
-		// Clear "origin currency" fields if account currency is used.
-		originCurrency := currency
-		if currency == accountCurrency {
-			originCurrency = ""
-			originCurrencyAmount = MoneyWith2DecimalPlaces{int: 0}
+		// Set "origin currency" fields.
+		originCurrency := ""
+		originCurrencyAmount := MoneyWith2DecimalPlaces{int: 0}
+		// If transaction currency is different from account currency then set "origin currency" fields.
+		if currency != accountCurrency {
+			originCurrency = currency
+			if isExpense {
+				originCurrencyAmount = debitAmount
+			} else {
+				originCurrencyAmount = creditAmount
+			}
 		}
 
 		// Build native transaction.

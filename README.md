@@ -63,7 +63,7 @@ In short supported:
 - Inecobank accounts,
 - AmeriaBank both individual (aka MyAmeria) and legal accounts,
 - Ardshinbank individual accounts,
-- ACBA bank accounts,
+- ACBA accounts,
 - Generic (manually/customly mapped) CSV files with transactions.
 
 Banks usually send transactions/statements by email monthly or yearly
