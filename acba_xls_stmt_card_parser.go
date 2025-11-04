@@ -150,7 +150,7 @@ func (p AcbaCardExcelFileParser) ParseRawTransactionsFromFile(
 		if err != nil {
 			amount.int = 0
 		}
-		isExpense := true  // We always check "Credit" column so start with expense assumption.
+		isExpense := true // We always check "Credit" column so start with expense assumption.
 
 		// Try to parse credit amount from cell 8 (credit amount cell).
 		creditAmount := MoneyWith2DecimalPlaces{}

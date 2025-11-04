@@ -40,8 +40,10 @@ jobs:
       - name: Lint
         run: go vet ./...
 
-      - name: Test
-        run: go test ./...
+      - name: Test with Coverage
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
 
   # Job to build artifacts only if tag was pushed.
   build:
