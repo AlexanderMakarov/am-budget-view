@@ -122,7 +122,7 @@ func (InecoXmlParser) ParseRawTransactionsFromFile(
 			Date:      t.Date.Time,
 			Details:   t.Details,
 			// Ineco XML shows amounts only in account currency.
-			Amount:          model.MoneyWith2DecimalPlaces{amount},
+			Amount:          model.MoneyWith2DecimalPlaces{Cents: amount},
 			Source:          &source,
 			AccountCurrency: t.Currency,
 			FromAccount:     from,
