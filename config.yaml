@@ -30,9 +30,9 @@ acbaCardXlsFilesGlob: CardStatement*.xls
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 genericCsvFilesGlob: generic*.csv
+# MyAmeria account numbers (16 digits) with currency (3 letters).
 # Due to MyAmeria "History" files don't provide any information about accounts
-# you need to specify map of your account(s) number (16 digits number) and
-# relevant currency 3 letter code.
+# you need to specify map of your account(s) number and relevant currency code.
 # Thus all transactions with "Beneficiary account" from this list would be
 # understood as an income and amount in account currency would be set.
 myAmeriaMyAccounts:

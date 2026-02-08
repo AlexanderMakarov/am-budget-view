@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import time
 import requests
 import datetime
 import logging
 import csv
 import yaml
-import json
-
+import re
 
 MY_FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
+if MY_FOLDER_PATH not in sys.path:
+    sys.path.insert(0, MY_FOLDER_PATH)
+
+from bank_helpers import AmeriabankWebGuiSession
 
 # Configure logging
 logging.basicConfig(
@@ -128,7 +132,7 @@ def convert_myameria_history_entries(
                     my_accounts.add((debit_account, currency))
                 else:
                     my_accounts.add((credit_account, currency))
-            case "deposit" | "deposit:cash":
+            case "deposit" | "deposit:cash" | "deposit:replenishment":
                 # Income to my account via ATM or bank branch.
                 my_accounts.add((credit_account, currency))
             case _:
@@ -310,59 +314,205 @@ def download_myameria_history(
     logger.info(f"Successfully downloaded history to {path}")
 
 
-def download_ameriabank_statement(
-    type: str,
+def get_inecobank_session_info(cookie: str) -> tuple[str | None, str | None]:
+    """
+    Get current DXScript and DXCss values from Inecobank session.
+    
+    Args:
+        cookie: Cookie value from browser session
+        
+    Returns:
+        Tuple of (dx_script, dx_css) values, or (None, None) if not found
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en,ru-RU;q=0.8,ru;q=0.5,en-US;q=0.3",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Connection": "keep-alive",
+        "Cookie": cookie,
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1"
+    }
+    
+    # Try to get the main page to extract DXScript and DXCss
+    url = "https://online.inecobank.am/AccountStatement/Statement/50253381001"
+    response = requests.get(url, headers=headers, timeout=30)
+    
+    if not response.ok:
+        logger.error(f"Failed to get session info: {response.status_code}")
+        return None, None
+    
+    # Look for DXScript and DXCss in the response
+    content = response.text
+    dx_script_match = re.search(r'DXScript["\']?\s*:\s*["\']([^"\']+)["\']', content)
+    dx_css_match = re.search(r'DXCss["\']?\s*:\s*["\']([^"\']+)["\']', content)
+    
+    dx_script = dx_script_match.group(1) if dx_script_match else None
+    dx_css = dx_css_match.group(1) if dx_css_match else None
+    
+    logger.info(f"Extracted DXScript: {dx_script[:50] if dx_script else 'None'}...")
+    logger.info(f"Extracted DXCss: {dx_css[:50] if dx_css else 'None'}...")
+    
+    return dx_script, dx_css
+
+
+def download_inecobank_statement(
     account_number: str,
-    cookie: str,
     from_date_str: str,
     to_date_str: str,
     path: str,
+    cookie: str,
+    account_type: str = "account",
 ) -> None:
     """
-    Download bank statement from Ameria bank Business.
+    Download bank statement from Inecobank.
 
     Args:
-        type: "card" or "account"
-        account_number: Bank account number
-        cookie: Cookie value
-        from_date_str: Start date for statement in MM-MM-YYYY format.
-        to_date_str: End date for statement in MM-MM-YYYY format.
+        account_number: Bank account number (16 digits)
+        from_date_str: Start date for statement in DD/MM/YYYY format.
+        to_date_str: End date for statement in DD/MM/YYYY format.
         path: Path to save the statement file.
+        cookie: Cookie value from browser session
+        account_type: "account" or "card" to determine the endpoint
     """
-    url = (
-        "https://online.ameriabank.am/InternetBank/Route/"
-        "2.1005212.80911/moz/en-US/AmeriaBank/983038.49148.414/0/"
-        "AmeriaBank/Component.MainForm.0.551.ExportCsv.wgx"  # 551 here is changing.
-        "?requestid=638849339623154138"  # Changes and looks like encodes account number.
-        "&format=csv"
-        "&encoding=utf-16"
-    )
+    # Convert account number to internal ID (remove first 2 digits)
+    internal_account_id = account_number[2:]
+    # Determine base URL and endpoints based on account type
+    if account_type == "card":
+        base_url = "https://online.inecobank.am/CardStatement"
+        callback_panel_url = f"{base_url}/_CardStatementCallbackPanel"
+        operation_list_url = "https://online.inecobank.am/vcOperation/CardOperationList"
+        export_url = f"{base_url}/Export"
+        referer_url = f"{base_url}/Statement/{internal_account_id}"
+    else:
+        base_url = "https://online.inecobank.am/AccountStatement"
+        callback_panel_url = f"{base_url}/_AccountStatementCallbackPanel"
+        operation_list_url = "https://online.inecobank.am/vcOperation/OperationList"
+        export_url = f"{base_url}/Export"
+        referer_url = f"{base_url}/Statement/{internal_account_id}"
+
+    # Get current DXScript and DXCss values from the session
+    logger.info("Getting current session DXScript and DXCss values...")
+    dx_script, dx_css = get_inecobank_session_info(cookie)
+    
+    if not dx_script or not dx_css:
+        logger.warning("Could not extract DXScript/DXCss, using fallback values")
+        # Fallback to static values if extraction fails
+        dx_script = "1_171,1_94,1_164,1_114,1_121,1_98,1_125,1_113,14_33,1_91,1_156,1_154,1_106,14_1,1_105,14_0,14_22,1_120,1_93,14_2,1_104,1_138,14_13,14_5,1_116,1_152,1_101,14_7,1_103,1_102,14_8,1_169,1_170,1_124,14_9,1_163,1_162,1_147,14_32,1_157,1_166,1_139,1_97,1_141,1_142,14_15,1_155,1_143,1_144,14_16,14_17,1_126,14_11,1_146,1_149,14_20,1_160,1_158,1_153,1_161,14_25,1_165,14_28,14_31,1_100,5_5,5_4,4_11,4_10,4_6,4_7,4_9,14_14,4_12,4_13,4_14,1_110,1_112,1_137,14_12,1_117,1_107,14_3,1_108,1_109,1_122,1_145,1_119,14_18,14_19,1_118,14_29,1_123,1_136"
+        dx_css = "1_12,0_5140,0_5136,1_10,0_5005,1_5,0_5007,0_5009,0_5011,0_5114,0_5110,0_5138,0_5012,4_2,0_5014,5_1,0_5092,/Content/Site.css??v=1.4.0"
+
+    # Common headers for all requests
     headers = {
-        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0",
+        "Accept": "text/html, */*; q=0.01",
+        "Accept-Language": "en,ru-RU;q=0.8,ru;q=0.5,en-US;q=0.3",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "XMLHttpRequest",
+        "Origin": "https://online.inecobank.am",
+        "Connection": "keep-alive",
         "Cookie": cookie,
-        "Accept": "text/csv",  # In browser 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        "Referer": "https://online.ameriabank.am/InternetBank/MainForm.wgx",
-        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+        "TE": "trailers"
     }
-    # Make the request with streaming enabled to handle chunked transfer
-    response = requests.get(url, headers=headers, stream=True, timeout=30)
+
+    headers.update({
+        "DXScript": dx_script,
+        "DXCss": dx_css,
+        "Referer": referer_url
+    })
+
+    # Step 1: Callback panel request
+    logger.info(f"Making callback panel request for Inecobank account {account_number}")
+    callback_data = {
+        "DXCallbackName": f"cbp{account_type.capitalize()}Statement",
+        "DXCallbackArgument": "c0:",
+        "INECO_LIST_FILTER_CALLBACK": f"{from_date_str};{to_date_str};{internal_account_id}; "
+    }
+    response = requests.post(callback_panel_url, headers=headers, data=callback_data, timeout=30)
     if not response.ok:
-        error_msg = response.text
-        logger.error(
-            "MyAmeria server %s error on %s: %s",
-            response.status_code,
-            url,
-            error_msg,
-        )
-    # Accumulate all chunks in memory.
-    chunks = []
-    for chunk in response.iter_content(chunk_size=None):
-        if chunk:  # filter out keep-alive chunks
-            chunks.append(chunk)
-    # Write all accumulated data to file.
+        logger.error(f"Callback panel request failed: {response.status_code} - {response.text}")
+        raise Exception(f"Callback panel request failed: {response.status_code}")
+
+    # Step 2: Operation list request
+    logger.info(f"Making operation list request for Inecobank account {account_number}")
+    # URL encode the filter parameters
+    from_date_encoded = from_date_str.replace("/", "%2F")
+    to_date_encoded = to_date_str.replace("/", "%2F")
+    operation_list_url_with_params = (
+        f"{operation_list_url}?INECO_LIST_CALLBACK=1"
+        f"&INECO_LIST_VIEW_ID=1"
+        f"&INECO_LIST_BASE_FILTER=%28%22Date%22%20between%20TO_DATE%28%27{from_date_encoded}%2000%3A00%3A00%27%2C%27dd%2Fmm%2Fyyyy%20hh24%3Ami%3Ass%27%29%20and%20TO_DATE%28%27{to_date_encoded}%2023%3A59%3A59%27%2C%27dd%2Fmm%2Fyyyy%20hh24%3Ami%3Ass%27%29%29%20and%20%28%22account_id%22%3D{internal_account_id}%29"
+        f"&ACCOUNT_STATEMENT_TOTAL_OUT=0"
+        f"&ACCOUNT_STATEMENT_TOTAL_IN=0"
+        f"&ACCOUNT_STATEMENT_CURRENCY=AMD"
+    )
+    operation_data = {
+        "DXCallbackName": f"gv{account_type.capitalize()}Statement",
+        "DXCallbackArgument": "c0:KV|0;[];GB|0;0|CUSTOMCALLBACK0|;",
+        f"gv{account_type.capitalize()}Statement$DXSelInput": "",
+        f"gv{account_type.capitalize()}Statement$DXKVInput": "[]",
+        f"gv{account_type.capitalize()}Statement$CallbackState": "BwQHAQIFU3RhdGUHRgcFBwACAQcBAgEHAgIBBwMCAQcEAgEHAAcABwAHAAIABQAAAIAJAgJJRAcACQIAAgEDBwQCAAcAAgEHDgcAAgEHAAcABwACEEZpbHRlckV4cHJlc3Npb24HAgACClNob3dGb290ZXIKAgECCFBhZ2VTaXplAwcU",
+        "DXMVCEditorsValues": "{}",
+        "INECO_LIST_FILTER_CALLBACK": f"{from_date_str};{to_date_str};{internal_account_id}; "
+    }
+    response = requests.post(operation_list_url_with_params, headers=headers, data=operation_data, timeout=30)
+    if not response.ok:
+        logger.error(f"Operation list request failed: {response.status_code} - {response.text}")
+        raise Exception(f"Operation list request failed: {response.status_code}")
+    # Add a small delay to make requests more human-like
+    time.sleep(3)
+
+    # Step 3: Download XML file
+    logger.info(f"Downloading XML statement for Inecobank account {account_number}")
+    # Update headers for the export request
+    export_headers = headers.copy()
+    export_headers.update({
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Priority": "u=0, i"
+    })
+    # Prepare export data - match the exact format from the curl request
+    export_filter = f"{from_date_str};{to_date_str};{internal_account_id};2"
+    # URL encode the parameters as they appear in the curl request
+    from_date_encoded = from_date_str.replace("/", "%2F")
+    to_date_encoded = to_date_str.replace("/", "%2F")
+    export_filter_encoded = f"{from_date_encoded};{to_date_encoded};{internal_account_id};2"
+    export_data = {
+        "export_filter": export_filter_encoded,
+        "export_sorting": "",
+        "DXScript": dx_script,
+        "DXCss": dx_css,
+        "DXMVCEditorsValues": f'{{"export_filter":"{export_filter_encoded}","export_sorting":null}}',
+        "btnExportXml": "btnExportXml"
+    }
+    # Make the export request
+    response = requests.post(export_url, headers=export_headers, data=export_data, stream=True, timeout=30)
+    if not response.ok:
+        logger.error(f"Export request failed: {response.status_code} - {response.text}")
+        raise Exception(f"Export request failed: {response.status_code}")
+
+    # Save the XML file
     with open(path, 'wb') as f:
-        f.write(b''.join(chunks))
-    logger.info(f"Successfully downloaded statement to {path}")
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    # Check if the downloaded file contains the rejection message
+    with open(path, 'r', encoding='utf-8') as f:
+        content = f.read()
+        if "Request Rejected" in content:
+            logger.error(f"Downloaded file contains rejection message: {content[:200]}...")
+            raise Exception("Bank rejected the request - file contains rejection message")
+    logger.info(f"Successfully downloaded Inecobank account {account_number} statement to {path}")
 
 
 def main():
@@ -371,20 +521,22 @@ def main():
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     to_date = datetime.datetime.now()
-    # Download statements for all accounts in MyAmeria from "History" page.
-    # Note that it saves them directly as generic CSV files to don't
-    # add "myAmeriaMyAccounts" to config.yaml.
-    my_ameria = config["my_ameria"]
-    my_ameria_history_path = os.path.join(
-        MY_FOLDER_PATH, my_ameria["history_path"]
-    )
-    download_myameria_history(
-        path=my_ameria_history_path,
-        auth_token=my_ameria["auth_token"],
-        from_date_str=my_ameria["since-DD-MM-YYYY"],
-        to_date_str=to_date.strftime("%d-%m-%Y"),
-        client_id=my_ameria["client_id"],
-    )
+    if "my_ameria" in config:
+        # Download statements for all accounts in MyAmeria from "History" page.
+        # Note that it saves them directly as generic CSV files to don't
+        # add "myAmeriaMyAccounts" to config.yaml.
+        my_ameria = config["my_ameria"]
+        my_ameria_history_path = os.path.join(
+            MY_FOLDER_PATH, my_ameria["folder_path"]
+        )
+        logger.info("Downloading MyAmeria all accounts history into %s...", my_ameria_history_path)
+        download_myameria_history(
+            path=my_ameria_history_path,
+            auth_token=my_ameria["auth_token"],
+            from_date_str=my_ameria["since-DD-MM-YYYY"],
+            to_date_str=to_date.strftime("%d-%m-%Y"),
+            client_id=my_ameria["client_id"],
+        )
     # FYI: code below downloads per-account/card Excel files
     # but they contain too few info, data from "History" page is richer.
     # my_ameria_accounts = my_ameria["accounts"]
@@ -401,7 +553,61 @@ def main():
     #         to_date_str=to_date.strftime("%d-%m-%Y"),
     #         path=os.path.abspath(statement_path),
     #     )
-    # TODO: Download statements for all accounts in Ameria Business.
+    # Download statements for all accounts in Inecobank
+    # if "inecobank" in config:
+    #     inecobank = config["inecobank"]
+    #     inecobank_accounts = inecobank["accounts"]
+    #     for account in inecobank_accounts:
+    #         logger.info("Downloading Inecobank statement for %s...", account["name"])
+    #         statement_path = os.path.join(MY_FOLDER_PATH, account["path"])
+    #         download_inecobank_statement(
+    #             account_number=account["account_number"],
+    #             from_date_str=account["since-DD/MM/YYYY"],
+    #             to_date_str=to_date.strftime("%d/%m/%Y"),
+    #             path=os.path.abspath(statement_path),
+    #             cookie=inecobank["cookie"],
+    #             account_type=account.get("type"),
+    #         )
+    # Download statements for AmeriaBank (Business / legal entities).
+    if "ameriabank" in config:
+        ameriabank = config["ameriabank"]
+        cookie = ameriabank.get("cookie", "")
+        content_url = ameriabank.get("content_url", "")
+        since_str = ameriabank.get("since-DD-MM-YYYY", "")
+        folder_path = ameriabank.get("folder_path", "")
+        config_accounts = ameriabank.get("accounts") or []
+        if not cookie or not content_url or not since_str:
+            logger.warning("AmeriaBank: set cookie, content_url and since-DD-MM-YYYY in config.")
+        else:
+            to_str = to_date.strftime("%d-%m-%Y")
+            base_dir = (os.path.join(MY_FOLDER_PATH, folder_path) if folder_path and not os.path.isabs(folder_path)
+                        else (folder_path if folder_path else MY_FOLDER_PATH))
+            session = AmeriabankWebGuiSession(cookie=cookie, content_url=content_url)
+            session.get_initial_content()
+            accounts = session.navigate_to_accounts()
+            since_safe = since_str.replace("/", "-")
+            def sanitize(s):
+                return (s or "").replace("/", "_").replace("\\", "_").strip() or "account"
+            if not config_accounts:
+                for i, acc in enumerate(accounts):
+                    out_path = os.path.join(base_dir, f"{acc.account_number}_{sanitize(acc.name)}_since_{since_safe}.csv")
+                    logger.info("Downloading AmeriaBank statement for %s (%s)...", acc.account_number, acc.name)
+                    session.download_statement_for_account(i, since_str, to_str, out_path)
+            else:
+                for cfg in config_accounts:
+                    number = (cfg.get("number") or "").strip()
+                    name = (cfg.get("name") or "").strip()
+                    path_cfg = (cfg.get("path") or "").strip()
+                    idx = next((i for i, a in enumerate(accounts) if (a.account_number == number or sanitize(a.name) == name)), None)
+                    if idx is None:
+                        logger.warning("AmeriaBank: account not found (number=%s, name=%s); skip.", number or "?", name or "?")
+                        continue
+                    if path_cfg:
+                        out_path = os.path.normpath(os.path.join(MY_FOLDER_PATH, path_cfg)) if not os.path.isabs(path_cfg) else path_cfg
+                    else:
+                        out_path = os.path.join(base_dir, f"{accounts[idx].account_number}_{sanitize(accounts[idx].name)}_since_{since_safe}.csv")
+                    logger.info("Downloading AmeriaBank statement for %s to %s...", accounts[idx].account_number, out_path)
+                    session.download_statement_for_account(idx, since_str, to_str, out_path)
 
 
 if __name__ == "__main__":

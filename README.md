@@ -106,6 +106,19 @@ See list of supported banks, supported formats and relevant instructions in belo
   Supports all features native to app and Beancount reports.
   In `config.yaml` is referenced by `ameriaCsvFilesGlob` setting.
   Parsed by [ameria_csv_parser.go](/ameria_csv_parser.go).
+  There is an option to **download CSV statements** via
+  [bank_downloader.py](/scripts/bank_downloader.py). You provide authentication and a **since** date; the script simulates opening each account and downloading CSV on its own (same behaviour as MyAmeria).
+  <details>
+  <summary>How to download AmeriaBank Business statements</summary>
+
+  1. Log in at https://online.ameriabank.am (e.g. QR code via mobile app).
+  2. Open DevTools → **Network**. Find any request whose URL contains **Content.MainForm.wgx**.
+  3. Copy **Cookie** (full header) and **content_url** (full Request URL of that request).
+  4. In `bank_dowloader_config.yaml` set `ameriabank.cookie`, `ameriabank.content_url` and `ameriabank.since-DD-MM-YYYY` (same format as `my_ameria`). Optionally set `folder_path` (base folder for CSVs; empty = scripts folder) and `accounts` (list with `name`, `number`, `path` per account to limit and name files).
+  5. Run `python scripts/bank_downloader.py` (or `make bank-downloader`). The script opens Accounts, for each account opens Statement, sets date range (since → today), exports CSV and saves. With no `accounts` list, files are named `<account_number>_<account_name>_since_<since>.csv` under `folder_path`. You only supply cookie and content_url; the script obtains session tokens (LR) and export URLs (requestid) from the server responses — it does not ask you for them or guess them.
+
+  Session (cookie) expires; re-copy cookie and content_url after re-login. Helpers in [scripts/bank_helpers.py](/scripts/bank_helpers.py).
+  </details>
 - [NONE] AmeriaBank for Businesses XML (.xml) files downloaded per-account from
   https://online.ameriabank.am/InternetBank/MainForm.wgx
   (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain

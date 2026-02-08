@@ -27,3 +27,6 @@ Statement *.xml
 statement*.xlsx
 STATEMENT*.xlsx
 *.beancount
+
+# Python artifacts
+__pycache__**
