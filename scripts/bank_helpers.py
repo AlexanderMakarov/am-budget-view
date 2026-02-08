@@ -3,6 +3,7 @@ Bank-specific helpers for automation (statements, transactions, etc.).
 Reusable across bank_downloader.py and future scripts.
 """
 
+import json
 import logging
 import re
 import time
@@ -14,7 +15,156 @@ import requests
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# AmeriaBank (online.ameriabank.am) – legal entities / business
+# AmeriaBank Business (business.myameria.am) – HTTP API
+# ---------------------------------------------------------------------------
+
+AMERIABANK_BUSINESS_API_BASE = "https://gateway-businessmyameria.ameriabank.am/api/v1"
+AMERIABANK_BUSINESS_ORIGIN = "https://business.myameria.am"
+
+# Account types for list endpoint
+AMERIABANK_ACCOUNT_TYPE_SETTLEMENT = "SettlementAccount"
+AMERIABANK_ACCOUNT_TYPE_CARD = "CardAccount"
+
+
+@dataclass
+class AmeriabankBusinessAccount:
+    """One account from MyAmeria Business API (JSON)."""
+
+    id: int
+    number: str
+    currency: str
+    name: str
+    sub_type: str  # SettlementAccount | CardAccount
+    balance: float
+    account_status: str
+    description: str = ""
+    closing_date: str | None = None
+
+
+def _ameriabank_business_headers(cookie: str) -> dict[str, str]:
+    """Headers for gateway-businessmyameria.ameriabank.am (Cookie-based auth)."""
+    return {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Referer": f"{AMERIABANK_BUSINESS_ORIGIN}/",
+        "Origin": AMERIABANK_BUSINESS_ORIGIN,
+        "Model": "firefox",
+        "DeviceOS": "Linux",
+        "DeviceId": "MyAmeriaBusiness Web",
+        "DeviceOSVersion": "147.0.0",
+        "Platform": "Web",
+        "Connection": "keep-alive",
+        "Cookie": _latin1_safe(cookie),
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site",
+    }
+
+
+def fetch_ameriabank_business_accounts(
+    cookie: str,
+    account_type: str,
+    *,
+    page_index: int = 1,
+    page_size: int = 100,
+    timeout: int = 60,
+) -> list[AmeriabankBusinessAccount]:
+    """
+    Fetch account list from MyAmeria Business API.
+    account_type: AMERIABANK_ACCOUNT_TYPE_SETTLEMENT or AMERIABANK_ACCOUNT_TYPE_CARD.
+    """
+    url = (
+        f"{AMERIABANK_BUSINESS_API_BASE}/Accounts"
+        f"?pageIndex={page_index}&pageSize={page_size}"
+        f"&accountType={account_type}&accountStatus=Open"
+    )
+    headers = _ameriabank_business_headers(cookie)
+    logger.info("AmeriaBank Business GET Accounts (%s)", account_type)
+    resp = requests.get(url, headers=headers, timeout=timeout)
+    if resp.status_code == 401:
+        body = (resp.text or "")[:500]
+        logger.error("AmeriaBank Business 401 Unauthorized. Body: %s", body)
+        raise ValueError(
+            "AmeriaBank Business API returned 401 Unauthorized. "
+            "AccessToken in the cookie is likely expired (it is short-lived). "
+            "Copy a fresh cookie from DevTools → Network → any request to "
+            "gateway-businessmyameria.ameriabank.am (Cookie header must include AccessToken, RefreshToken, TS*)."
+        ) from None
+    resp.raise_for_status()
+    data = resp.json()
+    accounts = []
+    for item in data:
+        accounts.append(
+            AmeriabankBusinessAccount(
+                id=int(item["id"]),
+                number=str(item["number"]),
+                currency=str(item["currency"]),
+                name=str(item.get("name", item.get("description", ""))),
+                sub_type=str(item.get("subType", account_type)),
+                balance=float(item.get("balance", 0)),
+                account_status=str(item.get("accountStatus", "")),
+                description=str(item.get("description", "")),
+                closing_date=item.get("closingDate"),
+            )
+        )
+    logger.info("AmeriaBank Business: %d %s accounts", len(accounts), account_type)
+    return accounts
+
+
+def download_ameriabank_business_statement_csv(
+    cookie: str,
+    account_id: int,
+    start_date_yyyy_mm_dd: str,
+    end_date_yyyy_mm_dd: str,
+    path: str,
+    *,
+    timeout: int = 60,
+) -> None:
+    """
+    Download statement CSV for one account from MyAmeria Business API.
+    start_date_yyyy_mm_dd / end_date_yyyy_mm_dd: YYYY-MM-DD (API format).
+    """
+    url = (
+        f"{AMERIABANK_BUSINESS_API_BASE}/Accounts/{account_id}/Statements/Export"
+        f"?exportFormat=Csv"
+        f"&startDate={start_date_yyyy_mm_dd}&endDate={end_date_yyyy_mm_dd}"
+    )
+    headers = _ameriabank_business_headers(cookie)
+    headers["Accept"] = "text/csv, application/csv, application/json, */*"
+    logger.info("AmeriaBank Business GET Export %s", url)
+    resp = requests.get(url, headers=headers, timeout=timeout)
+    if resp.status_code == 401:
+        body = (resp.text or "")[:500]
+        logger.error("AmeriaBank Business 401 Unauthorized on Export. Response: %s", body)
+        raise ValueError(
+            "AmeriaBank Business API 401 Unauthorized on Export. See log above for response body."
+        ) from None
+    resp.raise_for_status()
+    raw = resp.content
+    # Response may be CSV or JSON-wrapped; try decode as UTF-8
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8", errors="replace")
+    # If server returns JSON with CSV inside (e.g. {"data": "..."}), unwrap
+    if text.strip().startswith("{"):
+        try:
+            obj = json.loads(text)
+            if isinstance(obj, dict) and "data" in obj:
+                text = obj["data"]
+            elif isinstance(obj, str):
+                text = obj
+        except Exception:
+            pass
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    logger.info("Downloaded AmeriaBank Business statement to %s", path)
+
+
+# ---------------------------------------------------------------------------
+# AmeriaBank Legacy (online.ameriabank.am) – DXScript/DXCss WebGUI
 # ---------------------------------------------------------------------------
 
 AMERIABANK_ORIGIN = "https://online.ameriabank.am"

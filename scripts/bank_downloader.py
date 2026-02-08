@@ -14,7 +14,13 @@ MY_FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
 if MY_FOLDER_PATH not in sys.path:
     sys.path.insert(0, MY_FOLDER_PATH)
 
-from bank_helpers import AmeriabankWebGuiSession
+from bank_helpers import (
+    AMERIABANK_ACCOUNT_TYPE_CARD,
+    AMERIABANK_ACCOUNT_TYPE_SETTLEMENT,
+    AmeriabankBusinessAccount,
+    download_ameriabank_business_statement_csv,
+    fetch_ameriabank_business_accounts,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -568,46 +574,76 @@ def main():
     #             cookie=inecobank["cookie"],
     #             account_type=account.get("type"),
     #         )
-    # Download statements for AmeriaBank (Business / legal entities).
+    # Download statements for AmeriaBank Business (business.myameria.am HTTP API).
     if "ameriabank" in config:
         ameriabank = config["ameriabank"]
         cookie = ameriabank.get("cookie", "")
-        content_url = ameriabank.get("content_url", "")
         since_str = ameriabank.get("since-DD-MM-YYYY", "")
         folder_path = ameriabank.get("folder_path", "")
         config_accounts = ameriabank.get("accounts") or []
-        if not cookie or not content_url or not since_str:
-            logger.warning("AmeriaBank: set cookie, content_url and since-DD-MM-YYYY in config.")
+        if not cookie or not since_str:
+            logger.warning("AmeriaBank: set cookie and since-DD-MM-YYYY in config (business.myameria.am).")
         else:
-            to_str = to_date.strftime("%d-%m-%Y")
+            # DD-MM-YYYY -> YYYY-MM-DD for API
+            parts = since_str.replace("/", "-").strip().split("-")
+            if len(parts) == 3:
+                start_yyyy_mm_dd = f"{parts[2]}-{parts[1]}-{parts[0]}"
+            else:
+                start_yyyy_mm_dd = since_str
+            end_yyyy_mm_dd = to_date.strftime("%Y-%m-%d")
             base_dir = (os.path.join(MY_FOLDER_PATH, folder_path) if folder_path and not os.path.isabs(folder_path)
                         else (folder_path if folder_path else MY_FOLDER_PATH))
-            session = AmeriabankWebGuiSession(cookie=cookie, content_url=content_url)
-            session.get_initial_content()
-            accounts = session.navigate_to_accounts()
+            settlement = fetch_ameriabank_business_accounts(cookie, AMERIABANK_ACCOUNT_TYPE_SETTLEMENT)
+            card = fetch_ameriabank_business_accounts(cookie, AMERIABANK_ACCOUNT_TYPE_CARD)
+            accounts: list[AmeriabankBusinessAccount] = settlement + card
+            logger.info(
+                "AmeriaBank Business accounts (%d): %s",
+                len(accounts),
+                ", ".join(f"{a.number} ({a.name}, {a.sub_type})" for a in accounts),
+            )
             since_safe = since_str.replace("/", "-")
-            def sanitize(s):
+
+            def sanitize(s: str) -> str:
                 return (s or "").replace("/", "_").replace("\\", "_").strip() or "account"
+
+            def out_path_for(acc: AmeriabankBusinessAccount) -> str:
+                return os.path.join(base_dir, f"{acc.number}_{sanitize(acc.name)}_since_{since_safe}.csv")
+
+            def ensure_dir(p: str) -> None:
+                d = os.path.dirname(os.path.abspath(p))
+                if d:
+                    os.makedirs(d, exist_ok=True)
+
             if not config_accounts:
-                for i, acc in enumerate(accounts):
-                    out_path = os.path.join(base_dir, f"{acc.account_number}_{sanitize(acc.name)}_since_{since_safe}.csv")
-                    logger.info("Downloading AmeriaBank statement for %s (%s)...", acc.account_number, acc.name)
-                    session.download_statement_for_account(i, since_str, to_str, out_path)
+                for acc in accounts:
+                    out_path = out_path_for(acc)
+                    ensure_dir(out_path)
+                    logger.info("Downloading AmeriaBank statement for %s (%s)...", acc.number, acc.name)
+                    download_ameriabank_business_statement_csv(
+                        cookie, acc.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                    )
             else:
                 for cfg in config_accounts:
-                    number = (cfg.get("number") or "").strip()
+                    number = (cfg.get("number") or cfg.get("account_number") or "").strip()
                     name = (cfg.get("name") or "").strip()
                     path_cfg = (cfg.get("path") or "").strip()
-                    idx = next((i for i, a in enumerate(accounts) if (a.account_number == number or sanitize(a.name) == name)), None)
-                    if idx is None:
+                    acc = next(
+                        (a for a in accounts if a.number == number or sanitize(a.name) == name),
+                        None,
+                    )
+                    if acc is None:
                         logger.warning("AmeriaBank: account not found (number=%s, name=%s); skip.", number or "?", name or "?")
                         continue
-                    if path_cfg:
-                        out_path = os.path.normpath(os.path.join(MY_FOLDER_PATH, path_cfg)) if not os.path.isabs(path_cfg) else path_cfg
-                    else:
-                        out_path = os.path.join(base_dir, f"{accounts[idx].account_number}_{sanitize(accounts[idx].name)}_since_{since_safe}.csv")
-                    logger.info("Downloading AmeriaBank statement for %s to %s...", accounts[idx].account_number, out_path)
-                    session.download_statement_for_account(idx, since_str, to_str, out_path)
+                    out_path = (
+                        os.path.normpath(os.path.join(MY_FOLDER_PATH, path_cfg))
+                        if path_cfg and not os.path.isabs(path_cfg)
+                        else (path_cfg if path_cfg else out_path_for(acc))
+                    )
+                    ensure_dir(out_path)
+                    logger.info("Downloading AmeriaBank statement for %s to %s...", acc.number, out_path)
+                    download_ameriabank_business_statement_csv(
+                        cookie, acc.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                    )
 
 
 if __name__ == "__main__":

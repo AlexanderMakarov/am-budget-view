@@ -11,19 +11,16 @@ my_ameria:
   # How to name a resulting file. Should be matched by 'genericCsvFilesGlob' in config.yaml.
   history_path: "../generic MyAmeria History since 2024-09-01.csv"
 
-# AmeriaBank (online.ameriabank.am) for legal entities.
-# After QR login, copy from DevTools → Network: Cookie and Content.MainForm.wgx request URL.
-# Script simulates opening each account and downloading CSV (since date → today).
+# AmeriaBank Business (business.myameria.am) for legal entities.
+# Log in at https://business.myameria.am, then copy from DevTools → Network the Cookie header
+# for requests to gateway-businessmyameria.ameriabank.am (TS*, RefreshToken, AccessToken).
+# API supports startDate/endDate; we use since-DD-MM-YYYY and today as end.
 ameriabank:
-  content_url: ""
-  cookie: ""
-  # Start date for statements (same format as my_ameria). End date is always today.
+  cookie: "TS...=...; RefreshToken=...; AccessToken=..."
   since-DD-MM-YYYY: "01-09-2024"
-  # Base folder for CSV files (relative to scripts/ or absolute). If empty, scripts folder.
   folder_path: ""
-  # If empty or omitted: download all accounts with names "<account_number>_<account_name>_since_<since>.csv".
-  # If set: download only listed accounts; each can override path (relative to scripts/ or absolute).
+  # Optional: list accounts to download (by number or name); path overrides default filename.
   # accounts:
-  #   - name: "USD account"
-  #     number: "1570031053801234"
-  #     path: "../157003105301234 USD account since 2024-04-01.csv"
+  #   - name: "Settlement AMD"
+  #     number: "1570048149171400"
+  #     path: "../my_settlement_amd.csv"
