@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 )
 
 // TestHelper provides utilities for testing
@@ -65,9 +67,9 @@ groups:
 
 func TestParseArgs_Success(t *testing.T) {
 	tests := []struct {
-		name    string
-		args    []string
-		want    Args
+		name            string
+		args            []string
+		want            Args
 		isHelpRequested bool
 	}{
 		{
@@ -148,8 +150,8 @@ func TestParseArgs_Success(t *testing.T) {
 			isHelpRequested: false,
 		},
 		{
-			name: "help requested",
-			args: []string{"--help"},
+			name:            "help requested",
+			args:            []string{"--help"},
 			isHelpRequested: true,
 		},
 	}
@@ -217,7 +219,7 @@ func TestRunApplication_InvalidConfig(t *testing.T) {
 
 	args := Args{
 		ConfigPath: configFile,
-		ResultMode: OPEN_MODE_NONE,
+		ResultMode: model.OPEN_MODE_NONE,
 	}
 
 	err = runApplication(args)
@@ -251,7 +253,7 @@ groups:
 
 	args := Args{
 		ConfigPath: configFile,
-		ResultMode: OPEN_MODE_NONE,
+		ResultMode: model.OPEN_MODE_NONE,
 	}
 
 	err = runApplication(args)
@@ -292,7 +294,7 @@ func TestHandleError(t *testing.T) {
 	}
 
 	// Check if error file was created
-	if _, err := os.Stat(RESULT_FILE_PATH); os.IsNotExist(err) {
+	if _, err := os.Stat(model.RESULT_FILE_PATH); os.IsNotExist(err) {
 		t.Error("Expected error file to be created")
 	}
 }
