@@ -187,11 +187,13 @@ def download_ameriabank_business_statement_csv(
     """
     Download statement CSV for one account from MyAmeria Business API.
     start_date_yyyy_mm_dd / end_date_yyyy_mm_dd: YYYY-MM-DD (API format).
+    Uses withAmd=true to get Debit(AMD)/Credit(AMD) columns but it doesn't work.
     """
     url = (
         f"{AMERIABANK_BUSINESS_API_BASE}/Accounts/{account_id}/Statements/Export"
         f"?exportFormat=Csv"
         f"&startDate={start_date_yyyy_mm_dd}&endDate={end_date_yyyy_mm_dd}"
+        "&withAmd=true"
     )
     headers = _ameriabank_business_headers(cookie)
     headers["Accept"] = "text/csv, application/csv, application/json, */*"
