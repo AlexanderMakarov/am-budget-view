@@ -26,6 +26,14 @@ AMERIABANK_ACCOUNT_TYPE_SETTLEMENT = "SettlementAccount"
 AMERIABANK_ACCOUNT_TYPE_CARD = "CardAccount"
 
 
+class AmeriabankBusinessUnauthorized(Exception):
+    """Raised when gateway returns 401; caller may refresh cookie and retry."""
+
+    def __init__(self, message: str, response_body: str = ""):
+        super().__init__(message)
+        self.response_body = response_body
+
+
 @dataclass
 class AmeriabankBusinessAccount:
     """One account from MyAmeria Business API (JSON)."""
@@ -63,6 +71,62 @@ def _ameriabank_business_headers(cookie: str) -> dict[str, str]:
     }
 
 
+def refresh_ameriabank_business_cookie(cookie: str, *, timeout: int = 60) -> str:
+    """
+    POST Authentication/Refresh with current cookie; return new cookie from Set-Cookie.
+    Cookie must include RefreshToken and TS* (AccessToken can be expired).
+    """
+    url = f"{AMERIABANK_BUSINESS_API_BASE}/Authentication/Refresh"
+    headers = {
+        **_ameriabank_business_headers(cookie),
+        "Content-Type": "application/json",
+        "Sec-Fetch-Storage-Access": "none",
+    }
+    logger.info("AmeriaBank Business POST %s", url)
+    resp = requests.post(url, headers=headers, data="{}", timeout=timeout)
+    if resp.status_code != 200:
+        body = (resp.text or "")[:500]
+        logger.error("AmeriaBank Business Refresh failed %s. Response: %s", resp.status_code, body)
+        if resp.status_code == 401:
+            raise ValueError(
+                "AmeriaBank Business Refresh returned 401 — RefreshToken expired or invalid. "
+                "Log in again at https://business.myameria.am and copy a fresh cookie from a request to "
+                "gateway-businessmyameria.ameriabank.am. See log above for response body."
+            ) from None
+        raise ValueError(
+            f"AmeriaBank Business Refresh failed {resp.status_code}. See log for response body."
+        ) from None
+    # Parse Set-Cookie: may be multiple headers or one merged with ", "
+    cookies_dict: dict[str, str] = {}
+
+    def parse_set_cookie_value(val: str) -> None:
+        # One header value can be "Name=value; path=/; ..." or merged "Name1=val1; ..., Name2=val2; ..."
+        for block in val.split(","):
+            block = block.strip()
+            part = block.split(";")[0].strip()
+            if "=" in part:
+                name, value = part.split("=", 1)
+                name, value = name.strip(), value.strip()
+                if name:
+                    cookies_dict[name] = value
+
+    set_cookie_vals = []
+    if hasattr(resp.raw, "headers") and hasattr(resp.raw.headers, "getlist"):
+        set_cookie_vals = (resp.raw.headers.getlist("Set-Cookie") or resp.raw.headers.getlist("set-cookie") or [])
+    if not set_cookie_vals:
+        single = resp.headers.get("Set-Cookie") or resp.headers.get("set-cookie") or ""
+        if single:
+            set_cookie_vals = [single]
+    for val in set_cookie_vals:
+        parse_set_cookie_value(val)
+    if not cookies_dict:
+        logger.error("AmeriaBank Business Refresh 200 but no Set-Cookie in response")
+        raise ValueError("AmeriaBank Business Refresh returned no Set-Cookie; cannot update cookie.")
+    new_cookie = "; ".join(f"{k}={v}" for k, v in cookies_dict.items())
+    logger.info("AmeriaBank Business cookie refreshed (keys: %s)", list(cookies_dict.keys()))
+    return new_cookie
+
+
 def fetch_ameriabank_business_accounts(
     cookie: str,
     account_type: str,
@@ -85,12 +149,10 @@ def fetch_ameriabank_business_accounts(
     resp = requests.get(url, headers=headers, timeout=timeout)
     if resp.status_code == 401:
         body = (resp.text or "")[:500]
-        logger.error("AmeriaBank Business 401 Unauthorized. Body: %s", body)
-        raise ValueError(
-            "AmeriaBank Business API returned 401 Unauthorized. "
-            "AccessToken in the cookie is likely expired (it is short-lived). "
-            "Copy a fresh cookie from DevTools → Network → any request to "
-            "gateway-businessmyameria.ameriabank.am (Cookie header must include AccessToken, RefreshToken, TS*)."
+        logger.error("AmeriaBank Business 401 Unauthorized. Response: %s", body)
+        raise AmeriabankBusinessUnauthorized(
+            "AmeriaBank Business API 401 Unauthorized. Refresh cookie and retry.",
+            response_body=body,
         ) from None
     resp.raise_for_status()
     data = resp.json()
@@ -138,8 +200,9 @@ def download_ameriabank_business_statement_csv(
     if resp.status_code == 401:
         body = (resp.text or "")[:500]
         logger.error("AmeriaBank Business 401 Unauthorized on Export. Response: %s", body)
-        raise ValueError(
-            "AmeriaBank Business API 401 Unauthorized on Export. See log above for response body."
+        raise AmeriabankBusinessUnauthorized(
+            "AmeriaBank Business API 401 Unauthorized on Export.",
+            response_body=body,
         ) from None
     resp.raise_for_status()
     raw = resp.content

@@ -18,8 +18,10 @@ from bank_helpers import (
     AMERIABANK_ACCOUNT_TYPE_CARD,
     AMERIABANK_ACCOUNT_TYPE_SETTLEMENT,
     AmeriabankBusinessAccount,
+    AmeriabankBusinessUnauthorized,
     download_ameriabank_business_statement_csv,
     fetch_ameriabank_business_accounts,
+    refresh_ameriabank_business_cookie,
 )
 
 # Configure logging
@@ -593,8 +595,23 @@ def main():
             end_yyyy_mm_dd = to_date.strftime("%Y-%m-%d")
             base_dir = (os.path.join(MY_FOLDER_PATH, folder_path) if folder_path and not os.path.isabs(folder_path)
                         else (folder_path if folder_path else MY_FOLDER_PATH))
-            settlement = fetch_ameriabank_business_accounts(cookie, AMERIABANK_ACCOUNT_TYPE_SETTLEMENT)
-            card = fetch_ameriabank_business_accounts(cookie, AMERIABANK_ACCOUNT_TYPE_CARD)
+            # Cookie in a list so we can refresh on 401 and retry
+            cookie_ref: list[str] = [cookie]
+
+            def with_401_refresh(fn):
+                try:
+                    return fn(cookie_ref[0])
+                except AmeriabankBusinessUnauthorized:
+                    logger.info("AmeriaBank Business 401: refreshing cookie and retrying")
+                    cookie_ref[0] = refresh_ameriabank_business_cookie(cookie_ref[0])
+                    return fn(cookie_ref[0])
+
+            settlement = with_401_refresh(
+                lambda c: fetch_ameriabank_business_accounts(c, AMERIABANK_ACCOUNT_TYPE_SETTLEMENT)
+            )
+            card = with_401_refresh(
+                lambda c: fetch_ameriabank_business_accounts(c, AMERIABANK_ACCOUNT_TYPE_CARD)
+            )
             accounts: list[AmeriabankBusinessAccount] = settlement + card
             logger.info(
                 "AmeriaBank Business accounts (%d): %s",
@@ -619,8 +636,10 @@ def main():
                     out_path = out_path_for(acc)
                     ensure_dir(out_path)
                     logger.info("Downloading AmeriaBank statement for %s (%s)...", acc.number, acc.name)
-                    download_ameriabank_business_statement_csv(
-                        cookie, acc.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                    with_401_refresh(
+                        lambda c, a=acc: download_ameriabank_business_statement_csv(
+                            c, a.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                        )
                     )
             else:
                 for cfg in config_accounts:
@@ -641,8 +660,10 @@ def main():
                     )
                     ensure_dir(out_path)
                     logger.info("Downloading AmeriaBank statement for %s to %s...", acc.number, out_path)
-                    download_ameriabank_business_statement_csv(
-                        cookie, acc.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                    with_401_refresh(
+                        lambda c, a=acc: download_ameriabank_business_statement_csv(
+                            c, a.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                        )
                     )
 
 

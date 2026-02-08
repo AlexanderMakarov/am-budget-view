@@ -12,11 +12,14 @@ my_ameria:
   history_path: "../generic MyAmeria History since 2024-09-01.csv"
 
 # AmeriaBank Business (business.myameria.am) for legal entities.
-# Log in at https://business.myameria.am, then copy from DevTools → Network the Cookie header
-# for requests to gateway-businessmyameria.ameriabank.am (TS*, RefreshToken, AccessToken).
-# API supports startDate/endDate; we use since-DD-MM-YYYY and today as end.
+# Cookie: copy from DevTools → Network → any request to gateway-businessmyameria.ameriabank.am.
+#   Must include RefreshToken and TS0180e8bb (or similar TS*). AccessToken can be expired —
+#   on 401 we call Authentication/Refresh and retry automatically.
+# Parameters:
+#   cookie    — full Cookie header (TS*=...; RefreshToken=...; AccessToken=...)
+#   since-DD-MM-YYYY — start date for statements; end date is always today.
 ameriabank:
-  cookie: "TS...=...; RefreshToken=...; AccessToken=..."
+  cookie: "TS0180e8bb=...; RefreshToken=...; AccessToken=..."
   since-DD-MM-YYYY: "01-09-2024"
   folder_path: ""
   # Optional: list accounts to download (by number or name); path overrides default filename.
