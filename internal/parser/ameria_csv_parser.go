@@ -73,14 +73,21 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		panic(err)
 	}
 
-	// Convert UTF-16 to UTF-8
-	utf8Data, err := decodeUTF16ToUTF8(fileData)
-	if err != nil {
-		panic(err)
+	// Detect encoding: UTF-16 LE files start with BOM 0xFF 0xFE.
+	var utf8Data []byte
+	delimiter := ','
+	if len(fileData) >= 2 && fileData[0] == 0xFF && fileData[1] == 0xFE {
+		utf8Data, err = decodeUTF16ToUTF8(fileData)
+		if err != nil {
+			panic(err)
+		}
+		delimiter = '\t'
+	} else {
+		utf8Data = fileData
 	}
 
 	reader := csv.NewReader(bytes.NewReader(utf8Data))
-	reader.Comma = '\t'         // Assuming the CSV is tab-delimited
+	reader.Comma = delimiter
 	reader.LazyQuotes = true    // Allow the reader to handle bare quotes
 	reader.FieldsPerRecord = -1 // Allow a variable number of fields per record
 
