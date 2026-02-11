@@ -54,6 +54,7 @@ type Args struct {
 	ResultMode           string `arg:"-o" default:"web" help:"Specify how to open the result: 'none' for print into STDOUT only, 'web' for web server to see in browser, 'file' for opening result file in OS." enum:"none,web,file"`
 	DontBuildBeanconFile bool   `arg:"--no-beancount" help:"Flag to don't build Beancount file."`
 	DontBuildTextReport  bool   `arg:"--no-txt-report" help:"Flag to don't build TXT file report."`
+	NoTerminal           bool   `arg:"--no-terminal" help:"Run in the current terminal without opening external windows. Forces ResultMode to 'none'."`
 }
 
 // Version is application version string and should be updated with `go build -ldflags`.
@@ -116,6 +117,11 @@ func runApplication(args Args) error {
 		log.Printf("Created default config file at '%s'", args.ConfigPath)
 	}
 
+	// If --no-terminal is set, force ResultMode to "none" to avoid opening external windows.
+	if args.NoTerminal {
+		args.ResultMode = model.OPEN_MODE_NONE
+	}
+
 	// Validate ResultMode.
 	switch args.ResultMode {
 	case model.OPEN_MODE_NONE, model.OPEN_MODE_WEB, model.OPEN_MODE_FILE:
@@ -139,7 +145,7 @@ func runApplication(args Args) error {
 	}
 
 	// Ensure we're running in a terminal window before doing anything else.
-	if cfg.EnsureTerminal {
+	if cfg.EnsureTerminal && !args.NoTerminal {
 		platform.EnsureTerminalWindow()
 	}
 
