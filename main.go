@@ -10,6 +10,16 @@ import (
 	"time"
 
 	"github.com/alexflint/go-arg"
+
+	"github.com/AlexanderMakarov/am-budget-view/internal/app"
+	"github.com/AlexanderMakarov/am-budget-view/internal/beancount"
+	"github.com/AlexanderMakarov/am-budget-view/internal/config"
+	"github.com/AlexanderMakarov/am-budget-view/internal/currency"
+	"github.com/AlexanderMakarov/am-budget-view/internal/i18n"
+	"github.com/AlexanderMakarov/am-budget-view/internal/model"
+	"github.com/AlexanderMakarov/am-budget-view/internal/platform"
+	"github.com/AlexanderMakarov/am-budget-view/internal/statistic"
+	"github.com/AlexanderMakarov/am-budget-view/internal/ui"
 )
 
 var devMode bool = os.Getenv("DEV_MODE") != "" && strings.ToLower(os.Getenv("DEV_MODE")) != "false"
@@ -19,7 +29,13 @@ var defaultConfig []byte
 
 //go:embed locales
 var locales embed.FS
-var i18n *I18n
+
+//go:embed static
+var static embed.FS
+
+//go:embed templates
+var templateFS embed.FS
+
 var langToLocale = map[string]string{
 	"en": "en-US",
 	"ru": "ru-RU",
@@ -27,8 +43,7 @@ var langToLocale = map[string]string{
 
 func init() {
 	log.Printf("Version=%s, devMode=%t", Version, devMode)
-	i18n = &I18n{}
-	err := i18n.Init(I18nFsBackend{FS: locales}, "en-US", devMode)
+	err := i18n.Init(i18n.I18nFsBackend{FS: locales}, "en-US", devMode)
 	if err != nil {
 		log.Fatalf("Error initializing i18n: %v", err)
 	}
@@ -93,7 +108,7 @@ func parseArgs(args []string) (Args, bool, error) {
 func runApplication(args Args) error {
 	// Check if the config file exists, if not create it with default path and content.
 	if _, err := os.Stat(args.ConfigPath); os.IsNotExist(err) {
-		args.ConfigPath = DEFAULT_CONFIG_FILE_PATH
+		args.ConfigPath = model.DEFAULT_CONFIG_FILE_PATH
 		err = os.WriteFile(args.ConfigPath, defaultConfig, 0644)
 		if err != nil {
 			return fmt.Errorf("error creating default config file: %w", err)
@@ -103,18 +118,18 @@ func runApplication(args Args) error {
 
 	// Validate ResultMode.
 	switch args.ResultMode {
-	case OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE:
+	case model.OPEN_MODE_NONE, model.OPEN_MODE_WEB, model.OPEN_MODE_FILE:
 		// Valid modes
 	default:
-		return fmt.Errorf("invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, OPEN_MODE_NONE, OPEN_MODE_WEB, OPEN_MODE_FILE)
+		return fmt.Errorf("invalid ResultMode '%s', supported only: %s, %s, %s", args.ResultMode, model.OPEN_MODE_NONE, model.OPEN_MODE_WEB, model.OPEN_MODE_FILE)
 	}
 
 	// Prepare flags for writing to file and opening file with result.
 	isWriteToFile := !args.DontBuildTextReport
-	isOpenFileWithResult := args.ResultMode == OPEN_MODE_FILE
+	isOpenFileWithResult := args.ResultMode == model.OPEN_MODE_FILE
 
 	// Parse configuration.
-	config, err := readConfig(args.ConfigPath)
+	cfg, err := config.ReadConfig(args.ConfigPath)
 	if err != nil {
 		return handleError(
 			fmt.Errorf("configuration file '%s' is wrong: %w", args.ConfigPath, err),
@@ -124,42 +139,42 @@ func runApplication(args Args) error {
 	}
 
 	// Ensure we're running in a terminal window before doing anything else.
-	if config.EnsureTerminal {
-		ensureTerminalWindow()
+	if cfg.EnsureTerminal {
+		platform.EnsureTerminalWindow()
 	}
 
 	// Parse timezone or set system.
-	timeZone, err := time.LoadLocation(config.TimeZoneLocation)
+	timeZone, err := time.LoadLocation(cfg.TimeZoneLocation)
 	if err != nil {
 		return handleError(
-			fmt.Errorf("unknown TimeZoneLocation: %s", config.TimeZoneLocation),
+			fmt.Errorf("unknown TimeZoneLocation: %s", cfg.TimeZoneLocation),
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
 	}
 
 	// Set language.
-	if config.Language != "" {
-		i18n.SetLocale(langToLocale[config.Language])
+	if cfg.Language != "" {
+		i18n.SetLocale(langToLocale[cfg.Language])
 	}
 
 	// Log settings.
-	log.Println(i18n.T("Using configuration", "config", config))
+	log.Println(i18n.T("Using configuration", "config", cfg))
 
 	// Create data handler and parse files.
-	dataHandler := &DataHandler{
+	dataHandler := &app.DataHandler{
 		ConfigPath: args.ConfigPath,
-		Config:     config,
+		Config:     cfg,
 		TimeZone:   timeZone,
 	}
-	transactions, fileInfos, parsingWarnings, categorization, err := dataHandler.parseAllFiles()
+	transactions, fileInfos, parsingWarnings, cat, err := dataHandler.ParseAllFiles()
 	if err != nil {
 		return handleError(err, isWriteToFile, isOpenFileWithResult)
 	}
 
 	// Just show uncategorized transactions if in "CategorizeMode" and not WEB result mode.
-	if config.CategorizeMode && args.ResultMode != OPEN_MODE_WEB {
-		err = categorization.PrintUncategorizedTransactions(transactions)
+	if cfg.CategorizeMode && args.ResultMode != model.OPEN_MODE_WEB {
+		err = cat.PrintUncategorizedTransactions(transactions)
 		if err != nil {
 			return handleError(err, isWriteToFile, isOpenFileWithResult)
 		}
@@ -167,11 +182,11 @@ func runApplication(args Args) error {
 	}
 
 	// Build DataMart and StatisticBuilderFactory.
-	dataMart, err := BuildDataMart(transactions, config)
+	dataMart, err := currency.BuildDataMart(transactions, cfg)
 	if err != nil {
 		return handleError(err, isWriteToFile, isOpenFileWithResult)
 	}
-	statisticBuilderFactory, err := NewStatisticBuilderByCategories(dataMart.Accounts, config)
+	statisticBuilderFactory, err := statistic.NewStatisticBuilderByCategories(dataMart.Accounts, cfg)
 	if err != nil {
 		return handleError(err, isWriteToFile, isOpenFileWithResult)
 	}
@@ -179,7 +194,7 @@ func runApplication(args Args) error {
 	// Complete the DataHandler setup.
 	dataHandler.DataMart = dataMart
 	dataHandler.StatisticBuilderFactory = statisticBuilderFactory
-	dataHandler.Categorization = categorization
+	dataHandler.Categorization = cat
 	dataHandler.FileInfos = fileInfos
 
 	// Build journal entries.
@@ -205,11 +220,11 @@ func runApplication(args Args) error {
 			log.Println(i18n.T("can't build Beancount report, transactions from following sources don't have Reciever/Payer account number: sources", "sources", strings.Join(sourceNames, ", ")))
 		} else {
 			// Build Beancount file.
-			transLen, err := buildBeancountFile(journalEntries, dataMart.AllCurrencies, dataMart.Accounts, RESULT_BEANCOUNT_FILE_PATH)
+			transLen, err := beancount.BuildBeancountFile(journalEntries, dataMart.AllCurrencies, dataMart.Accounts, model.RESULT_BEANCOUNT_FILE_PATH)
 			if err != nil {
 				return handleError(errors.New(i18n.T("can't build Beancount report", "err", err)), isWriteToFile, isOpenFileWithResult)
 			}
-			log.Println(i18n.T("Built Beancount file f with n transactions", "file", RESULT_BEANCOUNT_FILE_PATH, "n", transLen))
+			log.Println(i18n.T("Built Beancount file f with n transactions", "file", model.RESULT_BEANCOUNT_FILE_PATH, "n", transLen))
 		}
 	}
 
@@ -232,18 +247,18 @@ func runApplication(args Args) error {
 			reportStringBuilder.WriteString("\n\n")
 		}
 
-		currency := ""
+		cur := ""
 		// For text report use first currency from ConvertToCurrencies or just first available currency.
-		if len(config.ConvertToCurrencies) > 0 {
-			currency = config.ConvertToCurrencies[0]
+		if len(cfg.ConvertToCurrencies) > 0 {
+			cur = cfg.ConvertToCurrencies[0]
 		} else {
-			currency = journalEntries[0].AccountCurrency
-			if currency == "" {
-				currency = journalEntries[0].OriginCurrency
+			cur = journalEntries[0].AccountCurrency
+			if cur == "" {
+				cur = journalEntries[0].OriginCurrency
 			}
 		}
 		for _, oneMonthStatistics := range monthlyStatistics {
-			if err := DumpIntervalStatistics(oneMonthStatistics, &reportStringBuilder, currency, config.DetailedOutput); err != nil {
+			if err := statistic.DumpIntervalStatistics(oneMonthStatistics, &reportStringBuilder, cur, cfg.DetailedOutput); err != nil {
 				return handleError(errors.New(i18n.T("can't dump interval statistics", "err", err)), isWriteToFile, isOpenFileWithResult)
 			}
 		}
@@ -253,23 +268,23 @@ func runApplication(args Args) error {
 		// Always print result into logs and conditionally into the file which open through the OS.
 		log.Println(result)
 		if !args.DontBuildTextReport {
-			writeAndOpenFile(RESULT_FILE_PATH, result, isOpenFileWithResult)
+			platform.WriteAndOpenFile(model.RESULT_FILE_PATH, result, isOpenFileWithResult)
 		}
 	}
 
 	// Start web server if needed.
-	if args.ResultMode == OPEN_MODE_WEB {
+	if args.ResultMode == model.OPEN_MODE_WEB {
 		url := fmt.Sprintf("http://localhost:%d", dataHandler.Config.UIPort)
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Give the server a moment to start.
-			err := openInOS(url)
+			err := platform.OpenInOS(url)
 			if err != nil {
 				log.Println(i18n.T("Failed to open UI in web browser", "err", err))
 			}
 		}()
 
 		log.Println(i18n.T("Starting local web server on urlport", "urlport", url))
-		err := ListenAndServe(dataHandler)
+		err := ui.ListenAndServe(dataHandler, static, templateFS, devMode)
 		if err != nil {
 			return handleError(
 				errors.New(i18n.T("failed to start web server, probably app is already running", "err", err)),
@@ -286,329 +301,7 @@ func runApplication(args Args) error {
 func handleError(err error, inFile bool, openFile bool) error {
 	errMsg := fmt.Sprintf("ERROR: %s", err)
 	if inFile {
-		writeAndOpenFile(RESULT_FILE_PATH, errMsg, openFile)
+		platform.WriteAndOpenFile(model.RESULT_FILE_PATH, errMsg, openFile)
 	}
 	return errors.New(errMsg)
-}
-
-// FileInfo represents information about a parsed transaction file.
-type FileInfo struct {
-	Path              string              `json:"path"`
-	Source            *TransactionsSource `json:"source"`
-	TransactionsCount int                 `json:"transactionsCount"`
-	AccountNumber     string              `json:"accountNumber"`
-	ModifiedTime      time.Time           `json:"modifiedTime"`
-	FromDate          time.Time           `json:"fromDate"`
-	ToDate            time.Time           `json:"toDate"`
-}
-
-// DataHandler is a handler for data.
-// Contians methods to recalculate, cache, persist data.
-type DataHandler struct {
-	// ConfigPath is a path to the configuration file.
-	ConfigPath string
-	// Config is a configuration.
-	Config *Config
-	// TimeZone is a time zone.
-	TimeZone *time.Location
-	// DataMart is a set of data to build journal entries.
-	DataMart *DataMart
-	// StatisticBuilderFactory is a factory to create statistic builders by categories.
-	StatisticBuilderFactory StatisticBuilderFactory
-	// Categorization is a cached struct to categorize transactions.
-	Categorization *Categorization
-	// journalEntries is a list of cached journal entries.
-	journalEntries []JournalEntry
-	// uncategorizedTransactions is a list of cached uncategorized transactions.
-	uncategorizedTransactions []Transaction
-	// monthlyStatistics is a list of cached monthly statistics.
-	monthlyStatistics []map[string]*IntervalStatistic
-	// FileInfos is a list of cached file information.
-	FileInfos []FileInfo
-}
-
-func NewDataHandler(configPath string, initialConfig *Config, timeZone *time.Location, dataMart *DataMart, groupExtractorFactory StatisticBuilderFactory, initialCategorization *Categorization, fileInfos []FileInfo) *DataHandler {
-	return &DataHandler{
-		ConfigPath:              configPath,
-		Config:                  initialConfig,
-		TimeZone:                timeZone,
-		DataMart:                dataMart,
-		StatisticBuilderFactory: groupExtractorFactory,
-		Categorization:          initialCategorization,
-		FileInfos:               fileInfos,
-	}
-}
-
-func (dh *DataHandler) rebuildJournalEntriesAndUncategorizedTransactions() error {
-	var err error
-	if dh.Categorization == nil {
-		dh.Categorization, err = NewCategorization(dh.Config)
-		if err != nil {
-			return err
-		}
-	}
-	dh.journalEntries, dh.uncategorizedTransactions, err = buildJournalEntries(dh.DataMart, dh.Categorization)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetJournalEntries returns journal entries.
-// If isReadFromCache is true and journalEntries are already built, returns them from cache.
-// Otherwise builds journal entries and returns them.
-// Note that it also builds accounts, currencies and uncategorized transactions.
-func (dh *DataHandler) GetJournalEntries() ([]JournalEntry, error) {
-	if dh.journalEntries == nil {
-		err := dh.rebuildJournalEntriesAndUncategorizedTransactions()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return dh.journalEntries, nil
-}
-
-func (dh *DataHandler) GetUncategorizedTransactions() ([]Transaction, error) {
-	if dh.uncategorizedTransactions == nil {
-		err := dh.rebuildJournalEntriesAndUncategorizedTransactions()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return dh.uncategorizedTransactions, nil
-}
-
-func (dh *DataHandler) rebuildMonthlyStatistics() error {
-	var err error
-	journalEntries, err := dh.GetJournalEntries()
-	if err != nil {
-		return err
-	}
-	dh.monthlyStatistics, err = BuildMonthlyStatistics(
-		journalEntries,
-		dh.StatisticBuilderFactory,
-		dh.Config.MonthStartDayNumber,
-		dh.TimeZone,
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (dh *DataHandler) GetMonthlyStatistics() ([]map[string]*IntervalStatistic, error) {
-	if dh.monthlyStatistics == nil {
-		err := dh.rebuildMonthlyStatistics()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return dh.monthlyStatistics, nil
-}
-
-func (dh *DataHandler) UpdateGroups(groups map[string]*GroupConfig) error {
-	dh.Config.Groups = groups
-	err := dh.Config.writeToFile(dh.ConfigPath)
-	if err != nil {
-		return err
-	}
-	// Clear caches.
-	dh.Categorization = nil
-	dh.journalEntries = nil
-	dh.uncategorizedTransactions = nil
-	dh.monthlyStatistics = nil
-	return nil
-}
-
-// parseAllFiles parses all transaction files from the current configuration.
-// Doesn't update DataHandler fields.
-// Returns transactions, file infos, parsing warnings, categorization, and error.
-func (dh *DataHandler) parseAllFiles() ([]Transaction, []FileInfo, []string, *Categorization, error) {
-	var allFileInfos []FileInfo
-	transactions := make([]Transaction, 0)
-	parsingWarnings := []string{}
-
-	// Parse files to unified Transaction-s.
-	// Ineco XML
-	inecoXmlTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.InecobankStatementXmlFilesGlob,
-		"Inecobank XML statement",
-		InecoXmlParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, inecoXmlTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Ineco XLSX
-	inecoXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.InecobankStatementXlsxFilesGlob,
-		"Inecobank XLSX statement",
-		InecoExcelFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, inecoXlsxTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// MyAmeria Excel account statements and history.
-	myAmeriaStatementsXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.MyAmeriaAccountStatementXlsFilesGlob,
-		"MyAmeria XLS statement",
-		MyAmeriaExcelStmtFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, myAmeriaStatementsXlsTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-	myAmeriaHistoryXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.MyAmeriaHistoryXlsFilesGlob,
-		"MyAmeria History XLS",
-		MyAmeriaExcelFileParser{
-			MyAccounts: dh.Config.MyAmeriaMyAccounts,
-		},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, myAmeriaHistoryXlsTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Ameria CSV
-	ameriaCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.AmeriaCsvFilesGlob,
-		"AmeriaBank CSV statement",
-		AmeriaCsvFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, ameriaCsvTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Arshinbank XLSX
-	ardshinbankXlsxTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.ArdshinbankXlsxFilesGlob,
-		"Ardshinbank XLSX statement",
-		ArdshinXlsxFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, ardshinbankXlsxTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Acba Regular Account XLS
-	acbaRegularAccountXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.AcbaRegularAccountXlsFilesGlob,
-		"Acba Regular Account XLS statement",
-		AcbaRegularAccountExcelFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, acbaRegularAccountXlsTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Acba Card XLS
-	acbaCardXlsTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.AcbaCardXlsFilesGlob,
-		"Acba Card XLS statement",
-		AcbaCardExcelFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, acbaCardXlsTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	// Generic CSV
-	genericCsvTransactions, fileInfos, err := parseTransactionsOfOneType(
-		dh.Config.GenericCsvFilesGlob,
-		"Generic CSV with transactions",
-		GenericCsvFileParser{},
-		&parsingWarnings,
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	transactions = append(transactions, genericCsvTransactions...)
-	allFileInfos = append(allFileInfos, fileInfos...)
-
-	if len(transactions) < 1 {
-		return nil, nil, nil, nil, errors.New(
-			i18n.T("can't find transactions, parsing warnings w", "w", parsingWarnings),
-		)
-	}
-	log.Println(i18n.T("Total found n transactions", "n", len(transactions)))
-
-	// Create initial Categorization.
-	categorization, err := NewCategorization(dh.Config)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	return transactions, allFileInfos, parsingWarnings, categorization, nil
-}
-
-// RebuildFromFiles rebuilds the DataHandler by re-reading the config file and re-parsing all transaction files.
-// This method is useful for the UI to refresh all data when files or config have been updated.
-func (dh *DataHandler) RebuildFromFiles() error {
-	// Re-read configuration file to catch any user changes.
-	config, err := readConfig(dh.ConfigPath)
-	if err != nil {
-		return fmt.Errorf("configuration file '%s' is wrong: %w", dh.ConfigPath, err)
-	}
-
-	// Update stored config
-	dh.Config = config
-
-	// Re-parse all files using the updated config
-	transactions, fileInfos, parsingWarnings, categorization, err := dh.parseAllFiles()
-	if err != nil {
-		return err
-	}
-
-	// Log parsing warnings if any
-	if len(parsingWarnings) > 0 {
-		for _, warning := range parsingWarnings {
-			log.Println("Parsing warning:", warning)
-		}
-	}
-
-	// Rebuild DataMart with new transactions
-	newDataMart, err := BuildDataMart(transactions, config)
-	if err != nil {
-		return err
-	}
-
-	// Update DataHandler with new data
-	dh.DataMart = newDataMart
-	dh.Categorization = categorization
-	dh.FileInfos = fileInfos
-
-	// Clear cached data to force recalculation
-	dh.journalEntries = nil
-	dh.uncategorizedTransactions = nil
-	dh.monthlyStatistics = nil
-
-	// Rebuild GroupExtractorFactory with new accounts
-	groupExtractorFactory, err := NewStatisticBuilderByCategories(dh.DataMart.Accounts, dh.Config)
-	if err != nil {
-		return err
-	}
-	dh.StatisticBuilderFactory = groupExtractorFactory
-
-	return nil
 }
