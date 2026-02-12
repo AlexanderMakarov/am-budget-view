@@ -1,6 +1,6 @@
 "Start of Period","","","01/04/2024"
 "End of Period","","","08/09/2024"
-"Account No.","","","1570025188901801","NAME SURNAME"
+"Account No.","","","7777777777777777","NAME SURNAME"
 "Currency","","","USD","US Dollar"
 "TIN","","","12345678"
 
@@ -11,6 +11,6 @@
 "Closing Available Balance","","","2,790.00"
 
 Date,Doc.No.,Type,Account,Details,Debit,Credit,Remitter/Beneficiary,
-06/05/2024,0124JO,TRF,26867864,/ROC/5172400124JO///URI/PEERIDEA INC DBA ARC/PURPOSE/OTHR,0.00,"2,790.00",ALEKSANDR MAKAROV,
+06/05/2024,0124JO,TRF,26867864,/ROC/5172400124JO///URI/SOME COMPANY LLC/PURPOSE/OTHR,0.00,"2,790.00",ALEKSANDR MAKAROV,
 
 "Days Count","","","161"

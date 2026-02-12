@@ -82,7 +82,7 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimited(t *test
 		TypeName:        "AmeriaBank CSV statement",
 		Tag:             "AmeriaCsv:AMD",
 		FilePath:        filePath,
-		AccountNumber:   "1570048149171412",
+		AccountNumber:   "9999999999999999",
 		AccountCurrency: "AMD",
 	}
 	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
@@ -98,8 +98,8 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimited(t *test
 			Amount:          model.MoneyWith2DecimalPlaces{Cents: 10000000},
 			Source:          source,
 			AccountCurrency: "AMD",
-			FromAccount:     "1570048149171412",
-			ToAccount:       "1570048149171412",
+			FromAccount:     "9999999999999999",
+			ToAccount:       "9999999999999999",
 		},
 		{
 			IsExpense:       true,
@@ -108,8 +108,8 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimited(t *test
 			Amount:          model.MoneyWith2DecimalPlaces{Cents: 202500},
 			Source:          source,
 			AccountCurrency: "AMD",
-			FromAccount:     "1570048149171412",
-			ToAccount:       "1570043102623434",
+			FromAccount:     "9999999999999999",
+			ToAccount:       "8888888888888888",
 		},
 	}
 
@@ -130,7 +130,7 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimitedUSD(t *t
 		TypeName:        "AmeriaBank CSV statement",
 		Tag:             "AmeriaCsv:USD",
 		FilePath:        filePath,
-		AccountNumber:   "1570025188901801",
+		AccountNumber:   "7777777777777777",
 		AccountCurrency: "USD",
 	}
 	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
@@ -145,12 +145,12 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimitedUSD(t *t
 	expected := model.Transaction{
 		IsExpense:       false,
 		Date:            time.Date(2024, time.May, 6, 0, 0, 0, 0, time.UTC),
-		Details:         "/ROC/5172400124JO///URI/PEERIDEA INC DBA ARC/PURPOSE/OTHR",
+		Details:         "/ROC/5172400124JO///URI/SOME COMPANY LLC/PURPOSE/OTHR",
 		Amount:          model.MoneyWith2DecimalPlaces{Cents: 279000},
 		Source:          source,
 		AccountCurrency: "USD",
 		FromAccount:     "26867864",
-		ToAccount:       "1570025188901801",
+		ToAccount:       "7777777777777777",
 	}
 
 	if diff := cmp.Diff(expected, transactions[0], moneyComparer, diffOnlyTransformer); diff != "" {
