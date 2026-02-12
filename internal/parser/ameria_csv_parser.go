@@ -196,8 +196,8 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 			RemitterBeneficiary: record[7],
 			Details:             record[4],
 		}
-		// If currency is not AMD then use credit and debit in AMD amounts.
-		if currency != "AMD" {
+		// If currency is not AMD and AMD columns are present, use AMD amounts.
+		if currency != "AMD" && withAmd {
 			var creditAmd, debitAmd model.MoneyWith2DecimalPlaces
 			if err := debitAmd.UnmarshalText([]byte(record[8])); err != nil {
 				return nil, fmt.Errorf("failed to parse debit(AMD) %v: %w", record, err)
