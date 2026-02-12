@@ -76,6 +76,88 @@ func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_BOMInHeader(t *testing
 	}
 }
 
+func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimited(t *testing.T) {
+	filePath := "testdata/ameria/comma_delimited.csv"
+	source := &model.TransactionsSource{
+		TypeName:        "AmeriaBank CSV statement",
+		Tag:             "AmeriaCsv:AMD",
+		FilePath:        filePath,
+		AccountNumber:   "9999999999999999",
+		AccountCurrency: "AMD",
+	}
+	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedTransactions := []model.Transaction{
+		{
+			IsExpense:       false,
+			Date:            time.Date(2026, time.January, 8, 0, 0, 0, 0, time.UTC),
+			Details:         "personal funds transfer",
+			Amount:          model.MoneyWith2DecimalPlaces{Cents: 10000000},
+			Source:          source,
+			AccountCurrency: "AMD",
+			FromAccount:     "9999999999999999",
+			ToAccount:       "9999999999999999",
+		},
+		{
+			IsExpense:       true,
+			Date:            time.Date(2026, time.January, 8, 0, 0, 0, 0, time.UTC),
+			Details:         "Ք: YEREVAN CITY AVAN YEREVAN AM 19",
+			Amount:          model.MoneyWith2DecimalPlaces{Cents: 202500},
+			Source:          source,
+			AccountCurrency: "AMD",
+			FromAccount:     "9999999999999999",
+			ToAccount:       "8888888888888888",
+		},
+	}
+
+	if len(transactions) != len(expectedTransactions) {
+		t.Fatalf("expected %d transactions, got %d", len(expectedTransactions), len(transactions))
+	}
+
+	for i, transaction := range transactions {
+		if diff := cmp.Diff(expectedTransactions[i], transaction, moneyComparer, diffOnlyTransformer); diff != "" {
+			t.Errorf("transaction %d mismatch (-expected +got):\n%s", i, diff)
+		}
+	}
+}
+
+func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_CommaDelimitedUSD(t *testing.T) {
+	filePath := "testdata/ameria/comma_delimited_usd.csv"
+	source := &model.TransactionsSource{
+		TypeName:        "AmeriaBank CSV statement",
+		Tag:             "AmeriaCsv:USD",
+		FilePath:        filePath,
+		AccountNumber:   "7777777777777777",
+		AccountCurrency: "USD",
+	}
+	transactions, err := AmeriaCsvFileParser{}.ParseRawTransactionsFromFile(filePath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(transactions) != 1 {
+		t.Fatalf("expected 1 transaction, got %d", len(transactions))
+	}
+
+	expected := model.Transaction{
+		IsExpense:       false,
+		Date:            time.Date(2024, time.May, 6, 0, 0, 0, 0, time.UTC),
+		Details:         "/ROC/5172400124JO///URI/SOME COMPANY LLC/PURPOSE/OTHR",
+		Amount:          model.MoneyWith2DecimalPlaces{Cents: 279000},
+		Source:          source,
+		AccountCurrency: "USD",
+		FromAccount:     "26867864",
+		ToAccount:       "7777777777777777",
+	}
+
+	if diff := cmp.Diff(expected, transactions[0], moneyComparer, diffOnlyTransformer); diff != "" {
+		t.Errorf("transaction mismatch (-expected +got):\n%s", diff)
+	}
+}
+
 func TestAmeriaCsvFileParser_ParseRawTransactionsFromFile_InvalidHeader(t *testing.T) {
 
 	// Act

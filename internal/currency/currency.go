@@ -450,6 +450,9 @@ func convertToCurrency(
 
 			// Update the other currency if we found a better path.
 			otherNode := nodes[otherCurrency]
+			if otherNode == nil {
+				continue // Skip currencies not in the convertible set.
+			}
 			if newPrecision < otherNode.precision {
 				// Calculate converted amount based on exchange rate direction.
 				var newAmount model.MoneyWith2DecimalPlaces

@@ -139,6 +139,30 @@ func TestParseArgs_Success(t *testing.T) {
 			isHelpRequested: false,
 		},
 		{
+			name: "no-terminal flag",
+			args: []string{"--no-terminal"},
+			want: Args{
+				ConfigPath:           "config.yaml",
+				ResultMode:           "web",
+				DontBuildBeanconFile: false,
+				DontBuildTextReport:  false,
+				NoTerminal:           true,
+			},
+			isHelpRequested: false,
+		},
+		{
+			name: "no-terminal with explicit result mode",
+			args: []string{"--no-terminal", "-o", "file"},
+			want: Args{
+				ConfigPath:           "config.yaml",
+				ResultMode:           "file",
+				DontBuildBeanconFile: false,
+				DontBuildTextReport:  false,
+				NoTerminal:           true,
+			},
+			isHelpRequested: false,
+		},
+		{
 			name: "invalid result mode",
 			args: []string{"-o", "invalid"},
 			want: Args{
