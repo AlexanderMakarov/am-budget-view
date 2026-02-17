@@ -75,15 +75,21 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 
 	// Detect encoding: UTF-16 LE files start with BOM 0xFF 0xFE.
 	var utf8Data []byte
-	delimiter := ','
 	if len(fileData) >= 2 && fileData[0] == 0xFF && fileData[1] == 0xFE {
 		utf8Data, err = decodeUTF16ToUTF8(fileData)
 		if err != nil {
 			panic(err)
 		}
-		delimiter = '\t'
 	} else {
 		utf8Data = fileData
+	}
+
+	// Detect delimiter from the first line: tab-delimited files use '\t', otherwise comma.
+	delimiter := ','
+	if firstNewline := bytes.IndexByte(utf8Data, '\n'); firstNewline > 0 {
+		if bytes.ContainsRune(utf8Data[:firstNewline], '\t') {
+			delimiter = '\t'
+		}
 	}
 
 	reader := csv.NewReader(bytes.NewReader(utf8Data))
