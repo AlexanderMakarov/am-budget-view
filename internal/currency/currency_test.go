@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/AlexanderMakarov/am-budget-view/internal/categorization"
 	"github.com/AlexanderMakarov/am-budget-view/internal/config"
 	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 )
@@ -533,6 +535,252 @@ func TestConvertToCurrency(t *testing.T) {
 				t.Errorf("Expected path %+v, got %+v", test.expectedPath, actualPath)
 			}
 		})
+	}
+}
+
+func issue13Config() *config.Config {
+	return &config.Config{
+		ExchangeRates: map[string]map[string]float64{
+			"USD": {"AMD": 380, "EUR": 0.86, "RUB": 80},
+		},
+		ConvertToCurrencies: []string{"AMD", "USD", "RUB"},
+		Groups: map[string]*config.GroupConfig{
+			"expense": {Substrings: []string{"expense", "payment"}},
+		},
+	}
+}
+
+func issue13Transactions(includeRUB bool) []model.Transaction {
+	source := &model.TransactionsSource{TypeName: "Ameria", FilePath: "history.csv"}
+	transactions := []model.Transaction{
+		{
+			Date:            time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC),
+			AccountCurrency: "AMD",
+			Amount:          model.MoneyWith2DecimalPlaces{Cents: 100000},
+			Details:         "AMD expense",
+			FromAccount:     "acc-amd",
+			ToAccount:       "exp1",
+			IsExpense:       true,
+			Source:          source,
+		},
+		{
+			Date:            time.Date(2025, 10, 2, 0, 0, 0, 0, time.UTC),
+			AccountCurrency: "USD",
+			Amount:          model.MoneyWith2DecimalPlaces{Cents: 10000},
+			Details:         "USD expense",
+			FromAccount:     "acc-usd",
+			ToAccount:       "exp1",
+			IsExpense:       true,
+			Source:          source,
+		},
+	}
+	if includeRUB {
+		transactions = append(transactions, model.Transaction{
+			Date:            time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC),
+			AccountCurrency: "RUB",
+			Amount:          model.MoneyWith2DecimalPlaces{Cents: 800000},
+			Details:         "RUB expense",
+			FromAccount:     "acc-rub",
+			ToAccount:       "exp1",
+			IsExpense:       true,
+			Source:          source,
+		})
+	}
+	return transactions
+}
+
+// TestBuildDataMart_Issue13 documents how config and transaction inputs populate
+// AllCurrencies vs ConvertibleCurrencies (https://github.com/AlexanderMakarov/am-budget-view/issues/13).
+func TestBuildDataMart_Issue13(t *testing.T) {
+	tests := []struct {
+		name                       string
+		includeRUBInTransactions   bool
+		wantAllCurrencies          []string
+		wantConvertibleCurrencies  []string
+		wantRUBInAllCurrencies     bool
+		wantRUBInConvertible       bool
+	}{
+		{
+			// Config lists RUB as a conversion target; transactions only have AMD/USD rows
+			// with no embedded exchange-rate pairs. RUB is config-only: it lands in
+			// ConvertibleCurrencies (with fallback rates) but not in AllCurrencies.
+			name:                      "config lists RUB, transactions have AMD and USD only",
+			includeRUBInTransactions:  false,
+			wantAllCurrencies:         []string{"AMD", "USD"},
+			wantConvertibleCurrencies: []string{"AMD", "USD", "RUB"},
+			wantRUBInAllCurrencies:    false,
+			wantRUBInConvertible:      true,
+		},
+		{
+			// Same config, but a transaction row uses AccountCurrency=RUB.
+			// RUB is collected from transactions and appears in both maps.
+			name:                      "config lists RUB, transactions include RUB account rows",
+			includeRUBInTransactions:  true,
+			wantAllCurrencies:         []string{"AMD", "USD", "RUB"},
+			wantConvertibleCurrencies: []string{"AMD", "USD", "RUB"},
+			wantRUBInAllCurrencies:    true,
+			wantRUBInConvertible:      true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dataMart, err := BuildDataMart(issue13Transactions(test.includeRUBInTransactions), issue13Config())
+			if err != nil {
+				t.Fatalf("BuildDataMart: %v", err)
+			}
+
+			assertCurrencyNames(t, "AllCurrencies", dataMart.AllCurrencies, test.wantAllCurrencies)
+			assertCurrencyNames(t, "ConvertibleCurrencies", dataMart.ConvertibleCurrencies, test.wantConvertibleCurrencies)
+
+			_, rubInAll := dataMart.AllCurrencies["RUB"]
+			_, rubInConvertible := dataMart.ConvertibleCurrencies["RUB"]
+			if rubInAll != test.wantRUBInAllCurrencies {
+				t.Fatalf("RUB in AllCurrencies = %v, want %v", rubInAll, test.wantRUBInAllCurrencies)
+			}
+			if rubInConvertible != test.wantRUBInConvertible {
+				t.Fatalf("RUB in ConvertibleCurrencies = %v, want %v", rubInConvertible, test.wantRUBInConvertible)
+			}
+		})
+	}
+}
+
+// TestBuildJournalEntries_Issue13 documents outcomes for config + transaction input pairs.
+func TestBuildJournalEntries_Issue13(t *testing.T) {
+	tests := []struct {
+		name                    string
+		transactions            []model.Transaction
+		cfg                     *config.Config
+		removeFromAllCurrencies []string
+		wantPanic               bool
+		wantError               bool
+	}{
+		{
+			// convertToCurrencies includes config-only RUB; transactions are AMD/USD only.
+			// Converting AMD/USD into RUB fails with an error, not a panic.
+			name:                    "config-only RUB target, AMD and USD transactions",
+			transactions:            issue13Transactions(false),
+			cfg:                     issue13Config(),
+			removeFromAllCurrencies: nil,
+			wantPanic:               false,
+			wantError:               true,
+		},
+		{
+			// RUB appears on a transaction row, so BuildDataMart keeps RUB in AllCurrencies.
+			name:                    "RUB in config and on transaction rows",
+			transactions:            issue13Transactions(true),
+			cfg:                     issue13Config(),
+			removeFromAllCurrencies: nil,
+			wantPanic:               false,
+			wantError:               false,
+		},
+		{
+			// Panic condition: a row has AccountCurrency=RUB (convert FROM RUB), but RUB is
+			// absent from AllCurrencies/curStates. BuildDataMart normally prevents this;
+			// convertToCurrency must not dereference a missing curState.
+			name: "RUB transaction row with RUB missing from AllCurrencies",
+			transactions: []model.Transaction{{
+				Date:            time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC),
+				AccountCurrency: "RUB",
+				Amount:          model.MoneyWith2DecimalPlaces{Cents: 800000},
+				Details:         "RUB expense",
+				FromAccount:     "acc-rub",
+				ToAccount:       "exp1",
+				IsExpense:       true,
+				Source:          &model.TransactionsSource{TypeName: "Ameria", FilePath: "history.csv"},
+			}},
+			cfg: func() *config.Config {
+				cfg := issue13Config()
+				cfg.ConvertToCurrencies = []string{"AMD", "USD"}
+				return cfg
+			}(),
+			removeFromAllCurrencies: []string{"RUB"},
+			wantPanic:               true,
+			wantError:               false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cat, err := categorization.NewCategorization(test.cfg)
+			if err != nil {
+				t.Fatalf("NewCategorization: %v", err)
+			}
+
+			dataMart, err := BuildDataMart(test.transactions, test.cfg)
+			if err != nil {
+				t.Fatalf("BuildDataMart: %v", err)
+			}
+			for _, currency := range test.removeFromAllCurrencies {
+				delete(dataMart.AllCurrencies, currency)
+			}
+
+			var panicValue any
+			func() {
+				defer func() {
+					panicValue = recover()
+				}()
+				_, _, err = BuildJournalEntries(dataMart, cat)
+			}()
+
+			if test.wantPanic {
+				if panicValue == nil {
+					t.Fatal("expected panic when converting from a currency missing from AllCurrencies")
+				}
+				return
+			}
+			if panicValue != nil {
+				t.Fatalf("unexpected panic: %v", panicValue)
+			}
+			if test.wantError && err == nil {
+				t.Fatal("expected conversion error, got nil")
+			}
+			if !test.wantError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestConvertToCurrency_Issue13 is the minimal reproduction of the nil dereference:
+// convert FROM a currency that is not present in curStates.
+func TestConvertToCurrency_Issue13(t *testing.T) {
+	rateDate := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic when amountCurrency is missing from curStates")
+		}
+	}()
+
+	convertToCurrency(
+		model.MoneyWith2DecimalPlaces{Cents: 800000},
+		"RUB",
+		"AMD",
+		rateDate,
+		map[string]*currencyState{
+			"USD": {
+				currency: "USD",
+				statistics: &CurrencyStatistics{
+					ExchangeRates: []*ExchangeRate{
+						{date: rateDate, currencyFrom: "USD", currencyTo: "AMD", exchangeRate: 1.0 / 380},
+					},
+				},
+				exchangeRateIndexesPerCurrency: map[string]int{},
+			},
+		},
+	)
+}
+
+func assertCurrencyNames(t *testing.T, mapName string, currencies map[string]*CurrencyStatistics, want []string) {
+	t.Helper()
+	got := make([]string, 0, len(currencies))
+	for name := range currencies {
+		got = append(got, name)
+	}
+	slices.Sort(got)
+	wantSorted := append([]string(nil), want...)
+	slices.Sort(wantSorted)
+	if !reflect.DeepEqual(got, wantSorted) {
+		t.Fatalf("%s currencies = %v, want %v", mapName, got, wantSorted)
 	}
 }
 
