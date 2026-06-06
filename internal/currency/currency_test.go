@@ -647,37 +647,62 @@ func TestBuildDataMart_Issue13(t *testing.T) {
 // TestBuildJournalEntries_Issue13 documents outcomes for config + transaction input pairs.
 func TestBuildJournalEntries_Issue13(t *testing.T) {
 	tests := []struct {
-		name                    string
-		transactions            []model.Transaction
-		cfg                     *config.Config
-		removeFromAllCurrencies []string
-		wantPanic               bool
-		wantError               bool
+		name                            string
+		transactions                    []model.Transaction
+		cfg                             *config.Config
+		removeFromAllCurrencies         []string
+		removeFromConvertibleCurrencies []string
+		wantPanic                       bool
+		wantError                       bool
 	}{
 		{
 			// convertToCurrencies includes config-only RUB; transactions are AMD/USD only.
-			// Converting AMD/USD into RUB fails with an error, not a panic.
-			name:                    "config-only RUB target, AMD and USD transactions",
-			transactions:            issue13Transactions(false),
-			cfg:                     issue13Config(),
-			removeFromAllCurrencies: nil,
-			wantPanic:               false,
-			wantError:               true,
+			// Fallback rates from ConvertibleCurrencies are now available in curStates.
+			name:                            "config-only RUB target, AMD and USD transactions",
+			transactions:                    issue13Transactions(false),
+			cfg:                             issue13Config(),
+			removeFromAllCurrencies:         nil,
+			removeFromConvertibleCurrencies: nil,
+			wantPanic:                       false,
+			wantError:                       false,
 		},
 		{
 			// RUB appears on a transaction row, so BuildDataMart keeps RUB in AllCurrencies.
-			name:                    "RUB in config and on transaction rows",
-			transactions:            issue13Transactions(true),
-			cfg:                     issue13Config(),
-			removeFromAllCurrencies: nil,
-			wantPanic:               false,
-			wantError:               false,
+			name:                            "RUB in config and on transaction rows",
+			transactions:                    issue13Transactions(true),
+			cfg:                             issue13Config(),
+			removeFromAllCurrencies:         nil,
+			removeFromConvertibleCurrencies: nil,
+			wantPanic:                       false,
+			wantError:                       false,
 		},
 		{
-			// Panic condition: a row has AccountCurrency=RUB (convert FROM RUB), but RUB is
-			// absent from AllCurrencies/curStates. BuildDataMart normally prevents this;
-			// convertToCurrency must not dereference a missing curState.
-			name: "RUB transaction row with RUB missing from AllCurrencies",
+			// RUB removed from AllCurrencies but still present in ConvertibleCurrencies
+			// with config fallback rates — conversion succeeds without panic.
+			name: "RUB transaction row with RUB missing from AllCurrencies only",
+			transactions: []model.Transaction{{
+				Date:            time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC),
+				AccountCurrency: "RUB",
+				Amount:          model.MoneyWith2DecimalPlaces{Cents: 800000},
+				Details:         "RUB expense",
+				FromAccount:     "acc-rub",
+				ToAccount:       "exp1",
+				IsExpense:       true,
+				Source:          &model.TransactionsSource{TypeName: "Ameria", FilePath: "history.csv"},
+			}},
+			cfg: func() *config.Config {
+				cfg := issue13Config()
+				cfg.ConvertToCurrencies = []string{"AMD", "USD", "RUB"}
+				return cfg
+			}(),
+			removeFromAllCurrencies:         []string{"RUB"},
+			removeFromConvertibleCurrencies: nil,
+			wantPanic:                       false,
+			wantError:                       false,
+		},
+		{
+			// Source currency absent from both currency maps must return a conversion error, not panic.
+			name: "RUB transaction row with RUB missing from all curStates sources",
 			transactions: []model.Transaction{{
 				Date:            time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC),
 				AccountCurrency: "RUB",
@@ -693,9 +718,10 @@ func TestBuildJournalEntries_Issue13(t *testing.T) {
 				cfg.ConvertToCurrencies = []string{"AMD", "USD"}
 				return cfg
 			}(),
-			removeFromAllCurrencies: []string{"RUB"},
-			wantPanic:               true,
-			wantError:               false,
+			removeFromAllCurrencies:         []string{"RUB"},
+			removeFromConvertibleCurrencies: []string{"RUB"},
+			wantPanic:                       false,
+			wantError:                       true,
 		},
 	}
 	for _, test := range tests {
@@ -711,6 +737,9 @@ func TestBuildJournalEntries_Issue13(t *testing.T) {
 			}
 			for _, currency := range test.removeFromAllCurrencies {
 				delete(dataMart.AllCurrencies, currency)
+			}
+			for _, currency := range test.removeFromConvertibleCurrencies {
+				delete(dataMart.ConvertibleCurrencies, currency)
 			}
 
 			var panicValue any
@@ -740,18 +769,12 @@ func TestBuildJournalEntries_Issue13(t *testing.T) {
 	}
 }
 
-// TestConvertToCurrency_Issue13 is the minimal reproduction of the nil dereference:
-// convert FROM a currency that is not present in curStates.
+// TestConvertToCurrency_Issue13 verifies convertToCurrency handles a missing source
+// currency in curStates without panicking.
 func TestConvertToCurrency_Issue13(t *testing.T) {
 	rateDate := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
 
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected panic when amountCurrency is missing from curStates")
-		}
-	}()
-
-	convertToCurrency(
+	amount, precision, path := convertToCurrency(
 		model.MoneyWith2DecimalPlaces{Cents: 800000},
 		"RUB",
 		"AMD",
@@ -768,6 +791,16 @@ func TestConvertToCurrency_Issue13(t *testing.T) {
 			},
 		},
 	)
+
+	if amount.Cents != 0 {
+		t.Fatalf("expected zero converted amount, got %d", amount.Cents)
+	}
+	if precision != math.MaxInt {
+		t.Fatalf("expected precision %d, got %d", math.MaxInt, precision)
+	}
+	if len(path) != 0 {
+		t.Fatalf("expected empty conversion path, got %v", path)
+	}
 }
 
 func assertCurrencyNames(t *testing.T, mapName string, currencies map[string]*CurrencyStatistics, want []string) {

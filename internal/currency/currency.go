@@ -265,6 +265,9 @@ func findClosestExchangeRateToCurrency(
 	targetCurrency string,
 	curState *currencyState,
 ) (*ExchangeRate, int) {
+	if curState == nil {
+		return nil, math.MaxInt
+	}
 	// If no exchange rates then return nil.
 	if len(curState.statistics.ExchangeRates) == 0 {
 		return nil, math.MaxInt
@@ -331,6 +334,9 @@ func convertToCurrency(
 
 	// Try to find direct exchange rate.
 	curState := curStates[amountCurrency]
+	if curState == nil {
+		return model.MoneyWith2DecimalPlaces{Cents: 0}, math.MaxInt, []string{}
+	}
 	exchangeRateDirect, daysDiffDirect := findClosestExchangeRateToCurrency(date, targetCurrency, curState)
 	if exchangeRateDirect != nil {
 		precision := daysDiffDirect
@@ -422,6 +428,9 @@ func convertToCurrency(
 
 		// Try all possible exchange rates from current currency to any other currency.
 		fromCurState := curStates[current.currency]
+		if fromCurState == nil {
+			continue
+		}
 		for _, er := range fromCurState.statistics.ExchangeRates {
 			// Get the other currency from the exchange rate.
 			otherCurrency := er.currencyTo
@@ -978,8 +987,18 @@ func BuildJournalEntries(
 ) ([]model.JournalEntry, []model.Transaction, error) {
 
 	// Make map of currencyState to speed up conversions.
-	curStates := make(map[string]*currencyState, len(dataMart.AllCurrencies))
+	// Use AllCurrencies for transaction-derived currencies, then merge
+	// ConvertibleCurrencies so config-only targets and fallback exchange rates
+	// are available when converting from any currency.
+	curStates := make(map[string]*currencyState, len(dataMart.AllCurrencies)+len(dataMart.ConvertibleCurrencies))
 	for currency, statistics := range dataMart.AllCurrencies {
+		curStates[currency] = &currencyState{
+			currency:                       currency,
+			statistics:                     statistics,
+			exchangeRateIndexesPerCurrency: make(map[string]int),
+		}
+	}
+	for currency, statistics := range dataMart.ConvertibleCurrencies {
 		curStates[currency] = &currencyState{
 			currency:                       currency,
 			statistics:                     statistics,
