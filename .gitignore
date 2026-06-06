@@ -1,6 +1,7 @@
 # Development/OS artifacts and local settings
 .vscode**
 __debug_bin*
+*/__pycache__**
 aggregate-inecobank-statement*
 am-budget-view*
 coverage.out
