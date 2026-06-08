@@ -3,6 +3,7 @@ language: en
 # Flag to ensure that application is started with dedicated terminal window.
 # Required to have "a window" for user to close app and don't duplicate processes.
 ensureTerminal: true
+uiPort: 8080
 # Write "glob" template to your Inecobank "Statement" XML files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 inecobankStatementXmlFilesGlob: Statement*.xml
@@ -30,25 +31,32 @@ acbaCardXlsFilesGlob: CardStatement*.xls
 # Write "glob" template to your generic/custom source CSV files.
 # Glob supports wildcard "star" (*) which replaces any substring in the path.
 genericCsvFilesGlob: generic*.csv
+# Optional in-app bank statement download settings.
+# Session token (MyAmeria) and cookie (Ameria Business) are entered in the Files page
+# download popup only — they are not saved here.
+bankDownloads:
+  staleThresholdDays: 7
+  myAmeria:
+    enabled: false
+    clientId: ""
+    sinceDate: "01-01-2026"
+  ameriaBusiness:
+    enabled: false
+    sinceDate: "01-01-2026"
+    outputFolder: ""
 # MyAmeria account numbers (16 digits) with currency (3 letters).
 # Due to MyAmeria "History" files don't provide any information about accounts
 # you need to specify map of your account(s) number and relevant currency code.
 # Thus all transactions with "Beneficiary account" from this list would be
 # understood as an income and amount in account currency would be set.
 myAmeriaMyAccounts:
-  "1234567890123456": "AMD"
+  "1234567890123456": AMD
 # List of accounts to be treated as "my" accounts.
 # It means that expenses and incomes to/from these accounts won't be added
 # to total sums. Useful to get correct statistic if transactions from all
 # banks/accounts can't be provided.
 myAccounts:
-  - 1234567890123456
-# List of currencies to unconditionally convert transactions into.
-# Note that if transactions files don't have enough information about exchange rates
-# totals would be incorrect!
-convertToCurrencies:
-  - AMD
-  - USD
+  - "1234567890123456"
 # Constant/fallback exchange rates structure for conversion between currencies.
 # Precision score for these exchanges would be provided as 100500.
 # These rates would be used only if `convertToCurrencies` is set
@@ -56,15 +64,25 @@ convertToCurrencies:
 # in configuration file forever if precision is not important.
 # Format `exchangeRates:<currency name>: <target currency name>: <exchange rate (multiplier)>`.
 exchangeRates:
-  USD:  # Use bigger currency to don't specify many fractions.
+  USD: # Use bigger currency to don't specify many fractions.
     AMD: 381
     EUR: 0.86
     RUB: 80
+# List of currencies to unconditionally convert transactions into.
+# Note that if transactions files don't have enough information about exchange rates
+# totals would be incorrect!
+convertToCurrencies:
+  - AMD
+  - USD
+minCurrencyTimespanPercent: 80
+maxCurrencyTimespanGapDays: 30
 # Flag to output all information about the result.
 detailedOutput: false
+categorizeMode: false
 # Which day of month use as start of the month.
 # Sometimes it makes sense to analyze month from the "salary day".
 monthStartDayNumber: 1
+timeZoneLocation: Asia/Yerevan
 # Flag to aggregate all transactions with "Details" not matched with "substrings"
 # from 'groups' below into single group with name "Unknown".
 # Otherwise unknown transactions create new categories with "Details" value name.
@@ -108,6 +126,11 @@ groups:
       - NAIRI CLINIC
       - WIGMORE
       - VARDANANTS
+  Online shopping:
+    substrings:
+      - WILDBERRIES
+      - OZON.RU
+      - TEMU
   Pharmacies:
     substrings:
       - PHARM
@@ -127,16 +150,15 @@ groups:
       - AWS EMEA
       - CLOUD
       - Spotify
-  Online shopping:
-    substrings:
-      - WILDBERRIES
-      - OZON.RU
-      - TEMU
   Taxi:
     substrings:
       - GG Taxi
       - Yandex Taxi
       - Yandex Go
+  Transfer between my accounts:
+    substrings:
+      - Account replenishment
+      - Currency exchange
   Utilities and rent:
     substrings:
       - Kentron View
@@ -144,7 +166,3 @@ groups:
       - Electricity
       - VivaCell
       - Ucom
-  Transfer between my accounts:
-    substrings:
-      - Account replenishment
-      - Currency exchange

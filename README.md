@@ -57,174 +57,13 @@ Statistics for        2024-08-01..2024-08-31 (in    AMD):
 
 Application supports two languages for now: English and Russian.
 
-## List of supported banks, file formats and relevant notes
+## Supported banks and how to get transaction files
 
-In short supported:
-- Inecobank accounts,
-- AmeriaBank both individual (aka MyAmeria) and legal accounts,
-- Ardshinbank individual accounts,
-- ACBA accounts,
-- Generic (manually/customly mapped) CSV files with transactions.
+Supported: Inecobank, AmeriaBank (business and MyAmeria individual), Ardshinbank, ACBA, and Generic CSV.
 
-Banks usually send transactions/statements by email monthly or yearly
-and allow to download list of transactions on their websites.
-Note that files received via email are usually less usable (except Ardshinbank)
-because they could be protected by password or don't contain Reciever/Payer account number.
-It makes them hard to use for analysis because:
-1. hard to handle password protection,
-2. account-based categorization won't work,
-3. transfers between "my accounts" can't be detected and will be counted as "other income" and "other expense" thus distorting statistics/sums,
-4. Beancount report won't be possible to build.
+Per-bank docs live in [docs/en/banks/](docs/en/banks/overview.md) (English) and [docs/ru/banks/](docs/ru/banks/overview.md) (Russian). **Recommended for MyAmeria and Ameria Business:** open [Files](/files) → **Download settings** (since date, Client ID) → **Download now** (paste fresh token or cookie from browser DevTools; not saved). Manual website export is documented per bank.
 
-## How to download transactions from banks
-
-See list of supported banks, supported formats and relevant instructions in below.
-
-### Inecobank
-- [FULL] Inecobank XML (.xml) files downloaded per-account from https://online.inecobank.am/vcAccount/List
-  (click on account, choose dates range, icon to download in right bottom corner).
-  Supports all features native to app and Beancount reports.
-  In `config.yaml` is referenced by `inecobankStatementXmlFilesGlob` setting.
-  Parsed by [ineco_xml_parser.go](/ineco_xml_parser.go).
-- [NONE] Inecobank Excel (.xls) files downloaded per-account from https://online.inecobank.am/vcAccount/List
-  (the same place as XML above) ARE NOT SUPPORTED - use XML format instead.
-- [PARTIAL] Inecobank Excel (.xlsx) files which Inecobank sends in emails with password protection.
-  Don't have Reciever/Payer account number.
-  To allow app use such files need to remove password protection first
-  ([MS Office official instruction](https://support.microsoft.com/en-us/office/change-or-remove-workbook-passwords-1c17af87-25e2-4dc6-94f0-19ce21ad0b68),
-  [MS Office community instruction](https://learn.microsoft.com/en-us/answers/questions/5042400/removing-password-protection-from-an-excel-file),
-  [LibreOffice instruction](https://ask.libreoffice.org/t/remove-file-password-protection/30982)).
-  In `config.yaml` is referenced by `inecobankStatementXlsxFilesGlob` setting.
-  Parsed by [ineco_excel_parser.go](/ineco_excel_parser.go).
-
-### AmeriaBank (Ameria for Business)
-- [FULL] AmeriaBank for Businesses CSV (.csv) files downloaded per-account from
-  https://online.ameriabank.am/InternetBank/MainForm.wgx, click on account -> Statement,
-  chose period (for custom use "FromDate" and "To" date pickers),
-  set "Show equivalent in AMD" checkbox (to have exchange rates),
-  press "Export to CSV" icon is placed at right top corner.
-  Supports all features native to app and Beancount reports.
-  In `config.yaml` is referenced by `ameriaCsvFilesGlob` setting.
-  Parsed by [ameria_csv_parser.go](/ameria_csv_parser.go).
-  Also supports files from https://business.myameria.am (new REST HTTP API based site).
-  While it doesn't provide all features and unstable it allows to download CSV statements semi-automatically.
-  There is an option to **download CSV statements** via
-  [bank_downloader.py](/scripts/bank_downloader.py). You provide a session cookie and a **since** date; the script uses the API to list accounts and download CSV for each.
-  <details>
-  <summary>How to download AmeriaBank Business statements</summary>
-
-  1. Log in at https://business.myameria.am. Need to provide OTP code which is located in mobile app. See Menu -> Settings -> OTP -> Copy Code.
-  2. Open DevTools → **Network**. Find any request to **gateway-businessmyameria.ameriabank.am**.
-  3. Copy the **Cookie** header (must include RefreshToken and TS* / AccessToken).
-  4. In `bank_dowloader_config.yaml` set `ameriabank.cookie` and `ameriabank.since-DD-MM-YYYY` (DD-MM-YYYY format). Optionally set `folder_path` (base folder for CSVs; empty = scripts folder) and `accounts` (list with `name`, `number`, `path` per account to limit and name files).
-  5. Run `python scripts/bank_downloader.py` (or `make bank-downloader`). The script calls the API to list settlement and card accounts, then downloads CSV for each from `since` until today. With no `accounts` list, files are named `<account_number>_<account_name>_since_<since>.csv` under `folder_path`. On 401 Unauthorized the script refreshes the cookie and retries.
-
-  Session (cookie) expires; re-copy cookie after re-login. Helpers in [scripts/bank_helpers_ameria.py](/scripts/bank_helpers_ameria.py).
-  </details>
-- [NONE] AmeriaBank for Businesses XML (.xml) files downloaded per-account from
-  https://online.ameriabank.am/InternetBank/MainForm.wgx
-  (the same place as CSV above) - ARE NOT SUPPORTED because they don't contain
-  own account number and currency.
-- [NONE] AmeriaBank for Businesses XLSX (.xlsx) files which AmeriaBank sends via email.
-  They don't contain Reciever/Payer account number, exchange rates.
-
-### MyAmeria (Ameria for Inidividuals)
-- [FULL] MyAmeria History Excel (.xls) file downloaded from https://myameria.am/history.
-  Press on "Filter" button at right, set right dates (leave other fields as is),
-  press "Excel" button in "Actions" section at right.
-  Only one file is needed because it contains transactions for all accounts and cards.
-  In `config.yaml` is referenced by `myAmeriaHistoryXlsFilesGlob` setting.
-  Note that it should be accompanied by `myAmeriaMyAccounts` dictionary with "my"
-  account numbers and relevant currencies because file doesn't provide this data.
-  Without this data most of application's features won't work, so parser would fail with error in terminal.
-  Supports features native to app and Beancount reports except for exchange rates
-  which are not provided in this file as well.
-  Parsed by [ameria_history_parser.go](/ameria_history_parser.go).
-  There is an option to **download such files semi-automatically** via
-  [bank_downloader.py](/scripts/bank_downloader.py) script.
-  <details>
-  <summary>How to download MyAmeria "History" semi-automatically</summary>
-
-  Copy [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_configak.yaml.template)
-  into new file `bank_dowloader_config.yaml` in "scripts" folder
-  Next login into https://account.myameria.am, open browser Dev Tools
-  (usually F12 button), switch to "Network" tab in them and find here
-  - "Client-Id" request header value for `client_id` field,
-  - "Authorization" request header value for `auth_token` field (note that it starts with "Bearer " and expires in 15 minutes).
-  Put into `since-DD-MM-YYYY` field start date you want to download transactions from. Correct `history_path` value accordingly (optional).
-
-  <img src="docsdata/how to copy authorization header from browser devtools.png" alt="how to copy authorization header from browser devtools" onclick="window.open(this.src)"/>
-
-  Run `python scripts/bank_downloader.py` (or `make bank-downloader`) to download transactions
-  history starting from `since-DD-MM-YYYY` date until today.
-  Notes:
-  1. Due to script gets data from bank's API it directly generates "Generic" CSV file, not "MyAmeria History" Excel file.
-  2. Need to update `auth_token` value in `bank_dowloader_config.yaml` file each time after it expires, usually in 15 minutes.
-  </details>
-- [OUTDATED, backward compatibility] MyAmeria Account Statements Excel (.xls)
-  dowloaded from pages like https://myameria.am/cards-and-accounts/account-statement/******.
-  before 2025. Note that it haven't worked for cards, only for accounts.
-  Left to extract information from files downloaded before 2025 (was the main source of data in here),
-  since 2025 use '2025+ History Excel' option instead.
-  In `config.yaml` is referenced by `myAmeriaAccountStatementXlsxFilesGlob` setting.
-  Parsed by [ameria_stmt_parser.go](/ameria_stmt_parser.go).
-- [NONE] MyAmeria Account/Card Statements CSV files downloaded from pages like
-  https://myameria.am/cards-and-accounts/account-statement/****** and
-  https://myameria.am/cards-and-accounts/card-statement/****** in 2025+.
-  Bank changed format somewhere on border of 2024-2025 and new format doesn't have
-  Reciever/Payer account number and doesn't have amount in native bank currency,
-  therefore has less data than '2025+ History Excel' option.
-
-### Ardshinbank
-- [FULL] Ardshinbank XLSX files received via email monthly or yearly,
-  inside there are 3 sheets on different languages: English, Russian and Armenian.
-  Armenian sheet has more details so app uses it.
-  Account number of a peer (receiver or sender) looks like could only be inner
-  Ardshinbank account number, which limits ability to track "transfer my own funds"
-  from other banks.
-  Supports all features native to app and Beancount reports.
-  In `config.yaml` is referenced by `ardshinbankXlsxFilesGlob` setting.
-  Parsed by [ardshin_xlsx_parser.go](/ardshin_xlsx_parser.go).
-- [NONE] Ardshinbank XLSX files downloaded from https://ardshinbank.am/
-  ARE NOT SUPPORTED because they either the same as XLSX above or have less data.
-
-### ACBA
-- [PARTIAL] ACBA XLS files downloaded from [ACBA Digital](https://acbadigital.am/dashboard).
-  See [ACBA get transactions.md file](/docsdata/ACBA/ACBA get transactions.md) for more details.
-  Choose account or card, select "Transactions" menu option, set dates range,
-  set Armenian language, set "Excel" format, press "Download" button.
-  Note that statement files downloaded on Armenian language contain more information
-  than on English and regular account statements contain more information than card statements.
-  Due to only part of transactions (and only for regular accounts) have Reciever/Payer account number then
-  Beancount report couldn't be built (application would show warning in terminal about it)
-  and account-based categorization wouldn't work.
-  In `config.yaml` there are two settings for this: `acbaRegularAccountXlsFilesGlob` and `acbaCardXlsFilesGlob`.
-  Parsed by [acba_xls_stmt_card_parser.go](/acba_xls_stmt_card_parser.go)
-  and [acba_xls_stmt_regular_account_parser.go](/acba_xls_stmt_regular_account_parser.go) accordingly.
-
-### Generic
-- [FULL] Generic CSV files with transactions from the any source.
-  In `config.yaml` is referenced by `genericCsvFilesGlob` setting.
-  Parsed by [generic_csv_parser.go](/generic_csv_parser.go).
-  Supports all features native to app and Beancount reports.
-  Own account number and currency deduced from fields below.
-  Supported fields/headers (first row in file):
-  - `Date` - string with date of the transaction in `YYYY-MM-DD` format.
-  - `FromAccount` - string with account number of the sender.
-  - `ToAccount` - string with account number of the receiver.
-  - `IsExpense` - boolean value, true if the transaction is an expense
-     (i.e, `FromAccount` is your account),
-     false if it is an income (i.e, `ToAccount` is your account).
-  - `Amount` - string with amount of the transaction in account currency,
-     dot and 2 digits precision (like "1,500.30" for 1500 dollars and 30 cents).
-  - `Details` - string with details/comments of the transaction (main source of categorization).
-  - `AccountCurrency` - 3 chars ISO code of the account (card) currency.
-  - `OriginCurrency` - (optional) 3 chars ISO code of the currency of the transaction before conversion.
-  - `OriginCurrencyAmount` - (optional) string with amount of the transaction in origin currency.
-
-To add new bank support please create an issue in repository with example of file
-with transactions downloaded from the bank application and instructions how you got this file.
-File may have corrections to hide sensitive information but of the same format/length/character set as original file.
+Email statement files are often less usable (password protection, missing account numbers). Prefer website downloads where possible — see bank docs for details.
 
 # How to use
 
@@ -240,7 +79,7 @@ File may have corrections to hide sensitive information but of the same format/l
 - Для большинства Linux-ов выберите "am-budget-view-linux-amd64".
 1. Скачайте statement/transactions файлы из банковских сайтов или электронных писем и
   поместите их рядом с исполняемым файлом ("am-budget-view-...").
-  Подробности см. на [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes).
+  Подробности см. в [docs/ru/banks/](docs/ru/banks/overview.md) или на странице «Файлы» в приложении.
 1. Запустите приложение ("am-budget-view-\*-\*").
   Если все в порядке то через пару секунд откроется новая вкладка в браузере
   с агрегированными данными из банковских транзакций, которые были предоставлены через "Выписка" файлы.
@@ -294,8 +133,7 @@ Script in English:
  	- For most of Linux-es choose "am-budget-view-linux-amd64".
 2. Download statement/transaction files from bank websites or emails and
    put them near the executable file ("am-budget-view-...").
-   See details on 
-   [List of supported banks, file formats and relevant notes](#list-of-supported-banks-file-formats-and-relevant-notes).
+   See details in [docs/en/banks/](docs/en/banks/overview.md) or on the in-app Files page.
 3. Run application ("am-budget-view-\*-\*" file).
    If everything is OK then after a couple of seconds it would open a new tab in browser
    with aggregated details from bank transactions which where provided via "Statement" files.
@@ -376,8 +214,7 @@ while Fava UI would catch up changes by pressing relevant button in page.
   When target date is the same date where we have direct exchange rate then precision still would be 1,
   because precision 0 means "no conversion", i.e. transaction currency is a target currency.
   For `exchangeRates` entries precision is always 100500 - app treats it as "rate for the date of the last provided transaction".
-- Application can't (and won't) download files from banks itself - it is designed to work completely offline.
-  See "scripts" folder for such capabilities.
+- Optional bank downloads (MyAmeria, Ameria Business) require browser session credentials; use the in-app Files page — see bank docs above.
 - Application does not support a way to categorize transactions in a different way for different accounts/banks.
 
 # Config.yaml file
@@ -476,13 +313,13 @@ Recent:
 - [x] Add ACBA bank support (Armenian files due to more data in them).
 - [x] Add config-based rates (https://github.com/AlexanderMakarov/am-budget-view/issues/8)
 - [x] Add description of all configuration options in README.md.
-- [ ] Add Russian translation for '## List of supported banks, file formats and relevant notes' section in README.md.
+- [x] Add Russian translation for bank documentation (moved to docs/ru/banks/).
 - [ ] Record new video(s) with instructions.
 - [ ] Download account statements from Ameria Business and Inecobank via Playwright.
 - [ ] Detect overlapping rules, i.e. one transaction could be categorized by multiple rules.
 - [ ] Render [Sankey diagram](https://www.getrichslowly.org/sankey-diagrams/) or similar. Migrate to v6 ECharts.
 - [ ] Manage all settings (config.yaml) in web UI, separate page.
-- [ ] Improve sources folders structure, see https://appliedgo.com/blog/go-project-layout
+- [x] Improve sources folders structure, see https://appliedgo.com/blog/go-project-layout
 - [ ] (? value vs complexity) Take manual transactions for "not connected" banks/accounts.
 - [ ] (? value vs complexity) Store notes per transactions and per rules.
 - [ ] (? value vs complexity) Improve tests coverage.

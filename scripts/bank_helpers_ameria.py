@@ -449,12 +449,16 @@ def download_myameria_history(
     }
     response = requests.get(url, headers=headers, stream=True, timeout=30)
     if not response.ok:
-        error_msg = response.text
+        error_msg = (response.text or "")[:500]
         logger.error(
             "MyAmeria server %s error on %s: %s",
             response.status_code,
             url,
             error_msg,
+        )
+        raise ValueError(
+            f"MyAmeria API returned HTTP {response.status_code}. "
+            f"Response: {error_msg or '(empty)'}"
         )
     # Parse JSON response and group transactions by account.
     data = response.json()['data']

@@ -1,6 +1,6 @@
 module github.com/AlexanderMakarov/am-budget-view
 
-go 1.21
+go 1.22
 
 toolchain go1.24.1
 
@@ -11,6 +11,7 @@ require (
 	github.com/shakinm/xlsReader v0.9.12
 	github.com/tealeg/xlsx v1.0.5
 	github.com/thlib/go-timezone-local v0.0.0-20210907160436-ef149e42d28e
+	github.com/yuin/goldmark v1.8.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 

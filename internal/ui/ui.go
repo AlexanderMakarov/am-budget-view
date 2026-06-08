@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/AlexanderMakarov/am-budget-view/internal/app"
+	"github.com/AlexanderMakarov/am-budget-view/internal/bankdownload"
 	"github.com/AlexanderMakarov/am-budget-view/internal/config"
+	"github.com/AlexanderMakarov/am-budget-view/internal/docs"
 	"github.com/AlexanderMakarov/am-budget-view/internal/i18n"
 	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"github.com/AlexanderMakarov/am-budget-view/internal/platform"
@@ -36,6 +38,62 @@ func initTemplateFunctions() {
 		"localize": i18n.T,
 		"formatDate": func(date time.Time) string {
 			return i18n.T("date_format", "val", date)
+		},
+		"formatOptionalDate": func(date time.Time) string {
+			if date.IsZero() {
+				return "—"
+			}
+			return i18n.T("date_format", "val", date)
+		},
+		"formatRFC3339": func(ts string) string {
+			if ts == "" {
+				return "—"
+			}
+			parsed, err := time.Parse(time.RFC3339, ts)
+			if err != nil {
+				return ts
+			}
+			return i18n.T("date_format", "val", parsed)
+		},
+		"statusLabel": func(status string) string {
+			labels := map[string]string{
+				bankdownload.StatusOK:         "Up to date",
+				bankdownload.StatusStale:      "Stale",
+				bankdownload.StatusNoFiles:    "No files",
+				bankdownload.StatusError:      "Error",
+				bankdownload.StatusManualOnly: "Manual only",
+			}
+			if label, ok := labels[status]; ok {
+				return i18n.T(label)
+			}
+			return status
+		},
+		"downloadMethodLabel": func(h bankdownload.SourceHealth) string {
+			if h.SupportsInAppDownload {
+				if h.DownloadConfigured {
+					return i18n.T("In-app download")
+				}
+				return i18n.T("In-app download (not configured)")
+			}
+			if h.SupportsCliDownload {
+				return i18n.T("CLI or manual")
+			}
+			return i18n.T("Manual")
+		},
+		"sourceID": func(id bankdownload.SourceID) string {
+			return string(id)
+		},
+		"formatFreshnessDays": func(days int) string {
+			if days < 0 {
+				return "—"
+			}
+			if days == 0 {
+				return i18n.T("0 days")
+			}
+			if days == 1 {
+				return i18n.T("1 day")
+			}
+			return i18n.T("N days", "n", days)
 		},
 		"toJSON": func(v interface{}) string {
 			data, err := json.Marshal(v)
@@ -79,10 +137,11 @@ func initSharedTemplates() error {
 }
 
 // ListenAndServe starts the web UI server.
-func ListenAndServe(dataHandler *app.DataHandler, staticFS embed.FS, templateFS embed.FS, devMode bool) error {
+func ListenAndServe(dataHandler *app.DataHandler, staticFS embed.FS, templateFS embed.FS, docsFS embed.FS, devMode bool) error {
 	embeddedStatic = staticFS
 	embeddedTemplates = templateFS
 	isDevMode = devMode
+	docs.Init(docsFS, devMode)
 
 	// Initialize template functions
 	initTemplateFunctions()
@@ -100,6 +159,10 @@ func ListenAndServe(dataHandler *app.DataHandler, staticFS embed.FS, templateFS 
 	http.HandleFunc("/files", handleFiles(dataHandler))
 	http.HandleFunc("/open-file", handleOpenFile())
 	http.HandleFunc("/refresh-files", handleRefreshFiles(dataHandler))
+	http.HandleFunc("/bank-downloads/settings", handleBankDownloadSettings(dataHandler))
+	http.HandleFunc("/bank-downloads/config", handleBankDownloadsConfig(dataHandler))
+	http.HandleFunc("/bank-downloads/run", handleBankDownloadsRun(dataHandler))
+	http.HandleFunc("/docs/bank/", handleBankDoc())
 
 	// Serve static files based on DEV_MODE
 	if isDevMode {
@@ -395,18 +458,46 @@ func handleFiles(dataHandler *app.DataHandler) http.HandlerFunc {
 			workingDir = i18n.T("Unable to determine working directory")
 		}
 
+		language := dataHandler.Config.Language
+		if language == "" {
+			language = "en"
+		}
+
 		data := struct {
 			WorkingDir string
-			Files      []model.FileInfo
+			FileGroups bankdownload.FileGroupsView
+			Language   string
 		}{
 			WorkingDir: workingDir,
-			Files:      dataHandler.FileInfos,
+			FileGroups: bankdownload.BuildFileGroups(dataHandler.FileInfos, dataHandler.Config),
+			Language:   language,
 		}
 
 		err = parseAndExecuteTemplate("templates/files.html", w, data)
 		if err != nil {
 			logAndReturnError(w, err)
 			return
+		}
+	}
+}
+
+func handleBankDownloadSettings(dataHandler *app.DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		data := struct {
+			MyAmeria       config.MyAmeriaDownloadConfig
+			AmeriaBusiness config.AmeriaBusinessDownloadConfig
+		}{
+			MyAmeria:       dataHandler.Config.BankDownloads.MyAmeria,
+			AmeriaBusiness: dataHandler.Config.BankDownloads.AmeriaBusiness,
+		}
+
+		if err := parseAndExecuteTemplate("templates/bank_download_settings.html", w, data); err != nil {
+			logAndReturnError(w, err)
 		}
 	}
 }
@@ -428,6 +519,52 @@ func handleOpenFile() http.HandlerFunc {
 	}
 }
 
+func handleBankDoc() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sourceID := strings.TrimPrefix(r.URL.Path, "/docs/bank/")
+		if sourceID == "" || strings.Contains(sourceID, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		if !docs.ValidSourceIDs[sourceID] {
+			http.NotFound(w, r)
+			return
+		}
+
+		markdown, err := docs.LoadBankDoc(i18n.GetLocale(), sourceID)
+		if err != nil {
+			log.Printf("Bank doc not found: %s: %v", sourceID, err)
+			http.NotFound(w, r)
+			return
+		}
+
+		htmlContent, err := docs.RenderHTML(markdown)
+		if err != nil {
+			logAndReturnError(w, err)
+			return
+		}
+
+		title := sourceID
+		if idx := strings.Index(markdown, "\n"); idx > 0 {
+			title = strings.TrimPrefix(strings.TrimSpace(markdown[:idx]), "# ")
+		}
+
+		data := struct {
+			Title   string
+			Content template.HTML
+			Locale  string
+		}{
+			Title:   title,
+			Content: template.HTML(htmlContent),
+			Locale:  i18n.GetLocale(),
+		}
+
+		if err := parseAndExecuteTemplate("templates/bank_doc.html", w, data); err != nil {
+			logAndReturnError(w, err)
+		}
+	}
+}
+
 func handleRefreshFiles(dataHandler *app.DataHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -446,6 +583,225 @@ func handleRefreshFiles(dataHandler *app.DataHandler) http.HandlerFunc {
 
 		log.Println("Files refreshed successfully")
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+type bankDownloadJSONResponse struct {
+	OK      bool     `json:"ok"`
+	Error   string   `json:"error,omitempty"`
+	Hint    string   `json:"hint,omitempty"`
+	Message string   `json:"message,omitempty"`
+	Files   []string `json:"files,omitempty"`
+}
+
+func writeBankDownloadJSON(w http.ResponseWriter, status int, resp bankDownloadJSONResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("Error encoding JSON response: %v", err)
+	}
+}
+
+type bankDownloadsConfigRequest struct {
+	BankDownloads bankDownloadsJSONPatch `json:"bankDownloads"`
+}
+
+type bankDownloadsJSONPatch struct {
+	StaleThresholdDays *int                         `json:"staleThresholdDays,omitempty"`
+	MyAmeria           *myAmeriaDownloadJSONPatch   `json:"myAmeria,omitempty"`
+	AmeriaBusiness     *ameriaBusinessDownloadJSONPatch `json:"ameriaBusiness,omitempty"`
+}
+
+type myAmeriaDownloadJSONPatch struct {
+	Enabled            *bool  `json:"enabled,omitempty"`
+	ClientId           string `json:"clientId,omitempty"`
+	AuthToken          string `json:"authToken,omitempty"`
+	SinceDate          string `json:"sinceDate,omitempty"`
+	LastDownloadAt     string `json:"lastDownloadAt,omitempty"`
+	LastDownloadStatus string `json:"lastDownloadStatus,omitempty"`
+	LastDownloadError  string `json:"lastDownloadError,omitempty"`
+}
+
+type ameriaBusinessDownloadJSONPatch struct {
+	Enabled            *bool  `json:"enabled,omitempty"`
+	Cookie             string `json:"cookie,omitempty"`
+	SinceDate          string `json:"sinceDate,omitempty"`
+	OutputFolder         string `json:"outputFolder,omitempty"`
+	LastDownloadAt     string `json:"lastDownloadAt,omitempty"`
+	LastDownloadStatus string `json:"lastDownloadStatus,omitempty"`
+	LastDownloadError  string `json:"lastDownloadError,omitempty"`
+}
+
+func mergeMyAmeriaJSONPatch(current config.MyAmeriaDownloadConfig, patch *myAmeriaDownloadJSONPatch) config.MyAmeriaDownloadConfig {
+	if patch == nil {
+		return current
+	}
+	out := current
+	if patch.ClientId != "" {
+		out.ClientId = patch.ClientId
+	}
+	if patch.AuthToken != "" {
+		out.AuthToken = bankdownload.NormalizeMyAmeriaAuthToken(patch.AuthToken)
+	}
+	if patch.SinceDate != "" {
+		out.SinceDate = patch.SinceDate
+	}
+	if patch.LastDownloadAt != "" {
+		out.LastDownloadAt = patch.LastDownloadAt
+	}
+	if patch.LastDownloadStatus != "" {
+		out.LastDownloadStatus = patch.LastDownloadStatus
+	}
+	if patch.LastDownloadError != "" {
+		out.LastDownloadError = patch.LastDownloadError
+	}
+	if patch.Enabled != nil {
+		out.Enabled = *patch.Enabled
+	}
+	return out
+}
+
+func mergeAmeriaBusinessJSONPatch(current config.AmeriaBusinessDownloadConfig, patch *ameriaBusinessDownloadJSONPatch) config.AmeriaBusinessDownloadConfig {
+	if patch == nil {
+		return current
+	}
+	out := current
+	if patch.Cookie != "" {
+		out.Cookie = patch.Cookie
+	}
+	if patch.SinceDate != "" {
+		out.SinceDate = patch.SinceDate
+	}
+	if patch.OutputFolder != "" {
+		out.OutputFolder = patch.OutputFolder
+	}
+	if patch.LastDownloadAt != "" {
+		out.LastDownloadAt = patch.LastDownloadAt
+	}
+	if patch.LastDownloadStatus != "" {
+		out.LastDownloadStatus = patch.LastDownloadStatus
+	}
+	if patch.LastDownloadError != "" {
+		out.LastDownloadError = patch.LastDownloadError
+	}
+	if patch.Enabled != nil {
+		out.Enabled = *patch.Enabled
+	}
+	return out
+}
+
+func handleBankDownloadsConfig(dataHandler *app.DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req bankDownloadsConfigRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeBankDownloadJSON(w, http.StatusBadRequest, bankDownloadJSONResponse{
+				OK:    false,
+				Error: "Invalid JSON body",
+				Hint:  err.Error(),
+			})
+			return
+		}
+
+		current := dataHandler.Config.BankDownloads
+		if req.BankDownloads.MyAmeria != nil {
+			dataHandler.Config.BankDownloads.MyAmeria = mergeMyAmeriaJSONPatch(current.MyAmeria, req.BankDownloads.MyAmeria)
+		}
+		if req.BankDownloads.AmeriaBusiness != nil {
+			dataHandler.Config.BankDownloads.AmeriaBusiness = mergeAmeriaBusinessJSONPatch(current.AmeriaBusiness, req.BankDownloads.AmeriaBusiness)
+		}
+
+		var patch config.BankDownloads
+		if req.BankDownloads.StaleThresholdDays != nil {
+			patch.StaleThresholdDays = *req.BankDownloads.StaleThresholdDays
+		}
+
+		if err := dataHandler.UpdateBankDownloads(patch); err != nil {
+			ufe := bankdownload.MapError(err)
+			if ufe.Message == "" {
+				ufe.Message = err.Error()
+			}
+			writeBankDownloadJSON(w, http.StatusBadRequest, bankDownloadJSONResponse{
+				OK:    false,
+				Error: ufe.Message,
+				Hint:  ufe.Hint,
+			})
+			return
+		}
+
+		writeBankDownloadJSON(w, http.StatusOK, bankDownloadJSONResponse{OK: true})
+	}
+}
+
+func handleBankDownloadsRun(dataHandler *app.DataHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			SourceID       string                      `json:"sourceId"`
+			MyAmeria       *myAmeriaDownloadJSONPatch  `json:"myAmeria,omitempty"`
+			AmeriaBusiness *ameriaBusinessDownloadJSONPatch `json:"ameriaBusiness,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeBankDownloadJSON(w, http.StatusBadRequest, bankDownloadJSONResponse{
+				OK:    false,
+				Error: "Invalid JSON body",
+				Hint:  err.Error(),
+			})
+			return
+		}
+		if req.SourceID == "" {
+			writeBankDownloadJSON(w, http.StatusBadRequest, bankDownloadJSONResponse{
+				OK:    false,
+				Error: "sourceId is required",
+			})
+			return
+		}
+
+		var opts *app.BankDownloadRunOptions
+		if req.MyAmeria != nil || req.AmeriaBusiness != nil {
+			opts = &app.BankDownloadRunOptions{}
+			if req.MyAmeria != nil {
+				cfg := mergeMyAmeriaJSONPatch(dataHandler.Config.BankDownloads.MyAmeria, req.MyAmeria)
+				opts.MyAmeria = &cfg
+			}
+			if req.AmeriaBusiness != nil {
+				cfg := mergeAmeriaBusinessJSONPatch(dataHandler.Config.BankDownloads.AmeriaBusiness, req.AmeriaBusiness)
+				opts.AmeriaBusiness = &cfg
+			}
+		}
+
+		log.Printf("bank download run: source=%s", req.SourceID)
+		paths, err := dataHandler.DownloadBank(req.SourceID, opts)
+		if err != nil {
+			log.Printf("bank download run failed: source=%s error=%v", req.SourceID, err)
+			ufe := bankdownload.MapError(err)
+			if ufe.Message == "" {
+				ufe.Message = err.Error()
+			}
+			writeBankDownloadJSON(w, http.StatusBadRequest, bankDownloadJSONResponse{
+				OK:    false,
+				Error: ufe.Message,
+				Hint:  ufe.Hint,
+			})
+			return
+		}
+
+		resp := bankDownloadJSONResponse{OK: true, Files: paths}
+		if n := len(paths); n > 0 {
+			resp.Message = fmt.Sprintf("Downloaded %d file(s)", n)
+			log.Printf("bank download run ok: source=%s files=%v", req.SourceID, paths)
+		} else {
+			log.Printf("bank download run ok: source=%s (no files written)", req.SourceID)
+		}
+		writeBankDownloadJSON(w, http.StatusOK, resp)
 	}
 }
 

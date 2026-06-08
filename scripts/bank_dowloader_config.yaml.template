@@ -1,3 +1,6 @@
+# Primary path: in-app Files page — configure bankDownloads in config.yaml.
+# Alternative CLI: copy this file to bank_dowloader_config.yaml and run make bank-downloader.
+#
 # Login into https://account.myameria.am and open cards and accounts pages.
 # Next see URL in browser and open developer tools too see response headers.
 # Some headers values would be needed to fill in this file.
