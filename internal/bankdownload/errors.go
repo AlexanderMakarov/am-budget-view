@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strings"
 )
 
 // UserFacingError is an error with a short user-visible message and an optional hint.
@@ -62,6 +61,22 @@ func (e *myAmeriaHTTPError) Error() string {
 	return fmt.Sprintf("MyAmeria API returned HTTP %d. Response: %s", e.statusCode, body)
 }
 
+// ErrMyAmeriaInvalidResponse indicates the MyAmeria API returned a non-JSON body,
+// usually because the Authorization token expired mid-session.
+var ErrMyAmeriaInvalidResponse = errors.New("myameria response is not valid json")
+
+// ameriaBusinessHTTPError is a non-2xx (and non-401) response from the AmeriaBank Business API.
+// The status code is carried explicitly so MapError can branch on it without substring matching.
+type ameriaBusinessHTTPError struct {
+	statusCode int
+	op         string
+	body       string
+}
+
+func (e *ameriaBusinessHTTPError) Error() string {
+	return fmt.Sprintf("AmeriaBank Business %s request failed: HTTP %d: %s", e.op, e.statusCode, e.body)
+}
+
 // MapError converts internal/download errors into user-facing messages and hints.
 func MapError(err error) UserFacingError {
 	if err == nil {
@@ -86,6 +101,40 @@ func MapError(err error) UserFacingError {
 			return UserFacingError{
 				Message: myAmeriaHTTP.Error(),
 				Hint:    "The bank service may be temporarily unavailable. Try again later.",
+			}
+		}
+	}
+
+	if errors.Is(err, ErrMyAmeriaInvalidResponse) {
+		return UserFacingError{
+			Message: "Unexpected response from MyAmeria API (not JSON)",
+			Hint:    "Authorization token likely expired — paste a fresh one and try again.",
+		}
+	}
+
+	var ameriaHTTP *ameriaBusinessHTTPError
+	if errors.As(err, &ameriaHTTP) {
+		switch ameriaHTTP.statusCode {
+		case 401:
+			return UserFacingError{
+				Message: "AmeriaBank Business API returned 401 Unauthorized",
+				Hint: "Log in again at https://business.myameria.am and copy a fresh cookie " +
+					"from a request to gateway-businessmyameria.ameriabank.am.",
+			}
+		case 403:
+			return UserFacingError{
+				Message: "AmeriaBank Business API returned 403 Forbidden",
+				Hint:    "Your account may not have access to this resource. Verify you are logged into the correct business account.",
+			}
+		case 500, 502, 503, 504:
+			return UserFacingError{
+				Message: "AmeriaBank Business server error",
+				Hint:    "The bank service may be temporarily unavailable. Try again later.",
+			}
+		default:
+			return UserFacingError{
+				Message: ameriaHTTP.Error(),
+				Hint:    "See application logs for details.",
 			}
 		}
 	}
@@ -150,41 +199,8 @@ func MapError(err error) UserFacingError {
 		}
 	}
 
-	msg := err.Error()
-	lower := strings.ToLower(msg)
-	switch {
-	case strings.Contains(lower, "myameria api returned http 401"),
-		strings.Contains(lower, "myameria api returned http 403"):
-		return UserFacingError{
-			Message: "MyAmeria rejected the Authorization token",
-			Hint: "Token expires in ~15 minutes — copy it right before download. " +
-				"DevTools → Network → request to ob.myameria.am → Authorization header (must start with Bearer).",
-		}
-	case strings.Contains(lower, "myameria history response is not valid json"):
-		return UserFacingError{
-			Message: "Unexpected response from MyAmeria API (not JSON)",
-			Hint:    "Authorization token likely expired — paste a fresh one and try again.",
-		}
-	case strings.Contains(lower, "401"):
-		return UserFacingError{
-			Message: "AmeriaBank Business API returned 401 Unauthorized",
-			Hint: "Log in again at https://business.myameria.am and copy a fresh cookie " +
-				"from a request to gateway-businessmyameria.ameriabank.am.",
-		}
-	case strings.Contains(lower, "403"):
-		return UserFacingError{
-			Message: "AmeriaBank Business API returned 403 Forbidden",
-			Hint:    "Your account may not have access to this resource. Verify you are logged into the correct business account.",
-		}
-	case strings.Contains(lower, "500"), strings.Contains(lower, "502"), strings.Contains(lower, "503"):
-		return UserFacingError{
-			Message: "AmeriaBank Business server error",
-			Hint:    "The bank service may be temporarily unavailable. Try again later.",
-		}
-	}
-
 	return UserFacingError{
-		Message: msg,
+		Message: err.Error(),
 		Hint:    "See application logs for details.",
 	}
 }

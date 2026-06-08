@@ -53,16 +53,28 @@ func TestMapError(t *testing.T) {
 			wantHint: "network connection",
 		},
 		{
-			name:     "401 in message",
-			err:      fmt.Errorf("HTTP 401 from gateway"),
+			name:     "ameria business 401",
+			err:      &ameriaBusinessHTTPError{statusCode: 401, op: "Accounts", body: "account 4017... denied"},
 			wantMsg:  "AmeriaBank Business API returned 401 Unauthorized",
 			wantHint: "business.myameria.am",
 		},
 		{
-			name:     "503 in message",
-			err:      fmt.Errorf("HTTP 503 service unavailable"),
+			name:     "ameria business 503",
+			err:      &ameriaBusinessHTTPError{statusCode: 503, op: "Export", body: "service unavailable"},
 			wantMsg:  "AmeriaBank Business server error",
 			wantHint: "temporarily unavailable",
+		},
+		{
+			name:     "ameria business 403",
+			err:      &ameriaBusinessHTTPError{statusCode: 403, op: "Accounts", body: "forbidden"},
+			wantMsg:  "AmeriaBank Business API returned 403 Forbidden",
+			wantHint: "access to this resource",
+		},
+		{
+			name:     "ameria business other status falls through to raw error",
+			err:      &ameriaBusinessHTTPError{statusCode: 418, op: "Export", body: "teapot"},
+			wantMsg:  "AmeriaBank Business Export request failed: HTTP 418: teapot",
+			wantHint: "application logs",
 		},
 		{
 			name:     "generic",

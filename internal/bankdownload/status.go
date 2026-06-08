@@ -9,30 +9,30 @@ import (
 )
 
 const (
-	StatusOK          = "ok"
-	StatusStale       = "stale"
-	StatusNoFiles     = "no_files"
-	StatusError       = "error"
-	StatusManualOnly  = "manual_only"
+	StatusOK         = "ok"
+	StatusStale      = "stale"
+	StatusNoFiles    = "no_files"
+	StatusError      = "error"
+	StatusManualOnly = "manual_only"
 )
 
 // SourceHealth summarizes freshness and download state for one bank source.
 type SourceHealth struct {
-	SourceID               SourceID
-	Name                   string
-	DocSourceID            string
-	FilesCount             int
-	LatestTxDate           time.Time
-	EarliestTxDate         time.Time
-	LastFileModified       time.Time
-	DownloadConfigured     bool
-	LastDownloadAt         string
-	LastDownloadStatus     string
-	LastDownloadError      string
-	Status                 string
-	StatusDetail           string
-	SupportsInAppDownload  bool
-	SupportsCliDownload    bool
+	SourceID              SourceID
+	Name                  string
+	DocSourceID           string
+	FilesCount            int
+	LatestTxDate          time.Time
+	EarliestTxDate        time.Time
+	LastFileModified      time.Time
+	DownloadConfigured    bool
+	LastDownloadAt        string
+	LastDownloadStatus    string
+	LastDownloadError     string
+	Status                string
+	StatusDetail          string
+	SupportsInAppDownload bool
+	SupportsCliDownload   bool
 }
 
 // ComputeSourceHealth builds per-source health rows from parsed files and config.

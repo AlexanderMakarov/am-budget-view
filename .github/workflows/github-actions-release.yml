@@ -37,6 +37,16 @@ jobs:
       - name: Get dependencies
         run: go get -v -t -d
 
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l internal main.go)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            echo "Run: gofmt -w internal main.go"
+            exit 1
+          fi
+
       - name: Lint
         run: go vet ./...
 
@@ -44,6 +54,15 @@ jobs:
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out
+
+      - name: golangci-lint
+        # PRs only: only-new-issues needs a base ref to diff against, and we do
+        # not want the large pre-existing backlog to fail the master pipeline.
+        if: github.event_name == 'pull_request'
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.5.0
+          only-new-issues: true
 
   # Job to build artifacts only if tag was pushed.
   build:

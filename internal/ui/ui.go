@@ -607,8 +607,8 @@ type bankDownloadsConfigRequest struct {
 }
 
 type bankDownloadsJSONPatch struct {
-	StaleThresholdDays *int                         `json:"staleThresholdDays,omitempty"`
-	MyAmeria           *myAmeriaDownloadJSONPatch   `json:"myAmeria,omitempty"`
+	StaleThresholdDays *int                             `json:"staleThresholdDays,omitempty"`
+	MyAmeria           *myAmeriaDownloadJSONPatch       `json:"myAmeria,omitempty"`
 	AmeriaBusiness     *ameriaBusinessDownloadJSONPatch `json:"ameriaBusiness,omitempty"`
 }
 
@@ -626,7 +626,7 @@ type ameriaBusinessDownloadJSONPatch struct {
 	Enabled            *bool  `json:"enabled,omitempty"`
 	Cookie             string `json:"cookie,omitempty"`
 	SinceDate          string `json:"sinceDate,omitempty"`
-	OutputFolder         string `json:"outputFolder,omitempty"`
+	OutputFolder       string `json:"outputFolder,omitempty"`
 	LastDownloadAt     string `json:"lastDownloadAt,omitempty"`
 	LastDownloadStatus string `json:"lastDownloadStatus,omitempty"`
 	LastDownloadError  string `json:"lastDownloadError,omitempty"`
@@ -745,8 +745,8 @@ func handleBankDownloadsRun(dataHandler *app.DataHandler) http.HandlerFunc {
 		}
 
 		var req struct {
-			SourceID       string                      `json:"sourceId"`
-			MyAmeria       *myAmeriaDownloadJSONPatch  `json:"myAmeria,omitempty"`
+			SourceID       string                           `json:"sourceId"`
+			MyAmeria       *myAmeriaDownloadJSONPatch       `json:"myAmeria,omitempty"`
 			AmeriaBusiness *ameriaBusinessDownloadJSONPatch `json:"ameriaBusiness,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

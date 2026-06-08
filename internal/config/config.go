@@ -86,14 +86,14 @@ type Config struct {
 	MinCurrencyTimespanPercent           int                           `yaml:"minCurrencyTimespanPercent,omitempty" validate:"min=0,max=100"`
 	MaxCurrencyTimespanGapDays           int                           `yaml:"maxCurrencyTimespanGapDays,omitempty" validate:"min=0"`
 
-	DetailedOutput             bool   `yaml:"detailedOutput"`
-	CategorizeMode             bool   `yaml:"categorizeMode"`
-	MonthStartDayNumber        uint   `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31"`
-	TimeZoneLocation           string `yaml:"timeZoneLocation,omitempty"`
+	DetailedOutput              bool   `yaml:"detailedOutput"`
+	CategorizeMode              bool   `yaml:"categorizeMode"`
+	MonthStartDayNumber         uint   `yaml:"monthStartDayNumber,omitempty" validate:"min=1,max=31"`
+	TimeZoneLocation            string `yaml:"timeZoneLocation,omitempty"`
 	GroupAllUnknownTransactions bool   `yaml:"groupAllUnknownTransactions"`
 	// Transactions categorization groups.
-	Groups map[string]*GroupConfig `yaml:"groups,omitempty"`
-	BankDownloads                  BankDownloads `yaml:"bankDownloads,omitempty"`
+	Groups        map[string]*GroupConfig `yaml:"groups,omitempty"`
+	BankDownloads BankDownloads           `yaml:"bankDownloads,omitempty"`
 }
 
 func ReadConfig(filename string) (*Config, error) {

@@ -239,7 +239,7 @@ func TestDownloadMyAmeria_Unauthorized(t *testing.T) {
 }
 
 func TestMapError_MyAmeriaInvalidJSON(t *testing.T) {
-	err := fmt.Errorf("MyAmeria history response is not valid JSON: %w", os.ErrInvalid)
+	err := fmt.Errorf("MyAmeria history response is not valid JSON (%v): %w", os.ErrInvalid, ErrMyAmeriaInvalidResponse)
 	ufe := MapError(err)
 	if !strings.Contains(ufe.Message, "not JSON") {
 		t.Fatalf("MapError message = %q", ufe.Message)

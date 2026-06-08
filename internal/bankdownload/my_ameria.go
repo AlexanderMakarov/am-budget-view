@@ -144,7 +144,7 @@ func (c *myAmeriaClient) fetchHistory(clientID, authToken, fromDate, toDate stri
 
 	var payload myAmeriaHistoryResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("MyAmeria history response is not valid JSON: %w", err)
+		return nil, fmt.Errorf("MyAmeria history response is not valid JSON (%v): %w", err, ErrMyAmeriaInvalidResponse)
 	}
 	return payload.Data.Entries, nil
 }

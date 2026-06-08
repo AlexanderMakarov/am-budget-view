@@ -374,7 +374,6 @@ func readUseWriteConfig(t *testing.T, content string) string {
 		t.Fatalf("Failed to read config: %v", err)
 	}
 
-
 	err = cfg.WriteToFile(tempFile.Name())
 	if err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -586,7 +585,6 @@ bankDownloads:
 	checkErrorContainsSubstring(t, err, "bankDownloads.myAmeria.sinceDate must be in DD-MM-YYYY format")
 }
 
-
 func TestReadConfig_BankDownloads_InvalidLastDownloadStatus(t *testing.T) {
 	tempFile := createTempFileWithContent(minimalConfigYAML + `
 bankDownloads:
@@ -624,4 +622,3 @@ bankDownloads:
 		t.Errorf("Expected default StaleThresholdDays 7, got %d", cfg.BankDownloads.StaleThresholdDays)
 	}
 }
-

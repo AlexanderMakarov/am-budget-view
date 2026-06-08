@@ -26,6 +26,10 @@ const (
 	ameriaBusinessTimeout = 60 * time.Second
 	sinceDateLayout       = "02-01-2006"
 	apiDateLayout         = "2006-01-02"
+
+	// ameriaBusinessMaxStatementBytes caps the statement-CSV response read to avoid
+	// unbounded memory use on an unexpectedly large or malicious response (16 MiB).
+	ameriaBusinessMaxStatementBytes = 16 << 20
 )
 
 type ameriaBusinessAccount struct {
@@ -212,8 +216,11 @@ func (c *ameriaBusinessClient) fetchAccounts(cookie, accountType string) ([]amer
 		return nil, &unauthorizedError{body: string(body), op: "Accounts"}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("AmeriaBank Business Accounts request failed: HTTP %d: %s",
-			resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, &ameriaBusinessHTTPError{
+			statusCode: resp.StatusCode,
+			op:         "Accounts",
+			body:       strings.TrimSpace(string(body)),
+		}
 	}
 
 	var items []map[string]any
@@ -312,7 +319,7 @@ func (c *ameriaBusinessClient) downloadStatementCSV(
 	var raw []byte
 	if resp != nil {
 		defer resp.Body.Close()
-		raw, err = io.ReadAll(resp.Body)
+		raw, err = io.ReadAll(io.LimitReader(resp.Body, ameriaBusinessMaxStatementBytes))
 	}
 	logHTTPExchange(tag, req.Method, req.URL.String(), req.Header, resp, raw, err)
 	if err != nil {
@@ -323,7 +330,7 @@ func (c *ameriaBusinessClient) downloadStatementCSV(
 	}
 	if resp.StatusCode != http.StatusOK {
 		snippet := strings.TrimSpace(string(raw[:min(len(raw), 500)]))
-		return fmt.Errorf("AmeriaBank Business Export request failed: HTTP %d: %s", resp.StatusCode, snippet)
+		return &ameriaBusinessHTTPError{statusCode: resp.StatusCode, op: "Export", body: snippet}
 	}
 
 	text := string(raw)

@@ -1,9 +1,9 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/AlexanderMakarov/am-budget-view/internal/i18n"
 	"github.com/AlexanderMakarov/am-budget-view/internal/model"
-	"fmt"
 	"log"
 	"strings"
 	"time"

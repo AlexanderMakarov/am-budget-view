@@ -78,11 +78,16 @@ func (dh *DataHandler) downloadMyAmeria(opts *BankDownloadRunOptions) ([]string,
 	if downloadErr == nil {
 		dh.persistMyAmeriaPreferences(cfg)
 	}
-	if writeErr := dh.Config.WriteToFile(dh.ConfigPath); writeErr != nil {
-		return nil, writeErr
-	}
+	writeErr := dh.Config.WriteToFile(dh.ConfigPath)
 	if downloadErr != nil {
+		// Surface the original download failure; a config-write failure here is secondary.
+		if writeErr != nil {
+			log.Printf("MyAmeria: failed to persist config after download error: %v", writeErr)
+		}
 		return nil, downloadErr
+	}
+	if writeErr != nil {
+		return nil, writeErr
 	}
 	if path == "" {
 		log.Printf("MyAmeria: download complete — no file written")
@@ -115,11 +120,16 @@ func (dh *DataHandler) downloadAmeriaBusiness(opts *BankDownloadRunOptions) ([]s
 	if downloadErr == nil {
 		dh.persistAmeriaBusinessPreferences(cfg)
 	}
-	if writeErr := dh.Config.WriteToFile(dh.ConfigPath); writeErr != nil {
-		return nil, writeErr
-	}
+	writeErr := dh.Config.WriteToFile(dh.ConfigPath)
 	if downloadErr != nil {
+		// Surface the original download failure; a config-write failure here is secondary.
+		if writeErr != nil {
+			log.Printf("AmeriaBusiness: failed to persist config after download error: %v", writeErr)
+		}
 		return paths, downloadErr
+	}
+	if writeErr != nil {
+		return paths, writeErr
 	}
 	log.Printf("AmeriaBusiness: download complete — wrote %d file(s): %s",
 		len(paths), strings.Join(paths, ", "))
@@ -193,7 +203,9 @@ func (dh *DataHandler) setDownloadMetadata(lastAt, lastStatus, lastError *string
 	*lastAt = time.Now().UTC().Format(time.RFC3339)
 	if err != nil {
 		*lastStatus = "error"
-		*lastError = err.Error()
+		// Persist the user-facing message rather than the raw error, which can carry
+		// truncated response-body fragments into config.yaml.
+		*lastError = bankdownload.MapError(err).Message
 		return
 	}
 	*lastStatus = "ok"
