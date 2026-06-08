@@ -1,3 +1,6 @@
+# Primary path: in-app Files page — configure bankDownloads in config.yaml.
+# Alternative CLI: copy this file to bank_dowloader_config.yaml and run make bank-downloader.
+#
 # Login into https://account.myameria.am and open cards and accounts pages.
 # Next see URL in browser and open developer tools too see response headers.
 # Some headers values would be needed to fill in this file.
@@ -10,3 +13,18 @@ my_ameria:
   since-DD-MM-YYYY: "01-09-2024"
   # How to name a resulting file. Should be matched by 'genericCsvFilesGlob' in config.yaml.
   history_path: "../generic MyAmeria History since 2024-09-01.csv"
+
+# AmeriaBank (business.myameria.am) – HTTP REST API only.
+ameriabank:
+  # Log in at https://business.myameria.am, open DevTools → Network, copy Cookie header value from any request to gateway-businessmyameria.ameriabank.am.
+  # Cookie must include RefreshToken and TS* (AccessToken);
+  cookie: "TS0180e8bb=...; RefreshToken=...; AccessToken=..."
+  # Start day to get statement. Always until today.
+  since-DD-MM-YYYY: "01-09-2024"
+  # Where to put resulting files. There would be one file per account with name "AccountStatement {acc.number} {acc.name} since {since-DD-MM-YYYY}.csv".
+  folder_path: ""
+  # Optional: list only specific accounts to download (by number or name); path overrides "folder_path" above.
+  # accounts:
+  #   - name: "Settlement AMD"
+  #     number: "15700481491234567"
+  #     path: "../my_settlement_amd.csv"

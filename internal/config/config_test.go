@@ -374,7 +374,6 @@ func readUseWriteConfig(t *testing.T, content string) string {
 		t.Fatalf("Failed to read config: %v", err)
 	}
 
-
 	err = cfg.WriteToFile(tempFile.Name())
 	if err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -448,6 +447,8 @@ groups:
       - Sub1 # Group element comment
       # Before group element comment
       - Sub2
+bankDownloads:
+  staleThresholdDays: 7
 `
 
 	// Act
@@ -457,3 +458,167 @@ groups:
 	assertStringEqual(t, actualContent, expectedContent)
 }
 
+const minimalConfigYAML = `inecobankStatementXmlFilesGlob: "*.xml"
+inecobankStatementXlsxFilesGlob: "*.xlsx"
+ameriaCsvFilesGlob: "*.csv"
+myAmeriaAccountStatementXlsxFilesGlob: "*.xls"
+myAmeriaHistoryXlsFilesGlob: "History*.xls"
+genericCsvFilesGlob: "generic*.csv"
+groupAllUnknownTransactions: true
+groups:
+  g1:
+    substrings:
+      - Sub1
+`
+
+func TestReadConfig_BankDownloads_DefaultStaleThreshold(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML)
+	defer os.Remove(tempFile.Name())
+
+	cfg, err := ReadConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cfg.BankDownloads.StaleThresholdDays != 7 {
+		t.Errorf("Expected StaleThresholdDays to default to 7, got %d", cfg.BankDownloads.StaleThresholdDays)
+	}
+}
+
+func TestReadConfig_BankDownloads_ValidYAML(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML + `
+bankDownloads:
+  staleThresholdDays: 14
+  myAmeria:
+    enabled: true
+    clientId: "my-client-id"
+    authToken: "secret-token"
+    sinceDate: "15-03-2024"
+    lastDownloadAt: "2024-03-20T10:00:00Z"
+    lastDownloadStatus: ok
+    lastDownloadError: ""
+  ameriaBusiness:
+    enabled: true
+    cookie: "session=abc123"
+    sinceDate: "01-01-2024"
+    outputFolder: "/tmp/statements"
+    lastDownloadAt: "2024-03-19T12:00:00Z"
+    lastDownloadStatus: error
+    lastDownloadError: "HTTP 401"
+`)
+	defer os.Remove(tempFile.Name())
+
+	cfg, err := ReadConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	bd := cfg.BankDownloads
+	if bd.StaleThresholdDays != 14 {
+		t.Errorf("Expected StaleThresholdDays 14, got %d", bd.StaleThresholdDays)
+	}
+	if !bd.MyAmeria.Enabled || bd.MyAmeria.ClientId != "my-client-id" ||
+		bd.MyAmeria.AuthToken != "secret-token" || bd.MyAmeria.SinceDate != "15-03-2024" ||
+		bd.MyAmeria.LastDownloadAt != "2024-03-20T10:00:00Z" ||
+		bd.MyAmeria.LastDownloadStatus != "ok" {
+		t.Errorf("Unexpected myAmeria config: %+v", bd.MyAmeria)
+	}
+	if !bd.AmeriaBusiness.Enabled || bd.AmeriaBusiness.Cookie != "session=abc123" ||
+		bd.AmeriaBusiness.SinceDate != "01-01-2024" ||
+		bd.AmeriaBusiness.OutputFolder != "/tmp/statements" ||
+		bd.AmeriaBusiness.LastDownloadStatus != "error" ||
+		bd.AmeriaBusiness.LastDownloadError != "HTTP 401" {
+		t.Errorf("Unexpected ameriaBusiness config: %+v", bd.AmeriaBusiness)
+	}
+}
+
+func TestReadConfig_BankDownloads_MyAmeriaEnabledWithoutSecrets(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML + `
+bankDownloads:
+  myAmeria:
+    enabled: true
+    sinceDate: "01-01-2024"
+`)
+	defer os.Remove(tempFile.Name())
+
+	cfg, err := ReadConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Expected config to load without stored secrets, got %v", err)
+	}
+	if cfg.BankDownloads.MyAmeria.SinceDate != "01-01-2024" {
+		t.Errorf("SinceDate = %q", cfg.BankDownloads.MyAmeria.SinceDate)
+	}
+}
+
+func TestReadConfig_BankDownloads_AmeriaBusinessEnabledWithoutCookie(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML + `
+bankDownloads:
+  ameriaBusiness:
+    enabled: true
+    sinceDate: "01-01-2024"
+`)
+	defer os.Remove(tempFile.Name())
+
+	cfg, err := ReadConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Expected config to load without stored cookie, got %v", err)
+	}
+	if cfg.BankDownloads.AmeriaBusiness.SinceDate != "01-01-2024" {
+		t.Errorf("SinceDate = %q", cfg.BankDownloads.AmeriaBusiness.SinceDate)
+	}
+}
+
+func TestReadConfig_BankDownloads_InvalidSinceDate(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML + `
+bankDownloads:
+  myAmeria:
+    enabled: true
+    clientId: "my-client-id"
+    authToken: "secret-token"
+    sinceDate: "2024-01-01"
+`)
+	defer os.Remove(tempFile.Name())
+
+	_, err := ReadConfig(tempFile.Name())
+	if err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+	checkErrorContainsSubstring(t, err, "bankDownloads.myAmeria.sinceDate must be in DD-MM-YYYY format")
+}
+
+func TestReadConfig_BankDownloads_InvalidLastDownloadStatus(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML + `
+bankDownloads:
+  myAmeria:
+    enabled: true
+    clientId: "my-client-id"
+    authToken: "secret-token"
+    sinceDate: "01-01-2024"
+    lastDownloadStatus: pending
+`)
+	defer os.Remove(tempFile.Name())
+
+	_, err := ReadConfig(tempFile.Name())
+	if err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+	checkErrorContainsSubstring(t, err, "LastDownloadStatus")
+}
+
+func TestReadConfig_BankDownloads_DisabledSkipsValidation(t *testing.T) {
+	tempFile := createTempFileWithContent(minimalConfigYAML + `
+bankDownloads:
+  myAmeria:
+    enabled: false
+  ameriaBusiness:
+    enabled: false
+`)
+	defer os.Remove(tempFile.Name())
+
+	cfg, err := ReadConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cfg.BankDownloads.StaleThresholdDays != 7 {
+		t.Errorf("Expected default StaleThresholdDays 7, got %d", cfg.BankDownloads.StaleThresholdDays)
+	}
+}

@@ -368,7 +368,7 @@ func (i *I18n) T(key string, args ...interface{}) string {
 				// Simple interpolation without formatting.
 				interpolationKey := strings.TrimSpace(match[1])
 				if val, exists := props[interpolationKey]; exists {
-					result = strings.Replace(result, placeholder, fmt.Sprintf("%v", val), -1)
+					result = strings.ReplaceAll(result, placeholder, fmt.Sprintf("%v", val))
 				} else {
 					return i.Tfallback(fmt.Sprintf("'%s' value is missed", interpolationKey), key, args...)
 				}
@@ -422,7 +422,7 @@ func (i *I18n) T(key string, args ...interface{}) string {
 						props[k] = v
 					}
 					formatted := formatter(propValue, props)
-					result = strings.Replace(result, placeholder, formatted, -1)
+					result = strings.ReplaceAll(result, placeholder, formatted)
 				} else {
 					return i.Tfallback(fmt.Sprintf("'%s' in translation misses '%s' value for formatting", parts[0], propKey), key, args...)
 				}

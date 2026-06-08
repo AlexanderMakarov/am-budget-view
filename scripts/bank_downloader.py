@@ -1,407 +1,200 @@
 #!/usr/bin/env python3
+"""Alternative CLI for semi-automatic bank statement downloads.
+
+Primary path: in-app Files page (configure ``bankDownloads`` in config.yaml).
+
+Alternative CLI: this script with scripts/bank_dowloader_config.yaml
+(copy from bank_dowloader_config.yaml.template). Run via ``make bank-downloader``.
+"""
 
 import os
-import time
-import requests
+import sys
 import datetime
 import logging
-import csv
 import yaml
-import json
-
 
 MY_FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
+if MY_FOLDER_PATH not in sys.path:
+    sys.path.insert(0, MY_FOLDER_PATH)
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+from bank_helpers_ameria import (
+    AMERIABANK_ACCOUNT_TYPE_CARD,
+    AMERIABANK_ACCOUNT_TYPE_SETTLEMENT,
+    AmeriabankBusinessAccount,
+    AmeriabankBusinessUnauthorized,
+    download_ameriabank_business_statement_csv,
+    download_myameria_history,
+    fetch_ameriabank_business_accounts,
+    refresh_ameriabank_business_cookie,
 )
+
+CONFIG_FILENAME = "bank_dowloader_config.yaml"
+
 logger = logging.getLogger(__name__)
 
 
-def download_myameria_statement(
-    type: str,
-    account_number: str,
-    inner_account_number: str,
-    client_id: str,
-    auth_token: str,
-    from_date_str: str,
-    to_date_str: str,
-    path: str,
-) -> None:
-    """
-    Download bank statement from MyAmeria bank.
-
-    Args:
-        type: "card" or "account"
-        account_number: Bank account number
-        inner_account_number: Inner account number
-        client_id: Client ID
-        auth_token: Authorization token
-        from_date_str: Start date for statement in MM-MM-YYYY format.
-        to_date_str: End date for statement in MM-MM-YYYY format.
-        path: Path to save the statement file.
-    """
-    now = datetime.datetime.now()
-    # Convert DD-MM-YYYY to DD/MM/YYYY and encode
-    url = (
-        f"https://ob.myameria.am/api/statement/{type}/{inner_account_number}"
-        f"?withEquivalentCurrency=true"
-        f"&withDailyMovement=false"
-        f"&withOverdraft=false"
-        f"&dateFrom={from_date_str.replace('-', '%2F')}"
-        f"&dateTo={to_date_str.replace('-', '%2F')}"
-        f"&accountNumber={account_number}"
-        f"&fileType=xls"
-    )
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": auth_token,
-        "Client-Time": now.strftime("%H:%M:%S"),
-        "Client-Id": client_id,
-        "Locale": "en",
-        "Timezone-Offset": str(-int(time.timezone / 60))
-    }
-    # Make the request with streaming enabled to handle chunked transfer
-    response = requests.get(url, headers=headers, stream=True, timeout=30)
-    if not response.ok:
-        error_msg = response.text
-        logger.error(
-            "MyAmeria server %s error on %s: %s",
-            response.status_code,
-            url,
-            error_msg,
-        )
-    # Accumulate all chunks in memory.
-    chunks = []
-    for chunk in response.iter_content(chunk_size=None):
-        if chunk:  # filter out keep-alive chunks
-            chunks.append(chunk)
-    # Write all accumulated data to file.
-    with open(path, 'wb') as f:
-        f.write(b''.join(chunks))
-    logger.info(f"Successfully downloaded statement to {path}")
+def config_path() -> str:
+    return os.path.join(MY_FOLDER_PATH, CONFIG_FILENAME)
 
 
-def convert_myameria_history_entries(
-    entries: list[dict]
-) -> dict[tuple[str, str], list[dict]]:
-    """Parses MyAmeria history JSON for my accounts and their currencies.
-
-    Args:
-        entries: List of entries from MyAmeria history HTTP response.
-
-    Returns:
-        Dictionary where key is tuple of account number and currency,
-        and value is list of transactions for this account.
-    """
-    result = {}
-    my_accounts: set[tuple[str, str]] = set()
-    logger.info("Parsing %d MyAmeria History entries...", len(entries))
-    # Process entries in reverse order to find account ownership patterns
-    for entry in reversed(entries):
-        transaction_type = entry["transactionType"]
-        accounting_type = entry["accountingType"]
-        currency = entry["amount"]["currency"]
-        debit_account = entry["debitAccountNumber"]
-        credit_account = entry["creditAccountNumber"]
-        # Identify my accounts based on transaction types
-        match transaction_type:
-            case "transfer:between-own-accounts" | "transfer:local":
-                # Transfer or exchange of currencies between my accounts.
-                if accounting_type == "DEBIT":
-                    my_accounts.add((debit_account, currency))
-                else:
-                    my_accounts.add((credit_account, currency))
-            case "exchange":
-                # Exchange of currencies between my accounts.
-                if accounting_type == "DEBIT":
-                    my_accounts.add((debit_account, currency))
-                else:
-                    my_accounts.add((credit_account, currency))
-            case ("card" | "transfer:to-card" | "transfer:international" |
-                  "charge:commission:transfer" | "charge:commission" |
-                  "charge:international" | "cash-out"):
-                # Expense or refund from/to my account.
-                if accounting_type == "DEBIT":
-                    my_accounts.add((debit_account, currency))
-                else:
-                    my_accounts.add((credit_account, currency))
-            case "deposit" | "deposit:cash":
-                # Income to my account via ATM or bank branch.
-                my_accounts.add((credit_account, currency))
-            case _:
-                raise ValueError(
-                    f"Unknown transaction type: {transaction_type}"
-                )
-    # Log discovered accounts.
-    logger.info(
-        "Discovered %d my accounts:\n  %s",
-        len(my_accounts),
-        "\n  ".join(
-            f"{account} ({currency})"
-            for account, currency in sorted(my_accounts)
-        )
-    )
-    # Extract just account numbers from my_accounts
-    my_account_numbers = {account for account, _ in my_accounts}
-    # Now group transactions by account number only (not by currency).
-    account_transactions = {}
-    for entry in entries:
-        debit_account = entry["debitAccountNumber"]
-        credit_account = entry["creditAccountNumber"]
-        accounting_type = entry["accountingType"]
-        # Check if this transaction involves any of my accounts.
-        transaction_assigned = False
-        # Check if it's a debit from my account.
-        if accounting_type == "DEBIT" and debit_account in my_account_numbers:
-            account_transactions.setdefault(debit_account, []).append(entry)
-            transaction_assigned = True
-        # Check if it's a credit to my account.
-        if accounting_type == "CREDIT" and credit_account in my_account_numbers:
-            account_transactions.setdefault(credit_account, []).append(entry)
-            transaction_assigned = True
-        # Fail if transaction doesn't belong to any of my accounts.
-        if not transaction_assigned:
-            raise ValueError(
-                f"Transaction {entry['id']} doesn't belong "
-                f"to any of my accounts"
-            )
-    # Use currency from my_accounts set for each account.
-    for account, transactions in account_transactions.items():
-        # Find the currency for this account from my_accounts.
-        account_currencies = {x for acc, x in my_accounts if acc == account}
-        if not account_currencies or len(account_currencies) != 1:
-            raise ValueError(f"Could not find currency for account {account}")
-        account_currency = account_currencies.pop()
-        result[(account, account_currency)] = transactions
-    # Log statistics.
-    account_stats = [
-        (account, currency, len(transactions))
-        for (account, currency), transactions in result.items()
-    ]
-    account_stats.sort()
-    logger.info(
-        "Transaction statistics:\n  %s",
-        "\n  ".join(
-            f"{account} ({currency}) - {n} transactions"
-            for account, currency, n in account_stats
-        )
-    )
-    # Check transactions are not duplicated between my accounts.
-    total_transactions = sum(len(x) for x in result.values())
-    if total_transactions != len(entries):
-        raise ValueError(
-            "Transactions are duplicated between my accounts: "
-            + f"{total_transactions} != {len(entries)}"
-        )
-    return result
-
-
-def download_myameria_history(
-    path: str,
-    auth_token: str,
-    from_date_str: str,
-    to_date_str: str,
-    client_id: str,
-) -> None:
-    now = datetime.datetime.now()
-    logger.info(f"Downloading MyAmeria history from {from_date_str} to {to_date_str}")
-    url = (
-        f"https://ob.myameria.am/api/events/past"
-        f"?locale=en"
-        f"&toAmount=10000000000"
-        f"&fromDate={from_date_str.replace('-', '%2F')}"
-        f"&toDate={to_date_str.replace('-', '%2F')}"
-        f"&sort=date"
-        f"&size=10000"  # Ask all.
-        f"&page=1"
-    )
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": auth_token,
-        "Client-Time": now.strftime("%H:%M:%S"),
-        "Client-Id": client_id,
-        "Locale": "en",
-        "Timezone-Offset": str(-int(time.timezone / 60))
-    }
-    response = requests.get(url, headers=headers, stream=True, timeout=30)
-    if not response.ok:
-        error_msg = response.text
-        logger.error(
-            "MyAmeria server %s error on %s: %s",
-            response.status_code,
-            url,
-            error_msg,
-        )
-    # Parse JSON response and group transactions by account.
-    data = response.json()['data']
-    # FIY: debug
-    # json.dump(data, open('scripts/my_ameria_history.json', 'w'), indent=2)
-    # data = json.load(open('scripts/my_ameria_history.json', 'r'))
-    accounts_with_transactions = convert_myameria_history_entries(
-        data["entries"]
-    )
-    # Write CSV with proper headers compatible with generic_csv_parser.go
-    with open(path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "Date",
-            "FromAccount",
-            "ToAccount",
-            "IsExpense",
-            "Amount",
-            "Details",
-            "AccountCurrency",
-            "OriginCurrency",
-            "OriginCurrencyAmount"
-        ])
-        # Process each entry from accounts_with_transactions
-        for (_, native_currency), transactions in (
-            accounts_with_transactions.items()
-        ):
-            for i, entry in enumerate(transactions):
-                # Parse operation date from ISO format to YYYY-MM-DD
-                operation_date = datetime.datetime.fromisoformat(
-                    entry["operationDate"].replace('Z', '+00:00')
-                ).strftime("%Y-%m-%d")
-                # Determine if it's an expense based on accounting type
-                is_expense = entry["accountingType"] == "DEBIT"
-                # Set FromAccount and ToAccount based on expense/income
-                debit_account = entry["debitAccountNumber"]
-                credit_account = entry["creditAccountNumber"]
-                if is_expense:
-                    # Money going out of my account
-                    from_account = debit_account
-                    to_account = credit_account
-                else:
-                    # Money coming into my account
-                    from_account = debit_account
-                    to_account = credit_account
-                # Get transaction amount and currency
-                transaction_currency = entry["amount"]["currency"]
-                transaction_amount = entry["amount"]["amount"]
-                if transaction_currency == native_currency:
-                    # Transaction is in account's native currency - use main fields
-                    account_amount = transaction_amount
-                    account_currency = native_currency
-                    origin_currency = ""
-                    origin_amount = ""
-                else:
-                    # Transaction is in different currency - use origin fields
-                    account_amount = 0.0
-                    account_currency = native_currency
-                    origin_currency = transaction_currency
-                    origin_amount = f"{transaction_amount:.2f}"
-                if account_amount <= 0:
-                    raise ValueError(f"{i} line: wrong amount '{account_amount}' for {entry}")
-                writer.writerow([
-                    operation_date,
-                    from_account,
-                    to_account,
-                    str(is_expense).lower(),  # Convert boolean to lowercase
-                    f"{account_amount:.2f}",  # Format amount with 2 decimal places
-                    entry["details"],
-                    account_currency,
-                    origin_currency,
-                    origin_amount
-                ])
-    logger.info(f"Successfully downloaded history to {path}")
-
-
-def download_ameriabank_statement(
-    type: str,
-    account_number: str,
-    cookie: str,
-    from_date_str: str,
-    to_date_str: str,
-    path: str,
-) -> None:
-    """
-    Download bank statement from Ameria bank Business.
-
-    Args:
-        type: "card" or "account"
-        account_number: Bank account number
-        cookie: Cookie value
-        from_date_str: Start date for statement in MM-MM-YYYY format.
-        to_date_str: End date for statement in MM-MM-YYYY format.
-        path: Path to save the statement file.
-    """
-    url = (
-        "https://online.ameriabank.am/InternetBank/Route/"
-        "2.1005212.80911/moz/en-US/AmeriaBank/983038.49148.414/0/"
-        "AmeriaBank/Component.MainForm.0.551.ExportCsv.wgx"  # 551 here is changing.
-        "?requestid=638849339623154138"  # Changes and looks like encodes account number.
-        "&format=csv"
-        "&encoding=utf-16"
-    )
-    headers = {
-        "Content-Type": "application/json",
-        "Cookie": cookie,
-        "Accept": "text/csv",  # In browser 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        "Referer": "https://online.ameriabank.am/InternetBank/MainForm.wgx",
-        "Sec-Fetch-Dest": "document",
-    }
-    # Make the request with streaming enabled to handle chunked transfer
-    response = requests.get(url, headers=headers, stream=True, timeout=30)
-    if not response.ok:
-        error_msg = response.text
-        logger.error(
-            "MyAmeria server %s error on %s: %s",
-            response.status_code,
-            url,
-            error_msg,
-        )
-    # Accumulate all chunks in memory.
-    chunks = []
-    for chunk in response.iter_content(chunk_size=None):
-        if chunk:  # filter out keep-alive chunks
-            chunks.append(chunk)
-    # Write all accumulated data to file.
-    with open(path, 'wb') as f:
-        f.write(b''.join(chunks))
-    logger.info(f"Successfully downloaded statement to {path}")
-
-
-def main():
-    # Parse config from YAML file.
-    config_path = os.path.join(MY_FOLDER_PATH, "bank_dowloader_config.yaml")
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
+def run_download(config: dict) -> None:
+    """Download transactions using a parsed bank_dowloader_config.yaml dict."""
     to_date = datetime.datetime.now()
-    # Download statements for all accounts in MyAmeria from "History" page.
-    # Note that it saves them directly as generic CSV files to don't
-    # add "myAmeriaMyAccounts" to config.yaml.
-    my_ameria = config["my_ameria"]
-    my_ameria_history_path = os.path.join(
-        MY_FOLDER_PATH, my_ameria["history_path"]
+    if "my_ameria" in config:
+        my_ameria = config["my_ameria"]
+        my_ameria_history_path = os.path.join(
+            MY_FOLDER_PATH, my_ameria["history_path"]
+        )
+        logger.info(
+            "Downloading MyAmeria all accounts history into %s...",
+            my_ameria_history_path,
+        )
+        download_myameria_history(
+            path=my_ameria_history_path,
+            auth_token=my_ameria["auth_token"],
+            from_date_str=my_ameria["since-DD-MM-YYYY"],
+            to_date_str=to_date.strftime("%d-%m-%Y"),
+            client_id=my_ameria["client_id"],
+        )
+    if "ameriabank" in config:
+        ameriabank = config["ameriabank"]
+        cookie = ameriabank.get("cookie", "")
+        since_str = ameriabank.get("since-DD-MM-YYYY", "")
+        folder_path = ameriabank.get("folder_path", "")
+        config_accounts = ameriabank.get("accounts") or []
+
+        if not cookie or not since_str:
+            logger.warning(
+                "AmeriaBank (business): set cookie and since-DD-MM-YYYY in config."
+            )
+        else:
+            parts = since_str.replace("/", "-").strip().split("-")
+            if len(parts) == 3:
+                start_yyyy_mm_dd = f"{parts[2]}-{parts[1]}-{parts[0]}"
+            else:
+                start_yyyy_mm_dd = since_str
+            end_yyyy_mm_dd = to_date.strftime("%Y-%m-%d")
+            base_dir = (
+                os.path.join(MY_FOLDER_PATH, folder_path)
+                if folder_path and not os.path.isabs(folder_path)
+                else (folder_path if folder_path else MY_FOLDER_PATH)
+            )
+            cookie_ref: list[str] = [cookie]
+
+            def with_401_refresh(fn):
+                try:
+                    return fn(cookie_ref[0])
+                except AmeriabankBusinessUnauthorized:
+                    logger.info(
+                        "AmeriaBank Business 401: refreshing cookie and retrying"
+                    )
+                    cookie_ref[0] = refresh_ameriabank_business_cookie(cookie_ref[0])
+                    return fn(cookie_ref[0])
+
+            settlement = with_401_refresh(
+                lambda c: fetch_ameriabank_business_accounts(
+                    c, AMERIABANK_ACCOUNT_TYPE_SETTLEMENT
+                )
+            )
+            card = with_401_refresh(
+                lambda c: fetch_ameriabank_business_accounts(
+                    c, AMERIABANK_ACCOUNT_TYPE_CARD
+                )
+            )
+            accounts: list[AmeriabankBusinessAccount] = settlement + card
+            logger.info(
+                "AmeriaBank Business accounts (%d): %s",
+                len(accounts),
+                ", ".join(f"{a.number} ({a.name}, {a.sub_type})" for a in accounts),
+            )
+            since_safe = since_str.replace("/", "-")
+
+            def sanitize(s: str) -> str:
+                return (s or "").replace("/", "_").replace("\\", "_").strip() or "account"
+
+            def out_path_for(acc: AmeriabankBusinessAccount) -> str:
+                return os.path.join(
+                    base_dir,
+                    f"AccountStatement {acc.number} {sanitize(acc.name)} since {since_safe}.csv",
+                )
+
+            def ensure_dir(p: str) -> None:
+                d = os.path.dirname(os.path.abspath(p))
+                if d:
+                    os.makedirs(d, exist_ok=True)
+
+            if not config_accounts:
+                for acc in accounts:
+                    out_path = out_path_for(acc)
+                    ensure_dir(out_path)
+                    logger.info(
+                        "Downloading AmeriaBank statement for %s (%s)...",
+                        acc.number,
+                        acc.name,
+                    )
+                    with_401_refresh(
+                        lambda c, a=acc: download_ameriabank_business_statement_csv(
+                            c, a.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                        )
+                    )
+            else:
+                for cfg in config_accounts:
+                    number = (
+                        cfg.get("number") or cfg.get("account_number") or ""
+                    ).strip()
+                    name = (cfg.get("name") or "").strip()
+                    path_cfg = (cfg.get("path") or "").strip()
+                    acc = next(
+                        (
+                            a
+                            for a in accounts
+                            if a.number == number or sanitize(a.name) == name
+                        ),
+                        None,
+                    )
+                    if acc is None:
+                        logger.warning(
+                            "AmeriaBank: account not found (number=%s, name=%s); skip.",
+                            number or "?",
+                            name or "?",
+                        )
+                        continue
+                    out_path = (
+                        os.path.normpath(os.path.join(MY_FOLDER_PATH, path_cfg))
+                        if path_cfg and not os.path.isabs(path_cfg)
+                        else (path_cfg if path_cfg else out_path_for(acc))
+                    )
+                    ensure_dir(out_path)
+                    logger.info(
+                        "Downloading AmeriaBank statement for %s to %s...",
+                        acc.number,
+                        out_path,
+                    )
+                    with_401_refresh(
+                        lambda c, a=acc: download_ameriabank_business_statement_csv(
+                            c, a.id, start_yyyy_mm_dd, end_yyyy_mm_dd, out_path
+                        )
+                    )
+
+
+def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
     )
-    download_myameria_history(
-        path=my_ameria_history_path,
-        auth_token=my_ameria["auth_token"],
-        from_date_str=my_ameria["since-DD-MM-YYYY"],
-        to_date_str=to_date.strftime("%d-%m-%Y"),
-        client_id=my_ameria["client_id"],
-    )
-    # FYI: code below downloads per-account/card Excel files
-    # but they contain too few info, data from "History" page is richer.
-    # my_ameria_accounts = my_ameria["accounts"]
-    # for account in my_ameria_accounts:
-    #     logger.info("Downloading statement for %s...", account["name"])
-    #     statement_path = os.path.join(MY_FOLDER_PATH, account["path"])
-    #     download_myameria_statement(
-    #         type=account["type"],
-    #         account_number=account["account_number"],
-    #         inner_account_number=account["inner_account_number"],
-    #         client_id=my_ameria["client_id"],
-    #         auth_token=my_ameria["auth_token"],
-    #         from_date_str=account["since-DD-MM-YYYY"],
-    #         to_date_str=to_date.strftime("%d-%m-%Y"),
-    #         path=os.path.abspath(statement_path),
-    #     )
-    # TODO: Download statements for all accounts in Ameria Business.
+    path = config_path()
+    if not os.path.isfile(path):
+        print(
+            f"Config not found: {path}\n"
+            "Copy scripts/bank_dowloader_config.yaml.template to "
+            f"scripts/{CONFIG_FILENAME}, fill in credentials, then run: make bank-downloader\n"
+            "Or use the in-app Files page (bankDownloads in config.yaml).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    with open(path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+    run_download(config)
 
 
 if __name__ == "__main__":
