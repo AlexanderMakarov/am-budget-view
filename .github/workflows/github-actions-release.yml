@@ -27,10 +27,10 @@ jobs:
         run: echo "GITHUB_CONTEXT=$GITHUB_CONTEXT"
 
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Go environment
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '^1.22.6'
 
@@ -59,7 +59,7 @@ jobs:
         # PRs only: only-new-issues needs a base ref to diff against, and we do
         # not want the large pre-existing backlog to fail the master pipeline.
         if: github.event_name == 'pull_request'
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.5.0
           only-new-issues: true
@@ -79,12 +79,12 @@ jobs:
     steps:
       # 3 steps below are lazily copy-pasted from the job above. See https://stackoverflow.com/a/71570847/1535127.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Get all tags, needed to get git log.
 
       - name: Setup Go environment
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '^1.22.6'
 
