@@ -76,13 +76,14 @@
 
 1. Скопируйте [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_config.yaml.template) в `scripts/bank_dowloader_config.yaml`.
 2. Войдите на https://account.myameria.am, откройте DevTools → Network.
-3. Скопируйте **Client-Id** → `client_id`, **Authorization** → `auth_token` в YAML.
+3. Скопируйте **Client-Id** → `client_id` в YAML. Оставьте `auth_token` пустым.
 4. Укажите `since-DD-MM-YYYY` и при необходимости `history_path`.
-5. Запустите `make bank-downloader`.
+5. Запустите `make bank-downloader` и вставьте свежий **Authorization** в скрытом запросе. При интерактивном запуске скрипт запрашивает учётные данные каждый раз, поэтому редактировать YAML перед каждой загрузкой не нужно. Для включённого AmeriaBank Business аналогично запрашивается Cookie.
 
 **Заметки:**
 
 1. Скрипт использует API банка и создаёт **Generic CSV**, а не Excel History MyAmeria.
-2. Обновляйте `auth_token` при каждом истечении (~15 минут).
+2. Если `auth_token` пуст или API отвечает HTTP 401, CLI запросит свежий Authorization и при необходимости новый Client-Id, затем повторит запрос один раз. Копируйте оба значения из одной сессии браузера. Новые значения используются только в памяти и не сохраняются в YAML. Поддерживается токен с префиксом `Bearer ` и без него.
+3. Неинтерактивный запуск не может запросить токен: перед запуском укажите свежий `auth_token`. Ошибка авторизации завершает скрипт с кратким сообщением и кодом 1.
 
 Учётные данные в CLI-конфиге хранятся локально — не передавайте и не коммитьте их.

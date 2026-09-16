@@ -176,6 +176,47 @@ class ManualInecoTests(unittest.TestCase):
         self.assertIn(f"--download-config {downloader}", output.getvalue())
         download.assert_not_called()
 
+    def test_app_config_alone_supplies_inecobank_accounts_and_dates(self):
+        app = self.folder / "tmp-my.yaml"
+        app.write_text(
+            f'inecobankStatementXmlFilesGlob: "{self.folder}/*.xml"\n'
+            'bankDownloads:\n'
+            '  inecobank:\n'
+            '    sinceDate: "01-09-2026"\n'
+            '    untilDate: "16-09-2026"\n'
+            '    accounts:\n'
+            '      - number: "0001"\n'
+            '        name: "AMD"\n'
+            '        type: account\n'
+        )
+        missing_downloader = self.folder / "does-not-exist.yaml"
+        output = io.StringIO()
+        with patch.object(cli.sys, "argv", ["bank_downloader.py", "--manual-only",
+                                           "--config", str(app),
+                                           "--download-config", str(missing_downloader)]), \
+                patch.object(cli, "run_download") as download, \
+                contextlib.redirect_stdout(output):
+            cli.main()
+        text = output.getvalue()
+        self.assertIn("Account 0001 (AMD)", text)
+        self.assertIn("From 01/09/2026 to 16/09/2026", text)
+        download.assert_not_called()
+
+    def test_app_inecobank_config_takes_precedence_over_legacy_section(self):
+        app_config = {
+            "bankDownloads": {
+                "inecobank": {
+                    "sinceDate": "01-09-2026",
+                    "accounts": [{"number": "0001", "name": "canonical"}],
+                },
+            },
+        }
+        normalized = cli.inecobank_app_config(app_config)
+        self.assertEqual(normalized["since-DD-MM-YYYY"], "01-09-2026")
+        self.assertEqual(normalized["accounts"], [
+            {"number": "0001", "name": "canonical", "type": "account"},
+        ])
+
     def test_instructions_include_account_dates_and_duration(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):

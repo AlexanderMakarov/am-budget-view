@@ -504,6 +504,17 @@ bankDownloads:
     lastDownloadAt: "2024-03-19T12:00:00Z"
     lastDownloadStatus: error
     lastDownloadError: "HTTP 401"
+  inecobank:
+    sinceDate: "01-04-2024"
+    untilDate: "31-12-2024"
+    accounts:
+      - number: "0000000000000001"
+        name: "AMD current account"
+        type: account
+      - number: "0000000000000002"
+        name: "AMD card"
+        type: card
+        sinceDate: "01-06-2024"
 `)
 	defer os.Remove(tempFile.Name())
 
@@ -528,6 +539,42 @@ bankDownloads:
 		bd.AmeriaBusiness.LastDownloadStatus != "error" ||
 		bd.AmeriaBusiness.LastDownloadError != "HTTP 401" {
 		t.Errorf("Unexpected ameriaBusiness config: %+v", bd.AmeriaBusiness)
+	}
+	if bd.Inecobank.SinceDate != "01-04-2024" || bd.Inecobank.UntilDate != "31-12-2024" ||
+		len(bd.Inecobank.Accounts) != 2 || bd.Inecobank.Accounts[1].Type != "card" ||
+		bd.Inecobank.Accounts[1].SinceDate != "01-06-2024" {
+		t.Errorf("Unexpected inecobank config: %+v", bd.Inecobank)
+	}
+	if err := cfg.WriteToFile(tempFile.Name()); err != nil {
+		t.Fatalf("WriteToFile() error: %v", err)
+	}
+	persisted, err := ReadConfig(tempFile.Name())
+	if err != nil {
+		t.Fatalf("ReadConfig() after write error: %v", err)
+	}
+	if len(persisted.BankDownloads.Inecobank.Accounts) != 2 ||
+		persisted.BankDownloads.Inecobank.Accounts[0].Number != "0000000000000001" {
+		t.Errorf("Inecobank config was not preserved: %+v", persisted.BankDownloads.Inecobank)
+	}
+}
+
+func TestReadConfig_BankDownloads_InvalidInecobank(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"missing since date", `accounts: [{number: "0001"}]`, "inecobank.sinceDate is required"},
+		{"invalid account type", "sinceDate: \"01-01-2024\"\n    accounts: [{number: \"0001\", type: deposit}]", "type must be account or card"},
+		{"duplicate account", "sinceDate: \"01-01-2024\"\n    accounts: [{number: \"0001\"}, {number: \"0001\"}]", "is duplicated"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempFile := createTempFileWithContent(minimalConfigYAML + "\nbankDownloads:\n  inecobank:\n    " + tt.yaml + "\n")
+			defer os.Remove(tempFile.Name())
+			_, err := ReadConfig(tempFile.Name())
+			checkErrorContainsSubstring(t, err, tt.want)
+		})
 	}
 }
 

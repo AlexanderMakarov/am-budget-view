@@ -23,6 +23,8 @@
 
 **Важно:** cookie передаётся только для этого запроса скачивания. Он **не сохраняется** в `config.yaml` и на странице настроек. Копируйте новый cookie после выхода или истечения сессии.
 
+[Полная пошаговая инструкция со скриншотами](/docs/bank/ameria-business) — см. раздел **Как скопировать заголовок Cookie** ниже.
+
 ## Поддерживаемые форматы
 
 ### [FULL] CSV (.csv) — рекомендуется
@@ -64,10 +66,10 @@
 
 Полуавтоматическое скачивание через [bank_downloader.py](/scripts/bank_downloader.py):
 
-1. Войдите на https://business.myameria.am (OTP из мобильного приложения).
-2. Скопируйте заголовок **Cookie** из DevTools (те же шаги, что выше).
-3. В `scripts/bank_dowloader_config.yaml` укажите `ameriabank.cookie` и `ameriabank.since-DD-MM-YYYY`. При необходимости — `folder_path` и `accounts`.
-4. Запустите `make bank-downloader`.
+1. Скопируйте [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_config.yaml.template) в `scripts/bank_dowloader_config.yaml`.
+2. Укажите `ameriabank.since-DD-MM-YYYY`, а при необходимости — `folder_path` и `accounts`. Оставьте `cookie` пустым.
+3. Войдите на https://business.myameria.am (OTP из мобильного приложения).
+4. Запустите `make bank-downloader` и вставьте полный заголовок **Cookie** из DevTools в скрытом запросе. Cookie используется только в памяти и не сохраняется в YAML.
 
 Cookie сессии истекает — копируйте заново после повторного входа. Хелперы: [scripts/bank_helpers_ameria.py](/scripts/bank_helpers_ameria.py).
 

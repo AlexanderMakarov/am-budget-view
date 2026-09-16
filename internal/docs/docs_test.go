@@ -2,6 +2,7 @@ package docs
 
 import (
 	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,6 +74,47 @@ func TestLoadBankDocUnknownSource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unknown source ID")
 	}
+}
+
+func TestBankDocsKeepEnglishAndRussianStructureInSync(t *testing.T) {
+	root := findRepoRoot(t)
+	for sourceID := range ValidSourceIDs {
+		en, err := os.ReadFile(filepath.Join(root, "docs", "en", "banks", sourceID+".md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ru, err := os.ReadFile(filepath.Join(root, "docs", "ru", "banks", sourceID+".md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		enStructure := markdownStructure(string(en))
+		ruStructure := markdownStructure(string(ru))
+		if strings.Join(enStructure, "\n") != strings.Join(ruStructure, "\n") {
+			t.Errorf("docs for %s have different EN/RU structure:\nEN %v\nRU %v", sourceID, enStructure, ruStructure)
+		}
+	}
+}
+
+func markdownStructure(markdown string) []string {
+	var result []string
+	for _, line := range strings.Split(markdown, "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case trimmed == "":
+			continue
+		case strings.HasPrefix(line, "#"):
+			result = append(result, fmt.Sprintf("heading:%d", len(line)-len(strings.TrimLeft(line, "#"))))
+		case strings.HasPrefix(trimmed, "```"):
+			result = append(result, "fence")
+		case strings.HasPrefix(trimmed, "- "):
+			result = append(result, fmt.Sprintf("bullet:%d", len(line)-len(strings.TrimLeft(line, " "))))
+		case len(trimmed) >= 3 && trimmed[0] >= '0' && trimmed[0] <= '9' && trimmed[1:3] == ". ":
+			result = append(result, "numbered")
+		default:
+			result = append(result, "paragraph")
+		}
+	}
+	return result
 }
 
 func TestRenderHTML(t *testing.T) {

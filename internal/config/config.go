@@ -34,6 +34,23 @@ type BankDownloads struct {
 	StaleThresholdDays int                          `yaml:"staleThresholdDays,omitempty"`
 	MyAmeria           MyAmeriaDownloadConfig       `yaml:"myAmeria,omitempty"`
 	AmeriaBusiness     AmeriaBusinessDownloadConfig `yaml:"ameriaBusiness,omitempty"`
+	Inecobank          InecobankDownloadConfig      `yaml:"inecobank,omitempty"`
+}
+
+// InecobankDownloadConfig describes the manual XML statement coverage to collect.
+type InecobankDownloadConfig struct {
+	SinceDate string                           `yaml:"sinceDate,omitempty"`
+	UntilDate string                           `yaml:"untilDate,omitempty"`
+	Accounts  []InecobankDownloadAccountConfig `yaml:"accounts,omitempty"`
+}
+
+// InecobankDownloadAccountConfig identifies one account and optional date overrides.
+type InecobankDownloadAccountConfig struct {
+	Number    string `yaml:"number"`
+	Name      string `yaml:"name,omitempty"`
+	Type      string `yaml:"type,omitempty" validate:"omitempty,oneof=account card"`
+	SinceDate string `yaml:"sinceDate,omitempty"`
+	UntilDate string `yaml:"untilDate,omitempty"`
 }
 
 type MyAmeriaDownloadConfig struct {
@@ -169,7 +186,10 @@ func validateBankDownloads(bd *BankDownloads) error {
 	if err := validateMyAmeriaDownload(&bd.MyAmeria); err != nil {
 		return err
 	}
-	return validateAmeriaBusinessDownload(&bd.AmeriaBusiness)
+	if err := validateAmeriaBusinessDownload(&bd.AmeriaBusiness); err != nil {
+		return err
+	}
+	return validateInecobankDownload(&bd.Inecobank)
 }
 
 // ValidateBankDownloads checks bankDownloads fields the same way ReadConfig does.
@@ -266,6 +286,57 @@ func validateAmeriaBusinessDownload(cfg *AmeriaBusinessDownloadConfig) error {
 		return nil
 	}
 	return validateSinceDate("ameriaBusiness.sinceDate", cfg.SinceDate)
+}
+
+func validateOptionalDate(fieldName, value string) error {
+	if value == "" {
+		return nil
+	}
+	return validateSinceDate(fieldName, value)
+}
+
+func validateInecobankDownload(cfg *InecobankDownloadConfig) error {
+	if len(cfg.Accounts) == 0 && cfg.SinceDate == "" && cfg.UntilDate == "" {
+		return nil
+	}
+	if len(cfg.Accounts) == 0 {
+		return fmt.Errorf("bankDownloads.inecobank.accounts is required")
+	}
+	if err := validateSinceDate("inecobank.sinceDate", cfg.SinceDate); err != nil {
+		return err
+	}
+	if err := validateOptionalDate("inecobank.untilDate", cfg.UntilDate); err != nil {
+		return err
+	}
+	seen := make(map[string]struct{}, len(cfg.Accounts))
+	for index, account := range cfg.Accounts {
+		if account.Number == "" || !isASCIIDigits(account.Number) {
+			return fmt.Errorf("bankDownloads.inecobank.accounts[%d].number must be a quoted string of digits", index)
+		}
+		if account.Type != "" && account.Type != "account" && account.Type != "card" {
+			return fmt.Errorf("bankDownloads.inecobank.accounts[%d].type must be account or card", index)
+		}
+		if _, exists := seen[account.Number]; exists {
+			return fmt.Errorf("bankDownloads.inecobank account %q is duplicated", account.Number)
+		}
+		seen[account.Number] = struct{}{}
+		if err := validateOptionalDate(fmt.Sprintf("inecobank.accounts[%d].sinceDate", index), account.SinceDate); err != nil {
+			return err
+		}
+		if err := validateOptionalDate(fmt.Sprintf("inecobank.accounts[%d].untilDate", index), account.UntilDate); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isASCIIDigits(value string) bool {
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return value != ""
 }
 
 // WriteToFile writes the configuration to a file with preserving comments.

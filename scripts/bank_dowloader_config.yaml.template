@@ -1,6 +1,6 @@
 # Primary path: in-app Files page — configure bankDownloads in config.yaml.
 # Alternative CLI: copy this file to bank_dowloader_config.yaml and run make bank-downloader.
-# --config tmp-my.yaml selects the APP config's Inecobank XML glob.
+# --config tmp-my.yaml selects the app config, including its Inecobank checklist.
 # --download-config path/to/downloads.yaml selects this downloader config instead.
 # Relative paths below resolve from the downloader config's directory.
 #
@@ -35,11 +35,9 @@ ameriabank:
   #     number: "15700481491234567"
   #     path: "../my_settlement_amd.csv"
 
-# Inecobank: guided manual XML exports, no token/cookie required.
-# Uncomment and list your own account numbers (quoted to preserve leading zeros).
-# Existing XML AccountNumber/Period values determine which dates remain missing.
-# Paths are relative to this scripts/ directory. Keep the exported filenames
-# matched by inecobankStatementXmlFilesGlob in the application's config.yaml.
+# Legacy Inecobank compatibility. New configurations should use
+# bankDownloads.inecobank in config.yaml; see docs/en/banks/inecobank.md.
+# This fallback remains supported for existing downloader configurations.
 # inecobank:
 #   folder_path: ".."
 #   statement_glob: "*.xml"

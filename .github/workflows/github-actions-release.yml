@@ -37,7 +37,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Show OS-provided Go version
+      - name: Show runner-provided Go version
+        # GitHub's ubuntu-24.04 hosted image currently includes three Go versions:
+        # https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md
         run: go version
 
       - name: Install Python test dependencies
@@ -81,7 +83,7 @@ jobs:
         with:
           fetch-depth: 0 # Get all tags, needed to get git log.
 
-      - name: Show OS-provided Go version
+      - name: Show runner-provided Go version
         run: go version
 
       - name: Get dependencies

@@ -3,8 +3,9 @@
 
 Primary path: in-app Files page (configure ``bankDownloads`` in config.yaml).
 
-Alternative CLI: this script with scripts/bank_dowloader_config.yaml
-(copy from bank_dowloader_config.yaml.template). Run via ``make bank-downloader``.
+Alternative CLI: this script reads manual Inecobank settings from the app config,
+and API-bank settings from scripts/bank_dowloader_config.yaml. Run via
+``make bank-downloader``.
 """
 
 import os
@@ -41,6 +42,38 @@ logger = logging.getLogger(__name__)
 
 def config_path() -> str:
     return os.path.join(MY_FOLDER_PATH, CONFIG_FILENAME)
+
+
+def inecobank_app_config(app_config: dict):
+    """Translate canonical app settings to the checklist's internal format."""
+    bank_downloads = app_config.get("bankDownloads")
+    if not isinstance(bank_downloads, dict) or "inecobank" not in bank_downloads:
+        return None
+    source = bank_downloads["inecobank"]
+    if not isinstance(source, dict):
+        raise InecoConfigError("bankDownloads.inecobank must be a mapping.")
+    result = {
+        "since-DD-MM-YYYY": source.get("sinceDate"),
+        "until-DD-MM-YYYY": source.get("untilDate"),
+        "accounts": [],
+    }
+    accounts = source.get("accounts")
+    if not isinstance(accounts, list):
+        raise InecoConfigError("Set bankDownloads.inecobank.accounts to a non-empty list.")
+    for account in accounts:
+        if not isinstance(account, dict):
+            raise InecoConfigError("Each bankDownloads.inecobank account must be a mapping.")
+        normalized = {
+            "number": account.get("number"),
+            "name": account.get("name", ""),
+            "type": account.get("type", "account"),
+        }
+        if account.get("sinceDate") is not None:
+            normalized["since-DD-MM-YYYY"] = account["sinceDate"]
+        if account.get("untilDate") is not None:
+            normalized["until-DD-MM-YYYY"] = account["untilDate"]
+        result["accounts"].append(normalized)
+    return result
 
 
 def prompt_credentials(config: dict) -> dict:
@@ -260,46 +293,52 @@ def main() -> None:
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
     path = Path(args.download_config or config_path()).expanduser().resolve()
-    if not os.path.isfile(path):
-        print(
-            f"Config not found: {path}\n"
-            "Copy scripts/bank_dowloader_config.yaml.template to "
-            f"scripts/{CONFIG_FILENAME}, fill in credentials, then run: make bank-downloader\n"
-            "Or use the in-app Files page (bankDownloads in config.yaml).",
-            file=sys.stderr,
-        )
-        sys.exit(1)
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f) or {}
-        if not isinstance(config, dict):
-            raise InecoConfigError(f"Config must be a YAML mapping: {path}")
         app_path = Path(args.config or "config.yaml").expanduser().resolve()
+        app_config = {}
         statement_glob = None
         if args.config or app_path.is_file():
             with app_path.open(encoding="utf-8") as f:
                 app_config = yaml.safe_load(f) or {}
             if not isinstance(app_config, dict):
                 raise InecoConfigError(f"App config must be a YAML mapping: {app_path}")
-            if "inecobank" in config:
-                statement_glob = app_config.get("inecobankStatementXmlFilesGlob")
-                if not isinstance(statement_glob, str) or not statement_glob.strip():
-                    raise InecoConfigError(
-                        f"Set inecobankStatementXmlFilesGlob in {app_path} to scan XML statements. "
-                        "The manual checklist does not count XLSX files."
-                    )
-        if "inecobank" in config:
+
+        if path.is_file():
+            with path.open(encoding="utf-8") as f:
+                config = yaml.safe_load(f) or {}
+            if not isinstance(config, dict):
+                raise InecoConfigError(f"Config must be a YAML mapping: {path}")
+        elif args.manual_only:
+            config = {}
+        else:
+            raise InecoConfigError(
+                f"Config not found: {path}. Copy scripts/bank_dowloader_config.yaml.template "
+                f"to scripts/{CONFIG_FILENAME}, or use --manual-only for the Inecobank checklist."
+            )
+
+        ine_config = inecobank_app_config(app_config)
+        if ine_config is None:
+            ine_config = config.get("inecobank")
+        if ine_config is not None:
+            statement_glob = app_config.get("inecobankStatementXmlFilesGlob")
+            if app_config and (not isinstance(statement_glob, str) or not statement_glob.strip()):
+                raise InecoConfigError(
+                    f"Set inecobankStatementXmlFilesGlob in {app_path} to scan XML statements. "
+                    "The manual checklist does not count XLSX files."
+                )
             rerun = ["python3", "scripts/bank_downloader.py", "--manual-only"]
             if args.config:
                 rerun.extend(["--config", args.config])
             if args.download_config:
                 rerun.extend(["--download-config", args.download_config])
             print_manual_downloads(
-                config["inecobank"], path.parent, statement_glob=statement_glob,
+                ine_config, path.parent, statement_glob=statement_glob,
                 rerun_command=shlex.join(rerun),
             )
         elif args.manual_only:
-            raise InecoConfigError(f"Add an inecobank section to {path}.")
+            raise InecoConfigError(
+                f"Add bankDownloads.inecobank to {app_path}, or an inecobank section to {path}."
+            )
         if args.manual_only:
             return
         run_download(prompt_credentials(config), path.parent)
