@@ -1,15 +1,16 @@
 run:
 	go run .
 
-.PHONY: setup-checks install-check-tools install-hooks check
-
-install-check-tools:
-	python3 scripts/install_check_tools.py
+.PHONY: setup-checks install-hooks check
 
 install-hooks:
 	git config core.hooksPath .githooks
 
-setup-checks: install-check-tools install-hooks
+setup-checks: install-hooks
+	@command -v go >/dev/null || { echo "Install Go 1.21+ with your OS package manager."; exit 1; }
+	@command -v golangci-lint >/dev/null || { echo "Install golangci-lint v2: https://golangci-lint.run/welcome/install/"; exit 1; }
+	@go version
+	@golangci-lint version
 
 check:
 	bash scripts/check.sh

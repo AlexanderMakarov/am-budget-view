@@ -1,4 +1,5 @@
 # Development/OS artifacts and local settings
+# Legacy local tool cache; no longer created or used by project commands.
 .tools/
 .vscode**
 __debug_bin*

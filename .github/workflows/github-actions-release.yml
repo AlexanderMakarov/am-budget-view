@@ -37,16 +37,27 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install check tools and Python test dependencies
+      - name: Show OS-provided Go version
+        run: go version
+
+      - name: Install Python test dependencies
         run: |
-          make install-check-tools
           python3 -m pip install requests==2.32.3 pyyaml==6.0.1
 
       - name: Run local and CI checks
         env:
           # PRs check the whole change; pushes check the latest commit.
           CHECK_BASE: ${{ github.event.pull_request.base.sha || 'HEAD^' }}
+          # golangci-lint runs in its maintained action below.
+          SKIP_GOLANGCI_LINT: '1'
         run: make check
+
+      - name: golangci-lint
+        if: github.event_name == 'pull_request'
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+          only-new-issues: true
 
       - name: Check tracked files were not changed by tests
         run: git diff --exit-code
@@ -70,10 +81,8 @@ jobs:
         with:
           fetch-depth: 0 # Get all tags, needed to get git log.
 
-      - name: Setup Go environment
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: '.go-version'
+      - name: Show OS-provided Go version
+        run: go version
 
       - name: Get dependencies
         run: go mod download
