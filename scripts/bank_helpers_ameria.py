@@ -241,6 +241,22 @@ def _latin1_safe(s: str) -> str:
 # --- MyAmeria retail (ob.myameria.am) ---
 
 
+class MyAmeriaUnauthorized(ValueError):
+    """The retail access token is missing or was rejected by MyAmeria."""
+
+
+def _myameria_authorization(auth_token: str) -> str:
+    token = (auth_token or "").strip()
+    parts = token.split(maxsplit=1)
+    if parts and parts[0].lower() == "bearer":
+        token = parts[1].strip() if len(parts) == 2 else ""
+    if not token:
+        raise MyAmeriaUnauthorized("MyAmeria auth_token is missing.")
+    if any(char.isspace() for char in token):
+        raise MyAmeriaUnauthorized("MyAmeria auth_token contains whitespace; copy it again.")
+    return f"Bearer {token}"
+
+
 def download_myameria_statement(
     type: str,
     account_number: str,
@@ -441,13 +457,21 @@ def download_myameria_history(
     )
     headers = {
         "Content-Type": "application/json",
-        "Authorization": auth_token,
+        "Authorization": _myameria_authorization(auth_token),
         "Client-Time": now.strftime("%H:%M:%S"),
         "Client-Id": client_id,
         "Locale": "en",
         "Timezone-Offset": str(-int(time.timezone / 60))
     }
     response = requests.get(url, headers=headers, stream=True, timeout=30)
+    if response.status_code == 401:
+        response.close()
+        raise MyAmeriaUnauthorized(
+            "MyAmeria API returned HTTP 401: the access token is invalid or expired. "
+            "Log in at https://account.myameria.am, open DevTools > Network, "
+            "and copy Authorization from a successful request to ob.myameria.am. "
+            "Use the Client-Id from the same session."
+        )
     if not response.ok:
         error_msg = (response.text or "")[:500]
         logger.error(

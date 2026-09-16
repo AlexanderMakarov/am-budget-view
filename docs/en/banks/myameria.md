@@ -76,13 +76,14 @@ Semi-automatic download via [bank_downloader.py](/scripts/bank_downloader.py):
 
 1. Copy [scripts/bank_dowloader_config.yaml.template](/scripts/bank_dowloader_config.yaml.template) to `scripts/bank_dowloader_config.yaml`.
 2. Log in at https://account.myameria.am, open DevTools → Network.
-3. Copy **Client-Id** → `client_id`, **Authorization** → `auth_token` in the YAML file.
+3. Copy **Client-Id** → `client_id` in the YAML file. Leave `auth_token` empty.
 4. Set `since-DD-MM-YYYY` and optionally `history_path`.
-5. Run `make bank-downloader`.
+5. Run `make bank-downloader`. Follow the instructions to copy and paste a fresh **Authorization** token at the hidden prompt. Interactive runs ask for credentials each time; you do not need to edit YAML for each download. Enabled AmeriaBank Business downloads likewise prompt for a Cookie.
 
 **Notes:**
 
 1. The script uses the bank API and produces a **Generic CSV** file, not a MyAmeria History Excel file.
-2. Update `auth_token` each time it expires (~15 minutes).
+2. If `auth_token` is empty or the API rejects it with HTTP 401, the CLI prompts for a fresh Authorization token (hidden input) and optionally a new Client-Id, then retries once. Copy both from the same browser session. The replacement credentials are used in memory and are not saved to YAML. Tokens with or without the `Bearer ` prefix are accepted.
+3. Non-interactive runs cannot prompt: update `auth_token` before running. Authentication failures exit with a concise error and status 1.
 
 Credentials in the CLI config file are stored locally — do not share or commit them.

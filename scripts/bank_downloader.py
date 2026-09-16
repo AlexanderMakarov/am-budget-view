@@ -10,6 +10,7 @@ Alternative CLI: this script with scripts/bank_dowloader_config.yaml
 import os
 import sys
 import datetime
+import getpass
 import logging
 import yaml
 
@@ -22,6 +23,7 @@ from bank_helpers_ameria import (
     AMERIABANK_ACCOUNT_TYPE_SETTLEMENT,
     AmeriabankBusinessAccount,
     AmeriabankBusinessUnauthorized,
+    MyAmeriaUnauthorized,
     download_ameriabank_business_statement_csv,
     download_myameria_history,
     fetch_ameriabank_business_accounts,
@@ -37,6 +39,40 @@ def config_path() -> str:
     return os.path.join(MY_FOLDER_PATH, CONFIG_FILENAME)
 
 
+def prompt_credentials(config: dict) -> dict:
+    """Collect per-run secrets while retaining the user's download settings."""
+    if not sys.stdin.isatty():
+        return config
+    config = {key: dict(value) if isinstance(value, dict) else value
+              for key, value in config.items()}
+    try:
+        if "my_ameria" in config:
+            print(
+                "MyAmeria: sign in at https://account.myameria.am.\n"
+                "Open DevTools > Network, open History, and select a successful\n"
+                "request to ob.myameria.am. Copy its Authorization request header."
+            )
+            config["my_ameria"]["auth_token"] = getpass.getpass(
+                "MyAmeria Authorization (hidden; with or without Bearer): "
+            )
+            if not config["my_ameria"].get("client_id"):
+                config["my_ameria"]["client_id"] = input(
+                    "Client-Id from the same request: "
+                ).strip()
+        if "ameriabank" in config:
+            print(
+                "AmeriaBank Business: sign in at https://business.myameria.am.\n"
+                "Open DevTools > Network and copy the Cookie request header\n"
+                "from a request to gateway-businessmyameria.ameriabank.am."
+            )
+            config["ameriabank"]["cookie"] = getpass.getpass(
+                "AmeriaBank Business Cookie (hidden): "
+            )
+    except (EOFError, KeyboardInterrupt):
+        raise MyAmeriaUnauthorized("Bank authentication cancelled.") from None
+    return config
+
+
 def run_download(config: dict) -> None:
     """Download transactions using a parsed bank_dowloader_config.yaml dict."""
     to_date = datetime.datetime.now()
@@ -49,13 +85,33 @@ def run_download(config: dict) -> None:
             "Downloading MyAmeria all accounts history into %s...",
             my_ameria_history_path,
         )
-        download_myameria_history(
-            path=my_ameria_history_path,
-            auth_token=my_ameria["auth_token"],
-            from_date_str=my_ameria["since-DD-MM-YYYY"],
-            to_date_str=to_date.strftime("%d-%m-%Y"),
-            client_id=my_ameria["client_id"],
-        )
+        def download_history(token: str, client_id: str) -> None:
+            download_myameria_history(
+                path=my_ameria_history_path,
+                auth_token=token,
+                from_date_str=my_ameria["since-DD-MM-YYYY"],
+                to_date_str=to_date.strftime("%d-%m-%Y"),
+                client_id=client_id,
+            )
+
+        try:
+            download_history(my_ameria.get("auth_token", ""), my_ameria["client_id"])
+        except MyAmeriaUnauthorized as exc:
+            if not sys.stdin.isatty():
+                raise MyAmeriaUnauthorized(
+                    f"{exc} Update my_ameria.auth_token in scripts/{CONFIG_FILENAME} "
+                    "or rerun make bank-downloader in a terminal to paste a fresh token."
+                ) from None
+            logger.warning("%s", exc)
+            try:
+                token = getpass.getpass("Fresh MyAmeria Authorization (hidden): ")
+                client_id = input(
+                    "Client-Id from the same session (Enter to keep configured value): "
+                ).strip() or my_ameria["client_id"]
+            except (EOFError, KeyboardInterrupt):
+                raise MyAmeriaUnauthorized("MyAmeria authentication cancelled.") from None
+            # Retry once, using credentials only in memory.
+            download_history(token, client_id)
     if "ameriabank" in config:
         ameriabank = config["ameriabank"]
         cookie = ameriabank.get("cookie", "")
@@ -194,7 +250,11 @@ def main() -> None:
         sys.exit(1)
     with open(path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}
-    run_download(config)
+    try:
+        run_download(prompt_credentials(config))
+    except MyAmeriaUnauthorized as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
