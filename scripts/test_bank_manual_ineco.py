@@ -78,6 +78,27 @@ class ManualInecoTests(unittest.TestCase):
         self.assertEqual(complete, ["0001"])
         self.assertEqual([item.account for item in missing], ["0002"])
 
+    def test_live_export_lowercase_root_and_separately_bracketed_dates(self):
+        # Synthetic metadata with the same structure as a real bank export.
+        # The misleading filename must never override the declared period.
+        (self.folder / "Statement_0001_since_20200101.xml").write_text(
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<statement><AccountNumber>0001</AccountNumber>'
+            '<Period>[01/09/2026] - [10/09/2026]</Period><Operations/></statement>')
+        missing, _, warnings = self.plan()
+        gaps = [(item.start.day, item.end.day) for item in missing if item.account == "0001"]
+        self.assertEqual(gaps, [(11, 16)])
+        self.assertFalse(warnings)
+
+    def test_html_rejection_has_actionable_warning(self):
+        (self.folder / "failed-download.xml").write_text(
+            '<html><head><title>Request Rejected</title></head><body><br></body></html>')
+        missing, complete, warnings = self.plan()
+        self.assertEqual(len(missing), 2)
+        self.assertFalse(complete)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("HTML page (Request Rejected), not an XML statement", warnings[0])
+
     def test_rerun_after_saving_exports_has_no_remaining_downloads(self):
         missing, _, _ = self.plan()
         for item in missing:

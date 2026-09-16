@@ -30,19 +30,32 @@ def config_date(value, field: str) -> dt.date:
 
 def statement_period(path: Path) -> tuple[str, dt.date, dt.date]:
     """Read declared coverage, including statements with no transactions."""
-    root = ET.parse(path).getroot()
+    content = path.read_bytes()
+    prefix = content.lstrip()[:512].lower()
+    if b"<html" in prefix or prefix.startswith(b"<!doctype html"):
+        reason = " (Request Rejected)" if b"request rejected" in prefix else ""
+        raise ValueError(f"bank returned an HTML page{reason}, not an XML statement")
+    root = ET.fromstring(content)
     # Accept namespace-qualified exports too.
     for element in root.iter():
         element.tag = element.tag.rsplit("}", 1)[-1]
-    if root.tag != "Statement" or root.find("Operations") is None:
+    if root.tag not in ("statement", "Statement") or root.find("Operations") is None:
         raise ValueError("not an Inecobank Statement with Operations")
     account = (root.findtext("AccountNumber") or "").strip()
     if not account.isascii() or not account.isdigit():
         raise ValueError("missing or invalid AccountNumber")
     period = (root.findtext("Period") or "").strip()
-    match = re.fullmatch(r"\[?\s*(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})\s*\]?", period)
+    date = r"(\d{2}/\d{2}/\d{4})"
+    # Live exports bracket each date; demo/older files bracket the whole range.
+    patterns = (
+        rf"\[\s*{date}\s*\]\s*-\s*\[\s*{date}\s*\]",
+        rf"\[\s*{date}\s*-\s*{date}\s*\]",
+        rf"{date}\s*-\s*{date}",
+    )
+    match = next((match for pattern in patterns
+                  if (match := re.fullmatch(pattern, period))), None)
     if not match:
-        raise ValueError("missing or unsupported Period; expected [DD/MM/YYYY - DD/MM/YYYY]")
+        raise ValueError("missing or unsupported Period; expected [DD/MM/YYYY] - [DD/MM/YYYY]")
     try:
         start, end = (dt.datetime.strptime(value, "%d/%m/%Y").date() for value in match.groups())
     except ValueError:
