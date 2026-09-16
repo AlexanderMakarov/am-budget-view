@@ -8,10 +8,12 @@ Alternative CLI: this script with scripts/bank_dowloader_config.yaml
 """
 
 import os
+import argparse
 import sys
 import datetime
 import getpass
 import logging
+from pathlib import Path
 import yaml
 
 MY_FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +31,7 @@ from bank_helpers_ameria import (
     fetch_ameriabank_business_accounts,
     refresh_ameriabank_business_cookie,
 )
+from bank_manual_ineco import InecoConfigError, print_manual_downloads
 
 CONFIG_FILENAME = "bank_dowloader_config.yaml"
 
@@ -234,6 +237,12 @@ def run_download(config: dict) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--manual-only", action="store_true",
+        help="Check existing Inecobank XML statements and print missing downloads; no bank API calls.",
+    )
+    args = parser.parse_args()
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -251,8 +260,14 @@ def main() -> None:
     with open(path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}
     try:
+        if "inecobank" in config:
+            print_manual_downloads(config["inecobank"], Path(MY_FOLDER_PATH))
+        elif args.manual_only:
+            raise InecoConfigError(f"Add an inecobank section to scripts/{CONFIG_FILENAME}.")
+        if args.manual_only:
+            return
         run_download(prompt_credentials(config))
-    except MyAmeriaUnauthorized as exc:
+    except (MyAmeriaUnauthorized, InecoConfigError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
 
