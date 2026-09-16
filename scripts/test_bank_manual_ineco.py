@@ -122,6 +122,19 @@ class ManualInecoTests(unittest.TestCase):
         gaps = [(item.start.day, item.end.day) for item in missing if item.account == "0001"]
         self.assertEqual(gaps, [(1, 2), (16, 16)])
 
+    def test_multiple_gaps_print_account_once(self):
+        self.config["accounts"] = [self.config["accounts"][0]]
+        self.export("middle.xml", "0001", "03/09/2026", "15/09/2026")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            count = print_manual_downloads(self.config, self.folder, self.today)
+        text = output.getvalue()
+        self.assertEqual(count, 2)
+        self.assertEqual(text.count("Account 0001 (AMD)"), 1)
+        self.assertIn("2 missing periods; existing XML covers dates between them", text)
+        self.assertIn("Period 1: 01/09/2026 – 02/09/2026", text)
+        self.assertIn("Period 2: 16/09/2026 – 16/09/2026", text)
+
     def test_invalid_config(self):
         for change in [{"number": 1}, {"number": "../file"}, {"type": "unknown"},
                        {"since-DD-MM-YYYY": "bad"}, {"until-DD-MM-YYYY": "01-01-2027"},

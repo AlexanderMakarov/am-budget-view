@@ -3,6 +3,7 @@
 import datetime as dt
 import fnmatch
 import glob
+import itertools
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -193,12 +194,20 @@ def print_manual_downloads(config: dict, base_dir: Path, today=None, statement_g
         "3. Use the download/export icon and choose XML. Website XLS is not supported.\n"
         "4. Save each export to the suggested path, creating the folder if needed."
     )
-    for index, item in enumerate(missing, 1):
+    for index, (_, account_gaps) in enumerate(
+            itertools.groupby(missing, key=lambda item: item.account), 1):
+        gaps = list(account_gaps)
+        item = gaps[0]
         label = f" ({item.name})" if item.name else ""
         print(f"\n  {index}. {item.account_type.capitalize()} {item.account}{label}")
-        print(f"     From {item.start:%d/%m/%Y} to {item.end:%d/%m/%Y} "
-              f"({(item.end - item.start).days + 1} days, inclusive)")
-        print(f"     Save as: {item.path}")
+        if len(gaps) > 1:
+            print(f"     {len(gaps)} missing periods; existing XML covers dates between them.")
+        for gap_index, gap in enumerate(gaps, 1):
+            prefix = f"Period {gap_index}: " if len(gaps) > 1 else "From "
+            separator = " to " if len(gaps) == 1 else " – "
+            print(f"     {prefix}{gap.start:%d/%m/%Y}{separator}{gap.end:%d/%m/%Y} "
+                  f"({(gap.end - gap.start).days + 1} days, inclusive)")
+            print(f"       Save as: {gap.path}" if len(gaps) > 1 else f"     Save as: {gap.path}")
     print(
         f"\nRerun: {rerun_command}\n"
         "Coverage comes from XML AccountNumber and Period, not filenames or transaction dates.\n"
