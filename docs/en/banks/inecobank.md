@@ -66,4 +66,14 @@ Download the listed XML files manually, put them in `folder_path`, and rerun jus
 python3 scripts/bank_downloader.py --manual-only
 ```
 
+To select a different **app** configuration:
+
+```bash
+python3 scripts/bank_downloader.py --manual-only --config tmp-my.yaml
+```
+
+The CLI reads `inecobankStatementXmlFilesGlob` from that file (or `config.yaml` in the working directory by default, when present). This glob selects which files to scan; account numbers and coverage dates still come from XML contents. Relative app globs resolve from the working directory, as in the Go app. XLSX settings do not supply XML coverage.
+
+Account lists and requested dates still come from the separate downloader YAML. Select another one with `--download-config path/to/downloads.yaml`; relative downloader paths resolve from its directory. `--config` does not import the app's `bankDownloads` settings into the Python downloader. If no app config is present, the downloader's `folder_path` and `statement_glob` are used as before. When an app config is selected, its XML glob takes precedence; an empty glob produces an explicit error instead of silently scanning unrelated files.
+
 Repeat until there are no missing periods. This command only reads files and prints instructions; it does not download, rename, or overwrite statements. Missing downloads are a checklist, not a command failure. Invalid configuration exits with status 1. Ensure `inecobankStatementXmlFilesGlob` in the application's `config.yaml` matches the saved files.

@@ -131,6 +131,38 @@ class ManualInecoTests(unittest.TestCase):
                 with self.assertRaises(InecoConfigError):
                     self.plan()
 
+    def test_app_glob_selects_files_but_content_determines_coverage(self):
+        self.export("Statement selected.xml", "0001", "01/09/2026", "10/09/2026")
+        self.export("ignored.xml", "0001", "11/09/2026", "16/09/2026")
+        pattern = str(self.folder / "Statement *.xml")
+        missing, _, warnings = plan_downloads(self.config, self.folder, self.today, pattern)
+        account_gap = next(item for item in missing if item.account == "0001")
+        self.assertEqual((account_gap.start.day, account_gap.end.day), (11, 16))
+        self.assertTrue(account_gap.path.name.startswith("Statement "))
+        self.assertFalse(warnings)
+
+    def test_explicit_app_and_downloader_configs(self):
+        settings_dir = self.folder / "settings"
+        settings_dir.mkdir()
+        downloader = settings_dir / "downloads.yaml"
+        downloader.write_text('inecobank:\n  folder_path: "."\n  since-DD-MM-YYYY: "01-09-2026"\n  until-DD-MM-YYYY: "16-09-2026"\n  accounts:\n    - number: "0001"\n')
+        app = settings_dir / "tmp-my.yaml"
+        # Like the Go app, resolve this glob from cwd, not settings_dir.
+        app.write_text('inecobankStatementXmlFilesGlob: "Statement *.xml"\n')
+        self.export("Statement test.xml", "0001", "01/09/2026", "10/09/2026")
+        output = io.StringIO()
+        with contextlib.chdir(self.folder), \
+                patch.object(cli.sys, "argv", ["bank_downloader.py", "--manual-only",
+                                               "--config", str(app), "--download-config", str(downloader)]), \
+                patch.object(cli, "run_download") as download, \
+                contextlib.redirect_stdout(output):
+            cli.main()
+        self.assertIn("From 11/09/2026 to 16/09/2026", output.getvalue())
+        self.assertIn(f"Save as: {self.folder}/Statement ", output.getvalue())
+        self.assertIn(f"--config {app}", output.getvalue())
+        self.assertIn(f"--download-config {downloader}", output.getvalue())
+        download.assert_not_called()
+
     def test_instructions_include_account_dates_and_duration(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
@@ -141,10 +173,12 @@ class ManualInecoTests(unittest.TestCase):
 
     def test_manual_only_never_prompts_or_calls_downloads(self):
         fixture = self.folder / "fixture.yaml"
+        app_fixture = self.folder / "app.yaml"
+        app_fixture.write_text(f'inecobankStatementXmlFilesGlob: "{self.folder}/*.xml"\n')
         fixture.write_text('inecobank:\n  folder_path: "."\n  since-DD-MM-YYYY: "01-09-2026"\n  accounts:\n    - number: "0001"\n')
         with patch.object(cli, "config_path", return_value=str(fixture)), \
                 patch.object(cli, "MY_FOLDER_PATH", str(self.folder)), \
-                patch.object(cli.sys, "argv", ["bank_downloader.py", "--manual-only"]), \
+                patch.object(cli.sys, "argv", ["bank_downloader.py", "--manual-only", "--config", str(app_fixture)]), \
                 patch.object(cli, "prompt_credentials") as prompt, \
                 patch.object(cli, "run_download") as download, \
                 contextlib.redirect_stdout(io.StringIO()):

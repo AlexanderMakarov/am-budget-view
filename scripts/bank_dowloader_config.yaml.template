@@ -1,5 +1,8 @@
 # Primary path: in-app Files page — configure bankDownloads in config.yaml.
 # Alternative CLI: copy this file to bank_dowloader_config.yaml and run make bank-downloader.
+# --config tmp-my.yaml selects the APP config's Inecobank XML glob.
+# --download-config path/to/downloads.yaml selects this downloader config instead.
+# Relative paths below resolve from the downloader config's directory.
 #
 # Login into https://account.myameria.am and open cards and accounts pages.
 # Next open developer tools > Network to see request headers.
@@ -40,6 +43,7 @@ ameriabank:
 # inecobank:
 #   folder_path: ".."
 #   statement_glob: "*.xml"
+#   # Used only without an app config; otherwise inecobankStatementXmlFilesGlob wins.
 #   since-DD-MM-YYYY: "01-04-2024"
 #   # until-DD-MM-YYYY: "31-12-2024"  # Optional; defaults to today.
 #   accounts:

@@ -13,6 +13,7 @@ import sys
 import datetime
 import getpass
 import logging
+import shlex
 from pathlib import Path
 import yaml
 
@@ -76,13 +77,14 @@ def prompt_credentials(config: dict) -> dict:
     return config
 
 
-def run_download(config: dict) -> None:
+def run_download(config: dict, base_dir=None) -> None:
     """Download transactions using a parsed bank_dowloader_config.yaml dict."""
+    base_dir = os.fspath(base_dir) if base_dir is not None else MY_FOLDER_PATH
     to_date = datetime.datetime.now()
     if "my_ameria" in config:
         my_ameria = config["my_ameria"]
         my_ameria_history_path = os.path.join(
-            MY_FOLDER_PATH, my_ameria["history_path"]
+            base_dir, my_ameria["history_path"]
         )
         logger.info(
             "Downloading MyAmeria all accounts history into %s...",
@@ -133,10 +135,10 @@ def run_download(config: dict) -> None:
             else:
                 start_yyyy_mm_dd = since_str
             end_yyyy_mm_dd = to_date.strftime("%Y-%m-%d")
-            base_dir = (
-                os.path.join(MY_FOLDER_PATH, folder_path)
+            output_dir = (
+                os.path.join(base_dir, folder_path)
                 if folder_path and not os.path.isabs(folder_path)
-                else (folder_path if folder_path else MY_FOLDER_PATH)
+                else (folder_path if folder_path else base_dir)
             )
             cookie_ref: list[str] = [cookie]
 
@@ -173,7 +175,7 @@ def run_download(config: dict) -> None:
 
             def out_path_for(acc: AmeriabankBusinessAccount) -> str:
                 return os.path.join(
-                    base_dir,
+                    output_dir,
                     f"AccountStatement {acc.number} {sanitize(acc.name)} since {since_safe}.csv",
                 )
 
@@ -219,7 +221,7 @@ def run_download(config: dict) -> None:
                         )
                         continue
                     out_path = (
-                        os.path.normpath(os.path.join(MY_FOLDER_PATH, path_cfg))
+                        os.path.normpath(os.path.join(base_dir, path_cfg))
                         if path_cfg and not os.path.isabs(path_cfg)
                         else (path_cfg if path_cfg else out_path_for(acc))
                     )
@@ -239,6 +241,16 @@ def run_download(config: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--config", metavar="PATH",
+        help="App YAML whose inecobankStatementXmlFilesGlob selects existing statements "
+             "(default: config.yaml in the working directory, if present).",
+    )
+    parser.add_argument(
+        "--download-config", metavar="PATH",
+        help="Downloader YAML with accounts/date settings (default: scripts/bank_dowloader_config.yaml). "
+             "Relative statement/output paths resolve from that file's directory.",
+    )
+    parser.add_argument(
         "--manual-only", action="store_true",
         help="Check existing Inecobank XML statements and print missing downloads; no bank API calls.",
     )
@@ -247,7 +259,7 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
-    path = config_path()
+    path = Path(args.download_config or config_path()).expanduser().resolve()
     if not os.path.isfile(path):
         print(
             f"Config not found: {path}\n"
@@ -257,17 +269,41 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(1)
-    with open(path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f) or {}
     try:
+        with open(path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+        if not isinstance(config, dict):
+            raise InecoConfigError(f"Config must be a YAML mapping: {path}")
+        app_path = Path(args.config or "config.yaml").expanduser().resolve()
+        statement_glob = None
+        if args.config or app_path.is_file():
+            with app_path.open(encoding="utf-8") as f:
+                app_config = yaml.safe_load(f) or {}
+            if not isinstance(app_config, dict):
+                raise InecoConfigError(f"App config must be a YAML mapping: {app_path}")
+            if "inecobank" in config:
+                statement_glob = app_config.get("inecobankStatementXmlFilesGlob")
+                if not isinstance(statement_glob, str) or not statement_glob.strip():
+                    raise InecoConfigError(
+                        f"Set inecobankStatementXmlFilesGlob in {app_path} to scan XML statements. "
+                        "The manual checklist does not count XLSX files."
+                    )
         if "inecobank" in config:
-            print_manual_downloads(config["inecobank"], Path(MY_FOLDER_PATH))
+            rerun = ["python3", "scripts/bank_downloader.py", "--manual-only"]
+            if args.config:
+                rerun.extend(["--config", args.config])
+            if args.download_config:
+                rerun.extend(["--download-config", args.download_config])
+            print_manual_downloads(
+                config["inecobank"], path.parent, statement_glob=statement_glob,
+                rerun_command=shlex.join(rerun),
+            )
         elif args.manual_only:
-            raise InecoConfigError(f"Add an inecobank section to scripts/{CONFIG_FILENAME}.")
+            raise InecoConfigError(f"Add an inecobank section to {path}.")
         if args.manual_only:
             return
-        run_download(prompt_credentials(config))
-    except (MyAmeriaUnauthorized, InecoConfigError) as exc:
+        run_download(prompt_credentials(config), path.parent)
+    except (MyAmeriaUnauthorized, InecoConfigError, OSError, yaml.YAMLError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
 

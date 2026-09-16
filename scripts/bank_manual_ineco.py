@@ -1,6 +1,8 @@
 """Plan manual Inecobank XML exports using account and period metadata."""
 
 import datetime as dt
+import fnmatch
+import glob
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -83,7 +85,7 @@ def missing_periods(start: dt.date, end: dt.date, periods):
         yield cursor, end
 
 
-def plan_downloads(config: dict, base_dir: Path, today: dt.date):
+def plan_downloads(config: dict, base_dir: Path, today: dt.date, statement_glob=None):
     """Return missing exports, covered accounts, and untrusted-file warnings."""
     if not isinstance(config, dict):
         raise InecoConfigError("inecobank must be a mapping.")
@@ -128,7 +130,9 @@ def plan_downloads(config: dict, base_dir: Path, today: dt.date):
     if folder.exists() and not folder.is_dir():
         raise InecoConfigError(f"Inecobank folder_path is not a directory: {folder}")
     try:
-        paths = sorted(folder.glob(pattern))
+        # The Go app resolves its glob relative to the working directory.
+        paths = (sorted(Path(name) for name in glob.glob(statement_glob))
+                 if statement_glob is not None else sorted(folder.glob(pattern)))
     except (OSError, ValueError) as exc:
         raise InecoConfigError(f"Cannot scan Inecobank statement_glob: {exc}") from None
     for path in paths:
@@ -149,19 +153,32 @@ def plan_downloads(config: dict, base_dir: Path, today: dt.date):
             complete.append(number)
         for gap_start, gap_end in gaps:
             filename = f"Statement_{number}_{gap_start.isoformat()}_{gap_end.isoformat()}.xml"
+            if statement_glob is not None:
+                scan_path = Path(statement_glob).absolute()
+                if not glob.has_magic(str(scan_path.parent)):
+                    # Save beside the selected files, not in a different config's folder.
+                    folder = scan_path.parent
+                spaced_name = f"Statement {number} - {gap_start:%Y%m%d}-{gap_end:%Y%m%d}.xml"
+                if fnmatch.fnmatch(str(folder / spaced_name), str(scan_path)):
+                    filename = spaced_name
             target = folder / filename
             # An invalid or mislabelled existing export must never be overwritten.
             suffix = 1
             while target.exists():
                 target = folder / f"{Path(filename).stem}_{suffix}.xml"
                 suffix += 1
+            if statement_glob is not None and not fnmatch.fnmatch(str(target), str(scan_path)):
+                warnings.append(f"Rename the suggested export {target.name} to match the app glob: {statement_glob}")
             missing.append(MissingStatement(number, name, account_type, gap_start, gap_end, target))
     return missing, complete, warnings
 
 
-def print_manual_downloads(config: dict, base_dir: Path, today=None) -> int:
-    missing, complete, warnings = plan_downloads(config, base_dir, today or dt.date.today())
+def print_manual_downloads(config: dict, base_dir: Path, today=None, statement_glob=None,
+                           rerun_command="python3 scripts/bank_downloader.py --manual-only") -> int:
+    missing, complete, warnings = plan_downloads(config, base_dir, today or dt.date.today(), statement_glob)
     print("\nInecobank manual XML download checklist")
+    if statement_glob is not None:
+        print(f"  App XML glob: {statement_glob} (working directory: {Path.cwd()})")
     for warning in warnings:
         print(f"  WARNING: {warning}")
     for account in complete:
@@ -183,7 +200,7 @@ def print_manual_downloads(config: dict, base_dir: Path, today=None) -> int:
               f"({(item.end - item.start).days + 1} days, inclusive)")
         print(f"     Save as: {item.path}")
     print(
-        "\nRerun: python3 scripts/bank_downloader.py --manual-only\n"
+        f"\nRerun: {rerun_command}\n"
         "Coverage comes from XML AccountNumber and Period, not filenames or transaction dates.\n"
         "Only XML exports are counted; this checks declared coverage, not transaction completeness.\n"
         "An export through today only includes activity available when it was downloaded."
