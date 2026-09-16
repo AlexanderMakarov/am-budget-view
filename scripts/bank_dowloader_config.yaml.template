@@ -1,12 +1,56 @@
+# Primary path: in-app Files page — configure bankDownloads in config.yaml.
+# Alternative CLI: copy this file to bank_dowloader_config.yaml and run make bank-downloader.
+# --config tmp-my.yaml selects the app config, including its Inecobank checklist.
+# --download-config path/to/downloads.yaml selects this downloader config instead.
+# Relative paths below resolve from the downloader config's directory.
+#
 # Login into https://account.myameria.am and open cards and accounts pages.
-# Next see URL in browser and open developer tools too see response headers.
+# Next open developer tools > Network to see request headers.
 # Some headers values would be needed to fill in this file.
 my_ameria:
   # "Client-Id" request header value.
   client_id: "e1cca45d-f2e6-463e-fe84-97f0c1c51315"
-  # "Authorization" token request header value, starts with "Bearer " and expires in ~10 minutes.
-  auth_token: "Bearer <long_token>"
+  # Interactive runs guide you to copy Authorization and prompt each time.
+  # Leave secrets empty here; prompted credentials are never saved.
+  # For non-interactive runs only, supply a fresh Authorization value here.
+  auth_token: ""
   # Start day to get statement. Always until today.
   since-DD-MM-YYYY: "01-09-2024"
   # How to name a resulting file. Should be matched by 'genericCsvFilesGlob' in config.yaml.
   history_path: "../generic MyAmeria History since 2024-09-01.csv"
+
+# AmeriaBank (business.myameria.am) – HTTP REST API only.
+ameriabank:
+  # Log in at https://business.myameria.am, open DevTools → Network, copy Cookie header value from any request to gateway-businessmyameria.ameriabank.am.
+  # Cookie must include RefreshToken and TS* (AccessToken);
+  # Interactive runs prompt for this each time; it is never saved.
+  cookie: ""
+  # Start day to get statement. Always until today.
+  since-DD-MM-YYYY: "01-09-2024"
+  # Where to put resulting files. There would be one file per account with name "AccountStatement {acc.number} {acc.name} since {since-DD-MM-YYYY}.csv".
+  folder_path: ""
+  # Optional: list only specific accounts to download (by number or name); path overrides "folder_path" above.
+  # accounts:
+  #   - name: "Settlement AMD"
+  #     number: "15700481491234567"
+  #     path: "../my_settlement_amd.csv"
+
+# Legacy Inecobank compatibility. New configurations should use
+# bankDownloads.inecobank in config.yaml; see docs/en/banks/inecobank.md.
+# This fallback remains supported for existing downloader configurations.
+# inecobank:
+#   folder_path: ".."
+#   statement_glob: "*.xml"
+#   # Used only without an app config; otherwise inecobankStatementXmlFilesGlob wins.
+#   since-DD-MM-YYYY: "01-04-2024"
+#   # until-DD-MM-YYYY: "31-12-2024"  # Optional; defaults to today.
+#   accounts:
+#     - number: "0000000000000001"
+#       name: "AMD current account"
+#       type: "account"  # account or card; defaults to account.
+#     - number: "0000000000000002"
+#       name: "AMD card account"
+#       type: "card"
+#       # Optional per-account date overrides (e.g. opening/closing dates):
+#       since-DD-MM-YYYY: "01-06-2024"
+#       until-DD-MM-YYYY: "31-12-2024"

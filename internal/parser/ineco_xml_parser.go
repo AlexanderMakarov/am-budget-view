@@ -1,12 +1,12 @@
 package parser
 
 import (
-	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"encoding/xml"
 	"fmt"
+	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"io"
 	"os"
-"time"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -18,15 +18,15 @@ type XmlDate struct {
 }
 
 type InecoTransaction struct {
-	NN                   string                  `xml:"n-n"`
-	Number               string                  `xml:"Number"`
-	Date                 XmlDate                 `xml:"Date"`
-	Currency             string                  `xml:"Currency"`
+	NN                   string                        `xml:"n-n"`
+	Number               string                        `xml:"Number"`
+	Date                 XmlDate                       `xml:"Date"`
+	Currency             string                        `xml:"Currency"`
 	Income               model.MoneyWith2DecimalPlaces `xml:"Income"`
 	Expense              model.MoneyWith2DecimalPlaces `xml:"Expense"`
-	ReceiverPayerAccount string                  `xml:"Receiver-PayerAccount"`
-	ReceiverPayer        string                  `xml:"Receiver-Payer"`
-	Details              string                  `xml:"Details"`
+	ReceiverPayerAccount string                        `xml:"Receiver-PayerAccount"`
+	ReceiverPayer        string                        `xml:"Receiver-Payer"`
+	Details              string                        `xml:"Details"`
 }
 
 type Operations struct {
@@ -42,7 +42,6 @@ type Statement struct {
 	ClosingBalance string     `xml:"Closingbalance" validate:"required"`
 	Operations     Operations `xml:"Operations" validate:"required"`
 }
-
 
 func (xd *XmlDate) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var v string

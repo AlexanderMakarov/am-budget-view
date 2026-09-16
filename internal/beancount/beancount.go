@@ -278,8 +278,6 @@ func BuildBeancountFile(
 	return len(journalEntries), nil
 }
 
-
-
 var validAccountNameRegex = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
 func normalizeAccountName(account string) string {

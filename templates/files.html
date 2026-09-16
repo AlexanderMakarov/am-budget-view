@@ -12,6 +12,9 @@
             <button onclick="refreshFiles()" class="primary-button" id="refresh-button">
                 {{localize "Refresh Files"}}
             </button>
+                <button onclick="window.location.href='/bank-downloads/settings'" class="action-button">
+                    {{localize "Download settings"}}
+                </button>
                 <button onclick="window.location.href='/'" class="back-button">
                     {{localize "Back to Dashboard"}}
                 </button>
@@ -22,8 +25,8 @@
             {{localize "Working Directory"}}: {{.WorkingDir}}
         </div>
 
-        <div class="table-container">
-            <table class="transactions-table">
+        <div class="table-container files-table-container">
+            <table class="transactions-table files-nested-table">
                 <thead>
                     <tr>
                         <th>{{localize "File Name"}}</th>
@@ -36,9 +39,29 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {{range .FileGroups.Groups}}
+                    <tr class="file-group-header">
+                        <td colspan="7">
+                            <div class="file-group-header-line">
+                                <span class="file-group-title"><strong>{{.Health.Name}}</strong></span>
+                                {{if .HasFiles}}
+                                <span class="file-group-sep">·</span>
+                                <span class="file-group-count">{{.Health.FilesCount}} {{localize "file(s)"}}</span>
+                                <span class="file-group-sep">·</span>
+                                <span class="file-group-freshness{{if .IsStale}} freshness-stale{{end}}" title="{{localize "Days since the newest file was modified"}}">{{.FreshnessDays | formatFreshnessDays}}</span>
+                                {{end}}
+                                <span class="file-group-sep">·</span>
+                                <a class="action-link" href="/docs/bank/{{.Health.DocSourceID}}" target="_blank" rel="noopener">{{localize "Instructions"}}</a>
+                                {{if .Health.SupportsInAppDownload}}
+                                <span class="file-group-sep">·</span>
+                                <button type="button" class="action-button action-button-sm" onclick="openDownloadDialog('{{.Health.SourceID}}', '{{.Health.Name}}')">{{localize "Download now"}}</button>
+                                {{end}}
+                            </div>
+                        </td>
+                    </tr>
                     {{range .Files}}
-                    <tr>
-                        <td><a href="#" class="file-link" data-path="{{.Path}}">{{.Path}}</a></td>
+                    <tr class="file-row">
+                        <td class="file-name-cell"><a href="#" class="file-link" data-path="{{.Path}}">{{.Path}}</a></td>
                         <td>{{.Source.Tag}}</td>
                         <td>{{.Source.AccountNumber}}</td>
                         <td>{{.TransactionsCount}}</td>
@@ -47,15 +70,73 @@
                         <td>{{.ModifiedTime | formatDate}}</td>
                     </tr>
                     {{end}}
+                    {{end}}
                 </tbody>
             </table>
         </div>
     </div>
 
+    <div id="downloadModal" class="modal">
+        <div class="modal-content modal-credential">
+            <span class="close" onclick="closeDownloadModal()">&times;</span>
+            <h3 id="download-modal-title"></h3>
+
+            <form id="download-form-my-ameria" class="download-credential-form" style="display:none" onsubmit="return submitDownloadForm(event, 'my_ameria_generic')">
+                <div class="credential-help">
+                    <p class="credential-help-title">{{localize "How to get the auth token"}}</p>
+                    <ol class="credential-help-steps">
+                        <li>{{localize "Open MyAmeria and sign in"}} — <a href="https://account.myameria.am" target="_blank" rel="noopener">account.myameria.am</a></li>
+                        <li>{{localize "Press F12, open Network, reload or open History"}}</li>
+                        <li>{{localize "Click a request to ob.myameria.am"}}</li>
+                        <li>{{localize "Copy the full Authorization header (Bearer …)"}}</li>
+                    </ol>
+                    <p class="credential-help-footer">
+                        <a href="/docs/bank/myameria" target="_blank" rel="noopener">{{localize "Full step-by-step instructions"}}</a>
+                        · {{localize "Expires in about 15 minutes; not saved"}}
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label for="dl-my-ameria-auth-token">{{localize "Auth token"}}</label>
+                    <textarea id="dl-my-ameria-auth-token" class="bank-download-field credential-field" rows="3" autocomplete="off" placeholder="Bearer …"></textarea>
+                    <small class="help-text">{{localize "Authorization header value (Bearer token)"}}</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">{{localize "Download now"}}</button>
+                    <button type="button" class="action-button" onclick="closeDownloadModal()">{{localize "Cancel"}}</button>
+                </div>
+            </form>
+
+            <form id="download-form-ameria-business" class="download-credential-form" style="display:none" onsubmit="return submitDownloadForm(event, 'ameria_business')">
+                <div class="credential-help">
+                    <p class="credential-help-title">{{localize "How to get the session cookie"}}</p>
+                    <ol class="credential-help-steps">
+                        <li>{{localize "Open Ameria Business and sign in"}} — <a href="https://business.myameria.am" target="_blank" rel="noopener">business.myameria.am</a> ({{localize "OTP from mobile app"}})</li>
+                        <li>{{localize "Press F12, open Network, reload or open an account"}}</li>
+                        <li>{{localize "Click a request to gateway-businessmyameria.ameriabank.am"}}</li>
+                        <li>{{localize "Copy the full Cookie header (must include RefreshToken)"}}</li>
+                    </ol>
+                    <p class="credential-help-footer">
+                        <a href="/docs/bank/ameria-business" target="_blank" rel="noopener">{{localize "Full step-by-step instructions"}}</a>
+                        · {{localize "Expires when session ends; not saved"}}
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label for="dl-ameria-business-cookie">{{localize "Cookie"}}</label>
+                    <textarea id="dl-ameria-business-cookie" class="bank-download-field credential-field" rows="3" autocomplete="off"></textarea>
+                    <small class="help-text">{{localize "Cookie header from browser DevTools while logged into Ameria Business"}}</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="primary-button">{{localize "Download now"}}</button>
+                    <button type="button" class="action-button" onclick="closeDownloadModal()">{{localize "Cancel"}}</button>
+                </div>
+            </form>
+
+            <div id="download-modal-message"></div>
+        </div>
+    </div>
+
     <script>
-        // DOM Ready handler
         document.addEventListener('DOMContentLoaded', function() {
-            // File link click handler
             document.querySelectorAll('.file-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -68,22 +149,16 @@
             });
         });
 
-        // Refresh files function
         function refreshFiles() {
             const refreshButton = document.getElementById('refresh-button');
             const originalText = refreshButton.textContent;
-            // Disable button and show loading state
             refreshButton.disabled = true;
             refreshButton.textContent = '{{localize "Refreshing..."}}';
-            fetch('/refresh-files', {
-                method: 'POST'
-            })
+            fetch('/refresh-files', { method: 'POST' })
             .then(response => {
                 if (response.ok) {
-                    // Reload the page to show updated file list
                     window.location.reload();
                 } else {
-                    // Get error message from server response
                     return response.text().then(errorText => {
                         throw new Error(errorText || 'Failed to refresh files');
                     });
@@ -92,11 +167,103 @@
             .catch(err => {
                 console.error('Error refreshing files:', err);
                 alert('{{localize "Error refreshing files"}}: ' + err.message);
-                // Restore button state
                 refreshButton.disabled = false;
                 refreshButton.textContent = originalText;
             });
         }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function openDownloadDialog(sourceId, sourceName) {
+            document.getElementById('download-modal-title').textContent = sourceName;
+            document.getElementById('download-modal-message').innerHTML = '';
+            document.querySelectorAll('.download-credential-form').forEach(f => { f.style.display = 'none'; });
+            if (sourceId === 'my_ameria_generic') {
+                document.getElementById('download-form-my-ameria').style.display = 'block';
+                document.getElementById('dl-my-ameria-auth-token').value = '';
+            } else if (sourceId === 'ameria_business') {
+                document.getElementById('download-form-ameria-business').style.display = 'block';
+                document.getElementById('dl-ameria-business-cookie').value = '';
+            }
+            document.getElementById('downloadModal').style.display = 'flex';
+        }
+
+        function closeDownloadModal() {
+            document.getElementById('downloadModal').style.display = 'none';
+        }
+
+        function showDownloadError(error, hint) {
+            let html = '<div class="bank-download-message is-error"><strong>' + escapeHtml(error) + '</strong>';
+            if (hint) {
+                html += '<div class="message-hint">' + escapeHtml(hint) + '</div>';
+            }
+            html += '</div>';
+            document.getElementById('download-modal-message').innerHTML = html;
+        }
+
+        async function submitDownloadForm(event, sourceId) {
+            event.preventDefault();
+            document.getElementById('download-modal-message').innerHTML = '';
+            const body = { sourceId: sourceId };
+            if (sourceId === 'my_ameria_generic') {
+                body.myAmeria = {
+                    authToken: document.getElementById('dl-my-ameria-auth-token').value.trim()
+                };
+            } else if (sourceId === 'ameria_business') {
+                body.ameriaBusiness = {
+                    cookie: document.getElementById('dl-ameria-business-cookie').value
+                        .trim()
+                        .replace(/\s+/g, ' ')
+                };
+            }
+
+            const modal = document.getElementById('downloadModal');
+            modal.querySelectorAll('button, input, textarea').forEach(el => { el.disabled = true; });
+            document.getElementById('download-modal-title').textContent = '{{localize "Downloading..."}}';
+
+            try {
+                const response = await fetch('/bank-downloads/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    throw new Error('{{localize "Invalid server response"}}');
+                }
+                if (!response.ok || !data.ok) {
+                    showDownloadError(data.error || '{{localize "Request failed"}}', data.hint || '');
+                    modal.querySelectorAll('button, input, textarea').forEach(el => { el.disabled = false; });
+                    return false;
+                }
+                if (data.message) {
+                    document.getElementById('download-modal-message').innerHTML =
+                        '<div class="bank-download-message is-success">' + escapeHtml(data.message) + '</div>';
+                }
+                const refreshResponse = await fetch('/refresh-files', { method: 'POST' });
+                if (!refreshResponse.ok) {
+                    const errorText = await refreshResponse.text();
+                    throw new Error(errorText || '{{localize "Failed to refresh files"}}');
+                }
+                window.location.reload();
+            } catch (err) {
+                showDownloadError(err.message, '');
+                modal.querySelectorAll('button, input, textarea').forEach(el => { el.disabled = false; });
+            }
+            return false;
+        }
+
+        document.getElementById('downloadModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeDownloadModal();
+            }
+        });
     </script>
 </body>
 </html>

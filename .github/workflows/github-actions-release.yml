@@ -27,23 +27,42 @@ jobs:
         run: echo "GITHUB_CONTEXT=$GITHUB_CONTEXT"
 
       - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Go environment
-        uses: actions/setup-go@v5
+        uses: actions/checkout@v6
         with:
-          go-version: '^1.22.6'
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Get dependencies
-        run: go get -v -t -d
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
 
-      - name: Lint
-        run: go vet ./...
+      - name: Show runner-provided Go version
+        # GitHub's ubuntu-24.04 hosted image currently includes three Go versions:
+        # https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md
+        run: go version
 
-      - name: Test with Coverage
+      - name: Install Python test dependencies
         run: |
-          go test -coverprofile=coverage.out ./...
-          go tool cover -func=coverage.out
+          python3 -m pip install requests==2.32.3 pyyaml==6.0.1
+
+      - name: Run local and CI checks
+        env:
+          # PRs check the whole change; pushes check the latest commit.
+          CHECK_BASE: ${{ github.event.pull_request.base.sha || 'HEAD^' }}
+          # golangci-lint runs in its maintained action below.
+          SKIP_GOLANGCI_LINT: '1'
+        run: make check
+
+      - name: golangci-lint
+        if: github.event_name == 'pull_request'
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+          only-new-issues: true
+
+      - name: Check tracked files were not changed by tests
+        run: git diff --exit-code
 
   # Job to build artifacts only if tag was pushed.
   build:
@@ -60,17 +79,15 @@ jobs:
     steps:
       # 3 steps below are lazily copy-pasted from the job above. See https://stackoverflow.com/a/71570847/1535127.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Get all tags, needed to get git log.
 
-      - name: Setup Go environment
-        uses: actions/setup-go@v5
-        with:
-          go-version: '^1.22.6'
+      - name: Show runner-provided Go version
+        run: go version
 
       - name: Get dependencies
-        run: go get -v -t -d ./... # Will use cached dependencies.
+        run: go mod download
 
       - name: Assemble version and release notes from commit messages
         id: vars

@@ -1,9 +1,9 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/AlexanderMakarov/am-budget-view/internal/i18n"
 	"github.com/AlexanderMakarov/am-budget-view/internal/model"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -126,8 +126,8 @@ func (p MyAmeriaExcelFileParser) ParseRawTransactionsFromFile(
 	}
 
 	source := model.TransactionsSource{
-		TypeName:        "MyAmeria History XLS",
-		FilePath:        filePath,
+		TypeName: "MyAmeria History XLS",
+		FilePath: filePath,
 	}
 
 	// Convert MyAmeria rows to unified transactions and separate expenses from incomes.

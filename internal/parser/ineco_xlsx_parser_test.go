@@ -28,12 +28,12 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                  string
-		fileName              string
-		detailsIncome         []string
-		wantErr               bool
-		expectedResult        []model.Transaction
-		expectedSourceType    string
+		name               string
+		fileName           string
+		detailsIncome      []string
+		wantErr            bool
+		expectedResult     []model.Transaction
+		expectedSourceType string
 	}{
 		{
 			fileName:      "valid_regular",
@@ -112,31 +112,31 @@ func TestInecoExcelFileParserParseRawTransactionsFromFile(t *testing.T) {
 			expectedSourceType: "InecoExcelCard:AMD",
 		},
 		{
-			fileName:       "non_existent",
-			detailsIncome:  []string{},
-			wantErr:        true,
-			expectedResult:       nil,
-			expectedSourceType:   "",
-		},
-		{
-			fileName:       "invalid_header",
-			detailsIncome:  []string{},
-			wantErr:        true,
-			expectedResult: nil,
+			fileName:           "non_existent",
+			detailsIncome:      []string{},
+			wantErr:            true,
+			expectedResult:     nil,
 			expectedSourceType: "",
 		},
 		{
-			fileName:       "no_account_number_label",
-			detailsIncome:  []string{},
-			wantErr:        true,
-			expectedResult:       nil,
-			expectedSourceType:   "",
+			fileName:           "invalid_header",
+			detailsIncome:      []string{},
+			wantErr:            true,
+			expectedResult:     nil,
+			expectedSourceType: "",
 		},
 		{
-			fileName:       "no_data",
-			detailsIncome:  []string{},
-			wantErr:        false,
-			expectedResult: []model.Transaction{},
+			fileName:           "no_account_number_label",
+			detailsIncome:      []string{},
+			wantErr:            true,
+			expectedResult:     nil,
+			expectedSourceType: "",
+		},
+		{
+			fileName:           "no_data",
+			detailsIncome:      []string{},
+			wantErr:            false,
+			expectedResult:     []model.Transaction{},
 			expectedSourceType: "InecoExcelCard:AMD",
 		},
 	}

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+# Avoid checking one version of a tracked file while committing another.
+if ! git diff --quiet; then
+    echo 'Stage or stash unstaged tracked changes before committing so checks match the commit.' >&2
+    exit 1
+fi
+exec make check

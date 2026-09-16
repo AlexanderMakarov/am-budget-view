@@ -115,8 +115,8 @@ func TestArdshinXlsxFileParser_ParseRawTransactionsFromFile_Errors(t *testing.T)
 		errorMessage string
 	}{
 		{
-			fileName:      "no_data",
-			errorMessage:  "can't find sheet with name 'Account ENG'",
+			fileName:     "no_data",
+			errorMessage: "can't find sheet with name 'Account ENG'",
 		},
 		{
 			fileName:     "no_account_number",

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{localize "Download settings"}}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container bank-download-settings-page">
+        <header>
+            <h1>{{localize "Download settings"}}</h1>
+            <div class="header-right">
+                <button type="button" class="back-button" onclick="window.location.href='/files'">
+                    {{localize "Back to Files"}}
+                </button>
+            </div>
+        </header>
+
+        <p class="settings-intro">{{localize "Session tokens are entered when you click Download now on the Files page and are never saved here."}}</p>
+        <p class="settings-intro">{{localize "Configure since date and Client ID here, then paste token or cookie on Files when downloading."}}</p>
+
+        <div class="bank-download-panels">
+            <section class="bank-download-panel" id="panel-my-ameria">
+                <h3>{{localize "MyAmeria generic CSV"}}</h3>
+                <p class="panel-doc-link"><a href="/docs/bank/myameria" target="_blank" rel="noopener">{{localize "Full instructions"}}</a></p>
+                <p class="panel-note">{{localize "Auth token is pasted on Files when you click Download now."}}</p>
+                <div class="credential-help credential-help-compact">
+                    <p class="credential-help-title">{{localize "How to get Client ID"}}</p>
+                    <ol class="credential-help-steps">
+                        <li>{{localize "Open MyAmeria and sign in"}} — <a href="https://account.myameria.am" target="_blank" rel="noopener">account.myameria.am</a></li>
+                        <li>{{localize "Press F12, open Network, reload or open History"}}</li>
+                        <li>{{localize "Click a request to ob.myameria.am"}}</li>
+                        <li>{{localize "Copy the Client-Id request header"}}</li>
+                    </ol>
+                </div>
+                <div class="form-group">
+                    <label for="settings-my-ameria-client-id">{{localize "Client ID"}}</label>
+                    <input type="text" id="settings-my-ameria-client-id" class="bank-download-field" value="{{.MyAmeria.ClientId}}" autocomplete="off">
+                    <small class="help-text">{{localize "Client-Id header from browser DevTools (Network tab)"}}</small>
+                </div>
+                <div class="form-group">
+                    <label for="settings-my-ameria-since-date">{{localize "Since date"}}</label>
+                    <input type="text" id="settings-my-ameria-since-date" value="{{.MyAmeria.SinceDate}}" placeholder="DD-MM-YYYY">
+                    <small class="help-text">{{localize "Download transactions from this date (DD-MM-YYYY)"}}</small>
+                </div>
+            </section>
+
+            <section class="bank-download-panel" id="panel-ameria-business">
+                <h3>{{localize "AmeriaBank CSV statement"}}</h3>
+                <p class="panel-doc-link"><a href="/docs/bank/ameria-business" target="_blank" rel="noopener">{{localize "Full instructions"}}</a></p>
+                <p class="panel-note">{{localize "Session cookie is pasted on Files when you click Download now."}}</p>
+                <div class="form-group">
+                    <label for="settings-ameria-business-since-date">{{localize "Since date"}}</label>
+                    <input type="text" id="settings-ameria-business-since-date" value="{{.AmeriaBusiness.SinceDate}}" placeholder="DD-MM-YYYY">
+                    <small class="help-text">{{localize "Download transactions from this date (DD-MM-YYYY)"}}</small>
+                </div>
+                <div class="form-group">
+                    <label for="settings-ameria-business-output-folder">{{localize "Output folder"}}</label>
+                    <input type="text" id="settings-ameria-business-output-folder" value="{{.AmeriaBusiness.OutputFolder}}">
+                    <small class="help-text">{{localize "Subfolder inside the working directory for downloaded CSV files. Leave empty to save next to config.yaml."}}</small>
+                </div>
+            </section>
+        </div>
+
+        <div class="form-actions settings-form-actions">
+            <button type="button" class="primary-button" id="save-settings-button">{{localize "Save settings"}}</button>
+        </div>
+
+        <div id="settings-message"></div>
+    </div>
+
+    <script>
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showSettingsMessage(text, isError) {
+            const cls = isError ? 'bank-download-message is-error' : 'bank-download-message is-success';
+            document.getElementById('settings-message').innerHTML =
+                '<div class="' + cls + '">' + escapeHtml(text) + '</div>';
+        }
+
+        document.getElementById('save-settings-button').addEventListener('click', async function() {
+            const button = this;
+            button.disabled = true;
+            document.getElementById('settings-message').innerHTML = '';
+
+            const body = {
+                bankDownloads: {
+                    myAmeria: {
+                        clientId: document.getElementById('settings-my-ameria-client-id').value.trim(),
+                        sinceDate: document.getElementById('settings-my-ameria-since-date').value.trim()
+                    },
+                    ameriaBusiness: {
+                        sinceDate: document.getElementById('settings-ameria-business-since-date').value.trim(),
+                        outputFolder: document.getElementById('settings-ameria-business-output-folder').value.trim()
+                    }
+                }
+            };
+
+            try {
+                const response = await fetch('/bank-downloads/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    throw new Error('{{localize "Invalid server response"}}');
+                }
+                if (!response.ok || !data.ok) {
+                    showSettingsMessage(data.error || '{{localize "Request failed"}}', true);
+                    button.disabled = false;
+                    return;
+                }
+                showSettingsMessage('{{localize "Settings saved"}}', false);
+            } catch (err) {
+                showSettingsMessage(err.message, true);
+            }
+            button.disabled = false;
+        });
+    </script>
+</body>
+</html>

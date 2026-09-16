@@ -1,0 +1,38 @@
+# Test fixture config — use this in tests instead of the repo-root config.yaml.
+# See CLAUDE.md for details.
+language: en
+ensureTerminal: false
+uiPort: 8080
+inecobankStatementXmlFilesGlob: Statement*.xml
+inecobankStatementXlsxFilesGlob: statement*.xlsx
+ameriaCsvFilesGlob: AccountStatement*.csv
+myAmeriaAccountStatementXlsxFilesGlob: '* account statement *.xls'
+myAmeriaHistoryXlsFilesGlob: History *.xls
+genericCsvFilesGlob: generic*.csv
+myAmeriaMyAccounts:
+  "1234567890123456": AMD
+myAccounts:
+  - "1234567890123456"
+convertToCurrencies:
+  - AMD
+minCurrencyTimespanPercent: 80
+maxCurrencyTimespanGapDays: 30
+detailedOutput: false
+categorizeMode: false
+monthStartDayNumber: 1
+timeZoneLocation: Asia/Yerevan
+groupAllUnknownTransactions: true
+groups:
+  Test:
+    substrings:
+      - TEST
+bankDownloads:
+  staleThresholdDays: 7
+  myAmeria:
+    enabled: false
+    clientId: ""
+    sinceDate: "01-01-2026"
+  ameriaBusiness:
+    enabled: false
+    sinceDate: "01-01-2026"
+    outputFolder: ""

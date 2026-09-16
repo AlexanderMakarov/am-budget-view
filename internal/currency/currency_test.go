@@ -471,7 +471,7 @@ func TestConvertToCurrency(t *testing.T) {
 		{
 			name:           "multiple conversions",
 			amount:         model.MoneyWith2DecimalPlaces{Cents: 100000}, // 1000.00 AMD
-			amountCurrency: "AMD",                                // AMD -> USD -> EUR
+			amountCurrency: "AMD",                                        // AMD -> USD -> EUR
 			targetCurrency: "EUR",
 			date:           testDate,
 			curStates: map[string]*currencyState{
@@ -593,12 +593,12 @@ func issue13Transactions(includeRUB bool) []model.Transaction {
 // AllCurrencies vs ConvertibleCurrencies (https://github.com/AlexanderMakarov/am-budget-view/issues/13).
 func TestBuildDataMart_Issue13(t *testing.T) {
 	tests := []struct {
-		name                       string
-		includeRUBInTransactions   bool
-		wantAllCurrencies          []string
-		wantConvertibleCurrencies  []string
-		wantRUBInAllCurrencies     bool
-		wantRUBInConvertible       bool
+		name                      string
+		includeRUBInTransactions  bool
+		wantAllCurrencies         []string
+		wantConvertibleCurrencies []string
+		wantRUBInAllCurrencies    bool
+		wantRUBInConvertible      bool
 	}{
 		{
 			// Config lists RUB as a conversion target; transactions only have AMD/USD rows

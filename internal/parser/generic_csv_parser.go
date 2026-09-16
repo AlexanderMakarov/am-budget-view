@@ -1,10 +1,10 @@
 package parser
 
 import (
-	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"io"
 	"os"
 	"strconv"

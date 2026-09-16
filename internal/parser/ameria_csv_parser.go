@@ -1,10 +1,10 @@
 package parser
 
 import (
-	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"github.com/AlexanderMakarov/am-budget-view/internal/model"
 	"io"
 	"os"
 	"strings"
@@ -231,8 +231,8 @@ func (p AmeriaCsvFileParser) ParseRawTransactionsFromFile(
 		// By-default is expense.
 		isExpense := true
 		amount := t.Debit
-		var from string = accountNumber
-		var to string = t.Account
+		from := accountNumber
+		to := t.Account
 		// If debit is empty then it is income.
 		if amount.Cents == 0 {
 			isExpense = false

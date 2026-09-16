@@ -206,7 +206,10 @@ h1 {
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 9999;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 24px 12px;
+    box-sizing: border-box;
 }
 
 .modal-content {
@@ -219,6 +222,114 @@ h1 {
     position: relative;
     margin: auto;
     z-index: 10000;
+    box-sizing: border-box;
+}
+
+.modal-content.modal-credential {
+    width: min(720px, 96vw);
+    max-width: min(720px, 96vw);
+    max-height: none;
+}
+
+.download-credential-form,
+.download-credential-form .form-group {
+    width: 100%;
+}
+
+.modal-content.modal-credential .form-group textarea.credential-field,
+.modal-content.modal-credential .form-group textarea.bank-download-field {
+    display: block;
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: monospace;
+    line-height: 1.4;
+    min-height: 4.5em;
+    max-height: 8em;
+    resize: vertical;
+    overflow-x: auto;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    field-sizing: fixed;
+}
+
+.modal-content.modal-wide {
+    max-width: min(960px, 96vw);
+    width: 96vw;
+}
+
+.modal-content.modal-wide .form-group input[type="text"],
+.modal-content.modal-wide .form-group textarea.bank-download-field {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: monospace;
+    line-height: 1.4;
+    white-space: pre;
+    overflow-x: auto;
+    word-break: normal;
+    min-height: 2.5em;
+    resize: vertical;
+}
+
+.download-modal-help {
+    color: #666;
+    margin: 0 0 16px;
+    font-size: 0.95em;
+}
+
+.credential-help {
+    background: #f8f9fb;
+    border: 1px solid #e2e6ee;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-size: 0.92em;
+    line-height: 1.45;
+}
+
+.credential-help-compact {
+    margin-bottom: 12px;
+}
+
+.credential-help-title {
+    margin: 0 0 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.credential-help-steps {
+    margin: 0 0 8px;
+    padding-left: 1.25rem;
+}
+
+.credential-help-steps li {
+    margin-bottom: 4px;
+}
+
+.credential-help-footer {
+    margin: 0;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.credential-help a {
+    color: #0066cc;
+}
+
+.download-credential-form .form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
 }
 
 .modal select,
@@ -376,6 +487,316 @@ h1 {
     height: calc(100vh - 80px);
     overflow: auto;
     background: white;
+}
+
+.source-health-section {
+    margin-bottom: 24px;
+}
+
+.source-health-section h2 {
+    margin-top: 0;
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 1.25rem;
+}
+
+.table-container.source-health-container {
+    height: auto;
+    overflow: visible;
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+.table-container.files-table-container {
+    height: auto;
+    min-height: 240px;
+    max-height: calc(100vh - 200px);
+    overflow: auto;
+}
+
+.files-nested-table .file-group-header td {
+    background: #f0f4f8;
+    border-top: 2px solid #cbd5e0;
+    padding: 8px 16px;
+}
+
+.file-group-header-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.file-group-title strong {
+    font-size: 1em;
+}
+
+.file-group-count {
+    margin-left: 6px;
+    color: #666;
+    font-weight: normal;
+}
+
+.file-group-sep {
+    color: #aaa;
+    user-select: none;
+}
+
+.file-group-freshness {
+    color: #495057;
+    font-size: 0.95em;
+    white-space: nowrap;
+}
+
+.file-group-freshness.freshness-stale {
+    color: #c0392b;
+    font-weight: 600;
+}
+
+.action-link-muted {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.action-link {
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+.action-button-sm {
+    padding: 4px 10px;
+    font-size: 0.85em;
+}
+
+.files-nested-table .file-row .file-name-cell {
+    padding-left: 24px;
+}
+
+.bank-download-panel-focused {
+    border-color: #0366d6;
+    box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.15);
+}
+
+.empty-files-cell {
+    text-align: center;
+    color: #666;
+    padding: 24px;
+}
+
+.sources-without-files {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.sources-without-files summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 8px 0;
+}
+
+.sources-empty-table {
+    margin-top: 8px;
+}
+
+.section-help {
+    color: #666;
+    margin: 0 0 12px;
+    font-size: 0.95em;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.bank-download-section {
+    margin-bottom: 24px;
+}
+
+.bank-download-panels {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 8px;
+    max-width: 960px;
+}
+
+.bank-download-panel {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.bank-download-panel h3 {
+    margin: 0 0 12px;
+    font-size: 1.1rem;
+}
+
+.bank-download-panel .form-group input[type="text"],
+.bank-download-panel .form-group input[type="password"],
+.bank-download-panel .form-group textarea.bank-download-field {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: monospace;
+    line-height: 1.4;
+    white-space: pre;
+    overflow-x: auto;
+    word-break: normal;
+    field-sizing: content;
+    min-height: 2.5em;
+    resize: vertical;
+}
+
+.bank-download-panel .form-group input[type="text"],
+.bank-download-panel .form-group input[type="password"] {
+    font-size: 14px;
+    font-family: inherit;
+    white-space: normal;
+}
+
+.bank-download-panel .form-group textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: monospace;
+    min-height: 80px;
+    resize: vertical;
+}
+
+.bank-download-settings-page .bank-download-panels {
+    max-width: none;
+}
+
+.bank-download-settings-page .bank-download-panel .form-group textarea.bank-download-field,
+.bank-download-settings-page .bank-download-panel .form-group input[type="text"] {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    field-sizing: fixed;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.settings-intro {
+    color: #555;
+    margin: 0 0 16px;
+    max-width: 960px;
+}
+
+.settings-form-actions {
+    justify-content: flex-start;
+    max-width: 960px;
+    margin-top: 8px;
+}
+
+.bank-download-panel .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.bank-download-panel .checkbox-label input {
+    margin: 0;
+}
+
+.bank-download-panel .panel-doc-link {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 0.95em;
+}
+
+.bank-download-panel .panel-note {
+    margin: 0 0 12px;
+    color: #666;
+    font-size: 0.92em;
+}
+
+.bank-download-message {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+.bank-download-message.is-error {
+    display: block;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.bank-download-message.is-success {
+    display: block;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.bank-download-message .message-hint {
+    margin-top: 6px;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.status-ok {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-stale {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-no-files {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
+
+.status-manual-only {
+    background-color: #cce5ff;
+    color: #004085;
 }
 
 /* Add alternating row colors */

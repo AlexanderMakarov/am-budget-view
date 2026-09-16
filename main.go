@@ -36,6 +36,9 @@ var static embed.FS
 //go:embed templates
 var templateFS embed.FS
 
+//go:embed docs
+var docsFS embed.FS
+
 var langToLocale = map[string]string{
 	"en": "en-US",
 	"ru": "ru-RU",
@@ -137,6 +140,14 @@ func runApplication(args Args) error {
 			isWriteToFile,
 			isOpenFileWithResult,
 		)
+	}
+
+	if config.StripBankDownloadSecrets(&cfg.BankDownloads) {
+		if writeErr := cfg.WriteToFile(args.ConfigPath); writeErr != nil {
+			log.Printf("Warning: failed to remove bank download secrets from config: %v", writeErr)
+		} else {
+			log.Println("Removed ephemeral bank download credentials from config.yaml")
+		}
 	}
 
 	// Ensure we're running in a terminal window before doing anything else.
@@ -285,7 +296,7 @@ func runApplication(args Args) error {
 		}()
 
 		log.Println(i18n.T("Starting local web server on urlport", "urlport", url))
-		err := ui.ListenAndServe(dataHandler, static, templateFS, devMode)
+		err := ui.ListenAndServe(dataHandler, static, templateFS, docsFS, devMode)
 		if err != nil {
 			return handleError(
 				errors.New(i18n.T("failed to start web server, probably app is already running", "err", err)),

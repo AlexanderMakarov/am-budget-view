@@ -17,7 +17,7 @@ type MoneyWith2DecimalPlaces struct {
 
 // ParseString removes commas and parses string as float.
 func (m *MoneyWith2DecimalPlaces) ParseString(s string) error {
-	sanitizedText := strings.Replace(s, ",", "", -1)
+	sanitizedText := strings.ReplaceAll(s, ",", "")
 	floatVal, err := strconv.ParseFloat(sanitizedText, 64)
 	if err != nil {
 		return err

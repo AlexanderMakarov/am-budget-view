@@ -1,0 +1,33 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+# Conservative, low-noise default set. CI runs with only-new-issues so the
+# large pre-existing codebase is not retroactively held to these checks.
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  settings:
+    errcheck:
+      # Unchecked Close()/Remove() in defers is the established project idiom
+      # (see config.go, parsers, beancount on master).
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - os.Remove
+    staticcheck:
+      checks:
+        - all
+        - -QF1003 # "could use tagged switch" — a style quick-fix, not a defect
+        - -ST1000 # missing package comment — not a project convention
+        - -ST1003 # initialism casing (ClientId/Xml) — conflicts with project-wide naming
+  exclusions:
+    rules:
+      # Tests legitimately ignore cleanup errors (temp files, os.Remove).
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
