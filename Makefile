@@ -1,6 +1,19 @@
 run:
 	go run .
 
+.PHONY: setup-checks install-check-tools install-hooks check
+
+install-check-tools:
+	python3 scripts/install_check_tools.py
+
+install-hooks:
+	git config core.hooksPath .githooks
+
+setup-checks: install-check-tools install-hooks
+
+check:
+	bash scripts/check.sh
+
 run-help:
 	go run . --help
 

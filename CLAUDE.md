@@ -21,8 +21,17 @@ When writing or running tests that need a config file, use `testdata/config.yaml
 ## Running tests
 
 ```bash
-go test ./...
+make setup-checks  # once: pinned tools in .tools/ and local Git hooks
+make check        # before committing: same checks as CI
 ```
+
+`make check` runs formatting checks, go vet, Go tests with coverage, golangci-lint, and Python downloader tests. Python 3.12+ with `requests` and `PyYAML` is required (`python3 -m pip install requests==2.32.3 pyyaml==6.0.1`). Go and golangci-lint versions are pinned in `.go-version` and `.golangci-version`; update them together and rerun setup. The installer verifies upstream archive checksums and does not change system tools.
+
+Like CI, golangci-lint reports new issues relative to the PR base; locally this defaults to `origin/master`. Fetch it before checking (`git fetch origin master`), or set `CHECK_BASE` for a different PR target. The existing formatting scope is `internal/` and `main.go` because older root files have a backlog.
+
+Committed hooks run `make check` before both commits and pushes. Stage or stash unstaged tracked changes before committing, and commit or stash tracked changes before pushing, so checks examine the content being sent. Missing tools or failed checks block the operation. Hooks are local to this clone; other contributors enable them with `make setup-checks`.
+
+Run the linter and tests before committing. After pushing, wait for GitHub checks on the pushed commit and fix failures before declaring the PR ready. Local checks cover the code gates, but cannot guarantee GitHub infrastructure or tag-only release jobs succeed.
 
 ## Docs
 
